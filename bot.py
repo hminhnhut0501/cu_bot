@@ -80,14 +80,28 @@ def job_send_message(is_first_run=False):
                 prefix = "🚀 [Khởi động hệ thống]\n" if is_first_run else ""
                 bot.send_message(TARGET_GROUP_ID, f"{prefix}{msg}")
                 target_group_active = False 
-                print(f"[{datetime.now()}] Đã gửi tin nhắn thành công.")
+                print(f"[{datetime.now()}] Đã gửi tin nhắn.")
             except Exception as e:
                 print(f"Lỗi gửi tin: {e}")
     else:
         print(f"[{datetime.now()}] Bỏ qua vì group im lặng.")
 
-# Lên lịch cố định 20:00 mỗi tối[cite: 1]
-schedule.every().day.at("20:00").do(job_send_message)
+# --- HÀM LÊN LỊCH NGẪU NHIÊN TRONG KHUNG 20h - 24h ---
+def schedule_random_job():
+    # Xóa lịch cũ của ngày hôm trước[cite: 1]
+    schedule.clear('daily_random_job')
+    
+    # Chọn giờ ngẫu nhiên từ 20 đến 23 (24h đêm tính là 00:00 ngày hôm sau)
+    random_hour = random.randint(20, 23)
+    random_minute = random.randint(0, 59)
+    scheduled_time = f"{random_hour:02d}:{random_minute:02d}"
+    
+    schedule.every().day.at(scheduled_time).do(job_send_message).tags('daily_random_job')
+    
+    print(f"--- Đã lên lịch mới cho hôm nay (khung 20h-24h): {scheduled_time} ---")
+
+# Tính toán lại giờ ngẫu nhiên vào 00:01 mỗi ngày[cite: 1]
+schedule.every().day.at("00:01").do(schedule_random_job)
 
 def run_scheduler():
     while True:
@@ -98,12 +112,15 @@ def run_scheduler():
 if __name__ == "__main__":
     keep_alive()
     
-    # 1. Gửi tin nhắn chào sân ngay lập tức khi vừa đẩy code[cite: 1]
+    # 1. Gửi tin nhắn chào sân ngay lập tức[cite: 1]
     print("Đang gửi tin nhắn chào sân...")
     job_send_message(is_first_run=True)
     
-    # 2. Chạy luồng lịch trình ngầm[cite: 1]
+    # 2. Tạo lịch ngẫu nhiên ngay khi vừa bật bot
+    schedule_random_job()
+    
+    # 3. Chạy luồng lịch trình ngầm[cite: 1]
     threading.Thread(target=run_scheduler, daemon=True).start()
     
-    print("--- Bot Sheets (Cố định 20:00) đang chạy ---")
+    print("--- Bot Sheets (Random 20h-24h) đang chạy ---")
     bot.infinity_polling()
