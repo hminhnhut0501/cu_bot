@@ -20,8 +20,8 @@ SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJtSjUmfI3lS60
 TARGET_GROUP_ID = -1002151486481 
 GROUP_IDS = [
     -1002151486481, # Group Cú CCCCCCCCCCú
-    -1003974574697, # Group 2[cite: 1]
-    -1003909621344  # Group 3[cite: 1]
+    -1003974574697, # Group 2
+    -1003909621344  # Group 3
 ]
 
 START_MESSAGES = [
@@ -31,9 +31,9 @@ START_MESSAGES = [
     "Chào bạn! Tôi vẫn đang theo dõi Sheets để lấy tin nhắn cho group đây. 🤖"
 ]
 
-target_group_active = False[cite: 1]
+target_group_active = False
 
-# --- HÀM LẤY DỮ LIỆU TỪ SHEETS[cite: 1] ---
+# --- HÀM LẤY DỮ LIỆU TỪ SHEETS ---
 def get_messages_from_sheet():
     try:
         response = requests.get(SHEET_CSV_URL)
@@ -45,13 +45,13 @@ def get_messages_from_sheet():
         print(f"Lỗi đọc Sheets: {e}")
         return []
 
-# --- PHẢN HỒI LỆNH /START[cite: 1] ---
+# --- PHẢN HỒI LỆNH /START ---
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     welcome_text = random.choice(START_MESSAGES)
     bot.reply_to(message, welcome_text)
 
-# --- XÓA TIN NHẮN HỆ THỐNG (3 GROUP)[cite: 1] ---
+# --- XÓA TIN NHẮN HỆ THỐNG (3 GROUP) ---
 @bot.message_handler(content_types=['new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo'])
 def clean_system_messages(message):
     if message.chat.id in GROUP_IDS:
@@ -60,7 +60,7 @@ def clean_system_messages(message):
         except Exception as e:
             print(f"Lỗi xóa tin nhắn hệ thống: {e}")
 
-# --- THEO DÕI TƯƠNG TÁC TRONG GROUP MỤC TIÊU[cite: 1] ---
+# --- THEO DÕI TƯƠNG TÁC TRONG GROUP MỤC TIÊU ---
 @bot.message_handler(func=lambda message: message.chat.id == TARGET_GROUP_ID, 
                      content_types=['text', 'photo', 'video', 'document', 'sticker', 'animation'])
 def track_activity(message):
@@ -68,7 +68,7 @@ def track_activity(message):
     if not message.from_user.is_bot:
         target_group_active = True
 
-# --- HÀM GỬI TIN NHẮN[cite: 1] ---
+# --- HÀM GỬI TIN NHẮN ---
 def job_send_message(is_first_run=False):
     global target_group_active
     
@@ -88,10 +88,9 @@ def job_send_message(is_first_run=False):
 
 # --- HÀM LÊN LỊCH NGẪU NHIÊN TRONG KHUNG 20h - 24h ---
 def schedule_random_job():
-    # Xóa lịch cũ của ngày hôm trước[cite: 1]
     schedule.clear('daily_random_job')
     
-    # Chọn giờ ngẫu nhiên từ 20 đến 23 (24h đêm tính là 00:00 ngày hôm sau)
+    # Chọn giờ ngẫu nhiên từ 20 đến 23
     random_hour = random.randint(20, 23)
     random_minute = random.randint(0, 59)
     scheduled_time = f"{random_hour:02d}:{random_minute:02d}"
@@ -100,7 +99,7 @@ def schedule_random_job():
     
     print(f"--- Đã lên lịch mới cho hôm nay (khung 20h-24h): {scheduled_time} ---")
 
-# Tính toán lại giờ ngẫu nhiên vào 00:01 mỗi ngày[cite: 1]
+# Tính toán lại giờ ngẫu nhiên vào 00:01 mỗi ngày
 schedule.every().day.at("00:01").do(schedule_random_job)
 
 def run_scheduler():
@@ -108,18 +107,18 @@ def run_scheduler():
         schedule.run_pending()
         time.sleep(1)
 
-# --- KHỞI CHẠY[cite: 1] ---
+# --- KHỞI CHẠY ---
 if __name__ == "__main__":
     keep_alive()
     
-    # 1. Gửi tin nhắn chào sân ngay lập tức[cite: 1]
+    # 1. Gửi tin nhắn chào sân ngay lập tức
     print("Đang gửi tin nhắn chào sân...")
     job_send_message(is_first_run=True)
     
     # 2. Tạo lịch ngẫu nhiên ngay khi vừa bật bot
     schedule_random_job()
     
-    # 3. Chạy luồng lịch trình ngầm[cite: 1]
+    # 3. Chạy luồng lịch trình ngầm
     threading.Thread(target=run_scheduler, daemon=True).start()
     
     print("--- Bot Sheets (Random 20h-24h) đang chạy ---")
