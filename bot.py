@@ -14,7 +14,7 @@ BOT_TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # --- CẤU HÌNH ---
-# Thay link CSV của bạn vào đây
+# Thay link CSV của bạn vào đây (Link kết thúc bằng pub?output=csv)
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJtSjUmfI3lS603OkbqIAalNvlz3wMV3dDCIl9n9Kaf2bb3yF7JW3cReYITDrZukvPBwKcU6gvwwZo/pub?gid=1041570934&single=true&output=csv"
 
 TARGET_GROUP_ID = -1002151486481 
@@ -111,7 +111,7 @@ def run_scheduler():
 if __name__ == "__main__":
     keep_alive()
     
-    # 1. Gửi tin nhắn chào sân ngay lập tức
+    # 1. Gửi tin nhắn chào sân ngay lập tức để kiểm tra
     print("Đang gửi tin nhắn chào sân...")
     job_send_message(is_first_run=True)
     
