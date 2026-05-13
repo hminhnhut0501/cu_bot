@@ -24,6 +24,15 @@ SERVICE_CONTENT_TYPES = [
     "migrate_from_chat_id",
     "pinned_message",
     "message_auto_delete_timer_changed",
+    "forum_topic_created",
+    "forum_topic_closed",
+    "forum_topic_reopened",
+    "forum_topic_edited",
+    "general_forum_topic_hidden",
+    "general_forum_topic_unhidden",
+    "write_access_allowed",
+    "user_shared",
+    "chat_shared",
 ]
 
 MESSAGE_CONTENT_TYPES = [
