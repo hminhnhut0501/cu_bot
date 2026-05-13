@@ -95,6 +95,11 @@ Moderation features such as system-message cleanup, spam filtering, keyword filt
 | spam_max_messages | 6 | true |
 | spam_window_seconds | 12 | true |
 | spam_action | warn | true |
+| media_spam_max_messages | 3 | true |
+| media_spam_window_seconds | 10 | true |
+| media_spam_action | restrict | true |
+| spam_restrict_seconds | 300 | true |
+| bio_link_notice_delete_seconds | 30 | true |
 | ban_after_warnings | 3 | true |
 | daily_window_start | 20:00 | true |
 | daily_window_end | 23:59 | true |

@@ -8,6 +8,7 @@ from time import time
 class RuntimeState:
     group_activity: dict[int, bool] = field(default_factory=lambda: defaultdict(bool))
     user_windows: dict[tuple[int, int], deque] = field(default_factory=lambda: defaultdict(deque))
+    user_content_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
     warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
     bio_scan_cache: dict[tuple[int, int], tuple[float, bool]] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
@@ -27,6 +28,16 @@ class RuntimeState:
         current_time = time()
         with self.lock:
             window = self.user_windows[key]
+            window.append(current_time)
+            while window and current_time - window[0] > window_seconds:
+                window.popleft()
+            return len(window)
+
+    def add_user_content_message(self, chat_id, user_id, content_type, window_seconds):
+        key = (int(chat_id), int(user_id), str(content_type))
+        current_time = time()
+        with self.lock:
+            window = self.user_content_windows[key]
             window.append(current_time)
             while window and current_time - window[0] > window_seconds:
                 window.popleft()

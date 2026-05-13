@@ -80,7 +80,7 @@ def load_settings():
     return Settings(
         bot_token=bot_token,
         owner_ids=owner_ids,
-        parse_mode=os.environ.get("PARSE_MODE") or None,
+        parse_mode=os.environ.get("PARSE_MODE") or "HTML",
         polling_retry_seconds=_int_env("POLLING_RETRY_SECONDS", 45),
         polling_startup_delay_seconds=_int_env("POLLING_STARTUP_DELAY_SECONDS", 5),
         keep_alive_enabled=_bool_env("KEEP_ALIVE_ENABLED", True),

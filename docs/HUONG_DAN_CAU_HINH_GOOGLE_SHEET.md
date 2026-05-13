@@ -641,6 +641,12 @@ Bật/tắt dòng cấu hình.
 | `spam_max_messages` | `6` | Số tin tối đa trong cửa sổ spam |
 | `spam_window_seconds` | `12` | Số giây của cửa sổ spam |
 | `spam_action` | `warn` | Hành động khi spam |
+| `media_spam_max_messages` | `3` | Số sticker/media tối đa trong cửa sổ spam |
+| `media_spam_window_seconds` | `10` | Số giây của cửa sổ spam sticker/media |
+| `media_spam_action` | `restrict` | Hành động khi spam sticker/media |
+| `spam_restrict_seconds` | `300` | Thời gian tạm cấm chat khi spam |
+| `bio_link_notice_delete_seconds` | `30` | Tự xóa thông báo bio sau số giây này |
+| `spam_notice_delete_seconds` | `20` | Tự xóa thông báo spam sau số giây này |
 | `forward_action` | `warn` | Hành động khi forward |
 | `inline_keyboard_action` | `warn` | Hành động khi có nút inline |
 | `ban_after_warnings` | `3` | Số lần warn trước khi ban |

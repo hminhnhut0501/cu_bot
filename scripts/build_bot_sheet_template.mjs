@@ -144,7 +144,7 @@ writeMatrix("groups", "A1:AF4", [
   ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 ]);
 
-writeMatrix("config", "A1:C22", [
+writeMatrix("config", "A1:C28", [
   ["key", "value", "enabled"],
   ["policy_text", "Noi quy nhom:\\n1. Ton trong thanh vien.\\n2. Khong spam/quang cao.\\n3. Khong forward bai co nut bam.\\n4. Tuan thu quan tri vien.", "true"],
   ["delete_system_messages", "true", "true"],
@@ -160,6 +160,12 @@ writeMatrix("config", "A1:C22", [
   ["spam_max_messages", "6", "true"],
   ["spam_window_seconds", "12", "true"],
   ["spam_action", "warn", "true"],
+  ["media_spam_max_messages", "3", "true"],
+  ["media_spam_window_seconds", "10", "true"],
+  ["media_spam_action", "restrict", "true"],
+  ["spam_restrict_seconds", "300", "true"],
+  ["bio_link_notice_delete_seconds", "30", "true"],
+  ["spam_notice_delete_seconds", "20", "true"],
   ["forward_action", "warn", "true"],
   ["inline_keyboard_action", "warn", "true"],
   ["ban_after_warnings", "3", "true"],

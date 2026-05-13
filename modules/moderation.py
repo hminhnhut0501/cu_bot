@@ -1,6 +1,8 @@
 import logging
 import re
+import threading
 from datetime import datetime, timedelta
+from html import escape
 from functools import wraps
 
 import telebot
@@ -215,6 +217,8 @@ class ModerationModule(BotModule):
             return
         if self.detect_spam(message):
             return
+        if self.detect_content_spam(message):
+            return
         if self.detect_forbidden_keyword(message):
             return
         if self.detect_forward(message):
@@ -237,6 +241,33 @@ class ModerationModule(BotModule):
         self.safe_delete(message, "spam")
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
+        return True
+
+    def detect_content_spam(self, message):
+        content_type = getattr(message, "content_type", "")
+        if content_type not in {"sticker", "animation", "photo", "video", "video_note", "voice", "document"}:
+            return False
+
+        limit = self.setting_int(message.chat.id, f"{content_type}_spam_max_messages", None)
+        if limit is None:
+            limit = self.setting_int(message.chat.id, "media_spam_max_messages", 3)
+        window = self.setting_int(message.chat.id, "media_spam_window_seconds", 10)
+        if limit <= 0 or window <= 0:
+            return False
+
+        count = self.state.add_user_content_message(message.chat.id, message.from_user.id, content_type, window)
+        if count <= limit:
+            return False
+
+        self.safe_delete(message, f"{content_type}_spam")
+        action = self.setting(message.chat.id, "media_spam_action", "restrict")
+        reason = f"Gửi quá nhiều {content_type} trong thời gian ngắn."
+        if action == "restrict":
+            self.restrict_user_for_spam(message.chat.id, message.from_user.id)
+            self.notify_temporary_restrict(message.chat.id, message.from_user, reason)
+            return True
+
+        self.apply_action(message, action, reason)
         return True
 
     def detect_forbidden_keyword(self, message):
@@ -374,13 +405,57 @@ class ModerationModule(BotModule):
             "{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.",
         )
         try:
-            self.bot.send_message(chat_id, text.format(mention=mention, user_id=user.id))
+            sent = self.bot.send_message(chat_id, text.format(mention=mention, user_id=user.id))
+            delete_after = self.setting_int(chat_id, "bio_link_notice_delete_seconds", 30)
+            if delete_after > 0:
+                self.delete_later(chat_id, sent.message_id, delete_after, "bio_link_notice")
         except Exception as exc:
             LOGGER.warning("Cannot notify bio violation in %s: %s", chat_id, exc)
 
     def user_mention(self, user):
         name = getattr(user, "first_name", None) or getattr(user, "username", None) or str(user.id)
-        return f"{name} ({user.id})"
+        return f'<a href="tg://user?id={user.id}">{escape(str(name))}</a>'
+
+    def restrict_user_for_spam(self, chat_id, user_id):
+        seconds = self.setting_int(chat_id, "spam_restrict_seconds", 300)
+        until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
+        permissions = telebot.types.ChatPermissions(can_send_messages=False)
+        try:
+            self.bot.restrict_chat_member(
+                chat_id,
+                user_id,
+                until_date=until_date,
+                permissions=permissions,
+                use_independent_chat_permissions=True,
+            )
+        except Exception as exc:
+            LOGGER.warning("Cannot restrict spammer %s in %s: %s", user_id, chat_id, exc)
+
+    def notify_temporary_restrict(self, chat_id, user, reason):
+        text = self.setting(
+            chat_id,
+            "spam_restrict_text",
+            "{mention} bị tạm cấm chat vì {reason}",
+        )
+        try:
+            sent = self.bot.send_message(chat_id, text.format(mention=self.user_mention(user), user_id=user.id, reason=reason))
+            delete_after = self.setting_int(chat_id, "spam_notice_delete_seconds", 20)
+            if delete_after > 0:
+                self.delete_later(chat_id, sent.message_id, delete_after, "spam_notice")
+        except Exception as exc:
+            LOGGER.warning("Cannot send spam restrict notice in %s: %s", chat_id, exc)
+
+    def delete_later(self, chat_id, message_id, delay_seconds, reason):
+        def worker():
+            try:
+                self.bot.delete_message(chat_id, message_id)
+                LOGGER.info("Deleted delayed notice: chat_id=%s message_id=%s reason=%s", chat_id, message_id, reason)
+            except Exception as exc:
+                LOGGER.warning("Cannot delete delayed notice: chat_id=%s message_id=%s reason=%s error=%s", chat_id, message_id, reason, exc)
+
+        timer = threading.Timer(delay_seconds, worker)
+        timer.daemon = True
+        timer.start()
 
     def apply_action(self, message, action, reason):
         action = (action or "warn").strip().lower()
