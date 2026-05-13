@@ -30,7 +30,7 @@ class SheetStore:
         try:
             response = requests.get(url, timeout=15)
             response.raise_for_status()
-            rows = self._parse_csv(response.text)
+            rows = self._parse_csv(response.content.decode("utf-8-sig"))
             self._cache[name] = {"loaded_at": time.time(), "rows": rows}
             return rows
         except Exception as exc:
@@ -70,7 +70,16 @@ class SheetStore:
         }
         fieldnames = {field.strip().lower() for field in (reader.fieldnames or []) if field}
         if fieldnames & known_headers:
-            return [{(key or "").strip().lower(): (value or "").strip() for key, value in row.items()} for row in reader]
+            return [
+                {
+                    (key or "").strip().lower(): self._clean_cell(value)
+                    for key, value in row.items()
+                }
+                for row in reader
+            ]
 
         simple_reader = csv.reader(StringIO(sample))
-        return [{"message": row[0].strip()} for row in simple_reader if row]
+        return [{"message": self._clean_cell(row[0])} for row in simple_reader if row]
+
+    def _clean_cell(self, value):
+        return (value or "").strip().replace("\\n", "\n")

@@ -71,7 +71,7 @@ class ModerationModule(BotModule):
         def wrapped(message):
             if self.is_admin(message.chat.id, message.from_user.id):
                 return handler(message)
-            self.safe_reply(message, "Lenh nay chi danh cho quan tri vien.")
+            self.safe_reply(message, "Lệnh này chỉ dành cho quản trị viên.")
             return None
 
         return wrapped
@@ -104,40 +104,40 @@ class ModerationModule(BotModule):
 
     def handle_reload_command(self, message):
         self.sheets._cache.clear()
-        self.safe_reply(message, "Da tai lai cau hinh tu Google Sheet.")
+        self.safe_reply(message, "Đã tải lại cấu hình từ Google Sheet.")
 
     def handle_warn_command(self, message):
         target_id = self.target_user_id(message)
         if not target_id:
-            self.safe_reply(message, "Hay reply thanh vien can canh bao hoac ghi /warn <user_id>.")
+            self.safe_reply(message, "Hãy reply thành viên cần cảnh báo hoặc ghi /warn <user_id>.")
             return
         count = self.warn_user(message.chat.id, target_id, reason=self.command_reason(message))
-        self.safe_reply(message, f"Da canh bao user {target_id}. Tong canh bao: {count}.")
+        self.safe_reply(message, f"Đã cảnh báo user {target_id}. Tổng cảnh báo: {count}.")
 
     def handle_ban_command(self, message):
         target_id = self.target_user_id(message)
         if not target_id:
-            self.safe_reply(message, "Hay reply thanh vien can cam hoac ghi /ban <user_id>.")
+            self.safe_reply(message, "Hãy reply thành viên cần cấm hoặc ghi /ban <user_id>.")
             return
         self.ban_user(message.chat.id, target_id)
-        self.safe_reply(message, f"Da cam user {target_id}.")
+        self.safe_reply(message, f"Đã cấm user {target_id}.")
 
     def handle_unban_command(self, message):
         target_id = self.target_user_id(message)
         if not target_id:
-            self.safe_reply(message, "Hay ghi /unban <user_id>.")
+            self.safe_reply(message, "Hãy ghi /unban <user_id>.")
             return
         try:
             self.bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
             self.state.reset_warnings(message.chat.id, target_id)
-            self.safe_reply(message, f"Da bo cam user {target_id}.")
+            self.safe_reply(message, f"Đã bỏ cấm user {target_id}.")
         except Exception as exc:
-            self.safe_reply(message, f"Khong the bo cam: {exc}")
+            self.safe_reply(message, f"Không thể bỏ cấm: {exc}")
 
     def handle_check_bio_command(self, message):
         target_id = self.target_user_id(message)
         if not target_id:
-            self.safe_reply(message, "Hay reply thanh vien can quet bio hoac ghi /checkbio <user_id>.")
+            self.safe_reply(message, "Hãy reply thành viên cần quét bio hoặc ghi /checkbio <user_id>.")
             return
 
         user = getattr(getattr(message, "reply_to_message", None), "from_user", None)
@@ -146,11 +146,11 @@ class ModerationModule(BotModule):
 
         has_link = self.detect_bio_link(message.chat.id, user, force=True, notify=True)
         if has_link:
-            self.safe_reply(message, f"User {target_id} van co link Telegram trong bio, da bi cam chat.")
+            self.safe_reply(message, f"User {target_id} vẫn có link Telegram trong bio, đã bị cấm chat.")
             return
 
         self.restore_chat_permissions(message.chat.id, target_id)
-        self.safe_reply(message, f"Bio user {target_id} da sach, da mo chat lai.")
+        self.safe_reply(message, f"Bio user {target_id} đã sạch, đã mở chat lại.")
 
     def handle_group_message(self, message):
         if not self.group_enabled(message.chat.id):
@@ -191,7 +191,7 @@ class ModerationModule(BotModule):
             return False
         self.safe_delete(message)
         action = self.setting(message.chat.id, "spam_action", "warn")
-        self.apply_action(message, action, "Gui qua nhieu tin trong thoi gian ngan.")
+        self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
 
     def detect_forbidden_keyword(self, message):
@@ -207,7 +207,7 @@ class ModerationModule(BotModule):
             matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
             if matched:
                 self.safe_delete(message)
-                self.apply_action(message, row.get("action") or "warn", row.get("reason") or "Tu khoa cam.")
+                self.apply_action(message, row.get("action") or "warn", row.get("reason") or "Từ khóa cấm.")
                 return True
         return False
 
@@ -221,7 +221,7 @@ class ModerationModule(BotModule):
         if not forwarded:
             return False
         self.safe_delete(message)
-        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), "Khong duoc forward bai vao nhom.")
+        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), "Không được forward bài vào nhóm.")
         return True
 
     def detect_inline_keyboard(self, message):
@@ -231,7 +231,7 @@ class ModerationModule(BotModule):
         if not markup or not getattr(markup, "keyboard", None) and not getattr(markup, "inline_keyboard", None):
             return False
         self.safe_delete(message)
-        self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Khong duoc gui bai co nut bam.")
+        self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.")
         return True
 
     def detect_bio_link(self, chat_id, user, force=False, notify=True):
@@ -326,7 +326,7 @@ class ModerationModule(BotModule):
         text = self.setting(
             chat_id,
             "bio_link_warning_text",
-            "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.",
+            "{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.",
         )
         try:
             self.bot.send_message(chat_id, text.format(mention=mention, user_id=user.id))
@@ -354,7 +354,7 @@ class ModerationModule(BotModule):
             self.ban_user(chat_id, user_id)
             return count
 
-        text = self.setting(chat_id, "warning_text", "Canh bao: {reason} ({count}/{limit})")
+        text = self.setting(chat_id, "warning_text", "Cảnh báo: {reason} ({count}/{limit})")
         try:
             self.bot.send_message(
                 chat_id,
@@ -386,7 +386,7 @@ class ModerationModule(BotModule):
     def send_policy(self, chat_id, reply_to_message_id=None):
         text = self.setting(chat_id, "policy_text", None) or self.sheets.value(
             "policy_text",
-            "Quy dinh nhom:\n1. Ton trong thanh vien.\n2. Khong spam/quang cao.\n3. Khong gui noi dung cam.",
+            "Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam/quảng cáo.\n3. Không gửi nội dung cấm.",
         )
         try:
             self.bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id)

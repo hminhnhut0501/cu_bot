@@ -19,7 +19,7 @@ class CommandsModule(BotModule):
         text = (
             selected.get("message") or selected.get("text")
             if selected
-            else "Bot dang hoat dong. Hay cau hinh sheet messages de thay doi noi dung."
+            else "Bot đang hoạt động. Hãy cấu hình tab messages để thay đổi nội dung."
         )
         self.bot.reply_to(message, text, reply_markup=self.policy_markup())
 
@@ -27,11 +27,11 @@ class CommandsModule(BotModule):
         self.bot.answer_callback_query(call.id)
         text = self.sheets.value(
             "policy_text",
-            "Quy dinh nhom:\n1. Ton trong thanh vien.\n2. Khong spam/quang cao.\n3. Khong gui noi dung cam.",
+            "Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam/quảng cáo.\n3. Không gửi nội dung cấm.",
         )
         self.bot.send_message(call.message.chat.id, text, reply_to_message_id=call.message.message_id)
 
     def policy_markup(self):
         markup = telebot.types.InlineKeyboardMarkup()
-        markup.add(telebot.types.InlineKeyboardButton("Quy dinh", callback_data="show_policy"))
+        markup.add(telebot.types.InlineKeyboardButton("Quy định", callback_data="show_policy"))
         return markup
