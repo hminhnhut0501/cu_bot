@@ -16,6 +16,24 @@ Sau khi upload file mẫu lên Google Sheets, hãy giữ nguyên tên các tab �
 - Nếu một cấu hình có ở cả tab `config` và tab `groups`, giá trị trong tab `groups` sẽ ưu tiên cho group đó.
 - Bot chỉ xóa tin, ban user, xóa bot lạ nếu bot đã được cấp admin và có quyền tương ứng trong group.
 
+## Biến Môi Trường Quan Trọng
+
+Ngoài các link CSV, nên cấu hình thêm `OWNER_IDS` trên Render để tài khoản của bạn luôn có quyền chạy lệnh admin của bot.
+
+Ví dụ:
+
+```text
+OWNER_IDS=123456789
+```
+
+Nếu có nhiều người quản trị bot:
+
+```text
+OWNER_IDS=123456789,987654321
+```
+
+Các user ID trong `OWNER_IDS` có thể dùng `/reload`, `/checkbio`, `/warn`, `/ban`, `/unban` kể cả khi test trong private chat với bot.
+
 ## Tab `README`
 
 Tab này chỉ để hướng dẫn nhanh trong file sheet. Bot không đọc tab này.

@@ -61,7 +61,10 @@ class ModerationModule(BotModule):
             func=lambda message: normalize_text(getattr(message, "text", "")) in {"quy dinh", "noi quy"},
             content_types=["text"],
         )(self.handle_policy_text)
-        self.bot.message_handler(content_types=MESSAGE_CONTENT_TYPES)(self.handle_group_message)
+        self.bot.message_handler(
+            func=lambda message: not self.is_command_message(message),
+            content_types=MESSAGE_CONTENT_TYPES,
+        )(self.handle_group_message)
 
     def admin_only(self, handler):
         @wraps(handler)
@@ -173,6 +176,10 @@ class ModerationModule(BotModule):
             return
         if self.detect_inline_keyboard(message):
             return
+
+    def is_command_message(self, message):
+        text = getattr(message, "text", None) or ""
+        return text.strip().startswith("/")
 
     def detect_spam(self, message):
         limit = self.setting_int(message.chat.id, "spam_max_messages", 6)
@@ -430,6 +437,8 @@ class ModerationModule(BotModule):
         return False
 
     def is_admin(self, chat_id, user_id):
+        if int(user_id) in self.settings.owner_ids:
+            return True
         for row in self.sheets.enabled_rows("admins"):
             row_chat = row.get("chat_id") or row.get("group_id")
             if row_chat and row_chat != str(chat_id):

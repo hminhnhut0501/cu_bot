@@ -38,6 +38,14 @@ SHEET_URLS_JSON={"groups":"...","messages":"...","config":"...","keywords":"..."
 
 Legacy compatibility: `SHEET_CSV_URL` is still accepted as the messages sheet.
 
+Optional bot owner env:
+
+```bash
+OWNER_IDS=123456789,987654321
+```
+
+Users in `OWNER_IDS` can run admin commands such as `/reload` and `/checkbio` even when testing in private chat.
+
 ## Sheet Schemas
 
 ### `groups`

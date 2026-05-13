@@ -8,7 +8,7 @@ from modules.base import BotModule
 
 class CommandsModule(BotModule):
     name = "commands"
-    priority = 20
+    priority = 1
 
     def register(self):
         self.bot.message_handler(commands=["start", "help"])(self.handle_start)
