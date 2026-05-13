@@ -18,6 +18,75 @@ Sau khi upload file mẫu lên Google Sheets, hãy giữ nguyên tên các tab �
 
 ## Biến Môi Trường Quan Trọng
 
+### Cách đọc sheet khuyến nghị
+
+Khuyến nghị dùng Google Sheets API để bot đọc trực tiếp dữ liệu dạng JSON. Cách này không cần publish từng tab thành CSV và hạn chế lỗi font tiếng Việt.
+
+Trên Render, set:
+
+```text
+GOOGLE_SHEET_ID=id_cua_file_google_sheet
+GOOGLE_SHEETS_API_KEY=api_key_cua_google
+```
+
+`GOOGLE_SHEET_ID` là đoạn nằm trong URL Google Sheet:
+
+```text
+https://docs.google.com/spreadsheets/d/GOOGLE_SHEET_ID/edit
+```
+
+Tên tab mặc định mà bot đọc:
+
+```text
+groups
+config
+messages
+keywords
+admins
+bot_allowlist
+video_messages
+```
+
+Nếu tab của bạn đặt tên khác, set thêm:
+
+```text
+GOOGLE_SHEET_TABS_JSON={"groups":"Groups","messages":"Messages","config":"Config"}
+```
+
+Nếu dùng cách API trực tiếp, bạn không cần set các biến `GROUPS_CSV_URL`, `MESSAGES_CSV_URL`, `CONFIG_CSV_URL`, ...
+
+### Cách CSV cũ
+
+Các biến CSV vẫn còn được hỗ trợ:
+
+```text
+GROUPS_CSV_URL
+CONFIG_CSV_URL
+MESSAGES_CSV_URL
+KEYWORDS_CSV_URL
+ADMINS_CSV_URL
+BOT_ALLOWLIST_CSV_URL
+VIDEO_MESSAGES_CSV_URL
+```
+
+Tuy nhiên nếu gặp lỗi font tiếng Việt, nên chuyển sang `GOOGLE_SHEET_ID` và `GOOGLE_SHEETS_API_KEY`.
+
+### Tự sửa chữ đã bị lỗi font
+
+Mặc định bot không tự sửa nội dung để tránh đụng vào text gốc của bạn.
+
+Nếu sheet đã lỡ chứa chữ bị lỗi kiểu `Cháº³ng xÃ£...`, có thể bật:
+
+```text
+REPAIR_MOJIBAKE=true
+```
+
+Nếu sheet đang chứa tiếng Việt đúng, để:
+
+```text
+REPAIR_MOJIBAKE=false
+```
+
 Ngoài các link CSV, nên cấu hình thêm `OWNER_IDS` trên Render để tài khoản của bạn luôn có quyền chạy lệnh admin của bot.
 
 Ví dụ:

@@ -17,7 +17,14 @@ class BotApplication:
     def __init__(self, bot, settings):
         self.bot = bot
         self.settings = settings
-        self.sheets = SheetStore(settings.sheet_urls, settings.sheets_refresh_seconds)
+        self.sheets = SheetStore(
+            settings.sheet_urls,
+            settings.sheets_refresh_seconds,
+            google_sheet_id=settings.google_sheet_id,
+            google_sheets_api_key=settings.google_sheets_api_key,
+            google_sheet_tabs=settings.google_sheet_tabs,
+            repair_mojibake=settings.repair_mojibake,
+        )
         self.state = RuntimeState()
         self.modules = []
 

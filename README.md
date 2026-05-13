@@ -16,27 +16,37 @@ Telegram group-management bot with modular features and Google Sheet driven sett
 
 ```bash
 BOT_TOKEN=123456:telegram-token
-GROUPS_CSV_URL=https://docs.google.com/spreadsheets/.../pub?gid=...&single=true&output=csv
-MESSAGES_CSV_URL=https://docs.google.com/spreadsheets/.../pub?gid=...&single=true&output=csv
+GOOGLE_SHEET_ID=your-spreadsheet-id
+GOOGLE_SHEETS_API_KEY=your-google-api-key
 ```
 
-Optional sheets:
+The bot reads tabs directly from Google Sheets API as JSON, so Vietnamese text is preserved correctly. The default tab names are:
+
+```text
+groups
+config
+messages
+keywords
+admins
+bot_allowlist
+video_messages
+```
+
+If your tab names are different, map them with:
 
 ```bash
-CONFIG_CSV_URL=...
-KEYWORDS_CSV_URL=...
-ADMINS_CSV_URL=...
-BOT_ALLOWLIST_CSV_URL=...
-VIDEO_MESSAGES_CSV_URL=...
+GOOGLE_SHEET_TABS_JSON={"groups":"Groups","messages":"Messages"}
 ```
 
-You can also provide every sheet URL in one JSON variable:
+Legacy compatibility: published CSV URLs still work through `GROUPS_CSV_URL`, `MESSAGES_CSV_URL`, `CONFIG_CSV_URL`, etc. Prefer `GOOGLE_SHEET_ID + GOOGLE_SHEETS_API_KEY` for Vietnamese content.
+
+If your sheet already contains broken mojibake text and you want the bot to try repairing it at runtime, set:
 
 ```bash
-SHEET_URLS_JSON={"groups":"...","messages":"...","config":"...","keywords":"..."}
+REPAIR_MOJIBAKE=true
 ```
 
-Legacy compatibility: `SHEET_CSV_URL` is still accepted as the messages sheet.
+Keep it unset or `false` for normal Vietnamese text.
 
 Optional bot owner env:
 

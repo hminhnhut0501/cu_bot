@@ -40,6 +40,10 @@ class Settings:
     module_package: str = "modules"
     enabled_modules: set[str] = field(default_factory=set)
     sheet_urls: dict[str, str] = field(default_factory=dict)
+    google_sheet_id: str | None = None
+    google_sheets_api_key: str | None = None
+    google_sheet_tabs: dict[str, str] = field(default_factory=dict)
+    repair_mojibake: bool = False
     legacy_message_sheet_url: str | None = None
     timezone: str = "Asia/Ho_Chi_Minh"
 
@@ -69,6 +73,7 @@ def load_settings():
 
     enabled_modules = set(_csv_env("ENABLED_MODULES"))
     owner_ids = {int(item) for item in _csv_env("OWNER_IDS")}
+    google_sheet_tabs = _json_env("GOOGLE_SHEET_TABS_JSON", {})
 
     return Settings(
         bot_token=bot_token,
@@ -79,6 +84,10 @@ def load_settings():
         sheets_refresh_seconds=_int_env("SHEETS_REFRESH_SECONDS", 120),
         enabled_modules=enabled_modules,
         sheet_urls=sheet_urls,
+        google_sheet_id=os.environ.get("GOOGLE_SHEET_ID") or None,
+        google_sheets_api_key=os.environ.get("GOOGLE_SHEETS_API_KEY") or None,
+        google_sheet_tabs=google_sheet_tabs,
+        repair_mojibake=_bool_env("REPAIR_MOJIBAKE", False),
         legacy_message_sheet_url=legacy_message_sheet_url,
         timezone=os.environ.get("TZ", "Asia/Ho_Chi_Minh"),
     )
