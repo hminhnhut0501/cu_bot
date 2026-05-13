@@ -1,0 +1,9 @@
+.git
+.gitignore
+.DS_Store
+__pycache__/
+*.py[cod]
+.env
+venv/
+node_modules
+scripts/

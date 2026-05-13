@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: cu-bot
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /
+    envVars:
+      - key: KEEP_ALIVE_ENABLED
+        value: "true"
+      - key: SHEETS_REFRESH_SECONDS
+        value: "120"

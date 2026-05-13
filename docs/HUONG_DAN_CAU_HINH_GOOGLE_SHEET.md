@@ -1,0 +1,893 @@
+# Hướng Dẫn Cấu Hình Google Sheet Cho Cu Bot
+
+Tài liệu này giải thích chi tiết từng tab, từng cột và các giá trị hợp lệ trong file Google Sheet mẫu:
+
+`outputs/cu_bot_google_sheet_template.xlsx`
+
+Sau khi upload file mẫu lên Google Sheets, hãy giữ nguyên tên các tab để bot đọc đúng cấu hình.
+
+## Nguyên Tắc Chung
+
+- Dòng đầu tiên của mỗi tab là tên cột. Không đổi tên cột nếu không sửa code.
+- Cột `enabled` dùng để bật/tắt từng dòng cấu hình.
+- Giá trị bật/tắt nên ghi là `true` hoặc `false`.
+- Giờ hẹn lịch dùng định dạng 24h: `HH:MM`, ví dụ `20:00`, `23:59`.
+- `group_id`, `chat_id`, `from_chat_id` của Telegram group/supergroup thường có dạng `-100xxxxxxxxxx`.
+- Nếu một cấu hình có ở cả tab `config` và tab `groups`, giá trị trong tab `groups` sẽ ưu tiên cho group đó.
+- Bot chỉ xóa tin, ban user, xóa bot lạ nếu bot đã được cấp admin và có quyền tương ứng trong group.
+
+## Tab `README`
+
+Tab này chỉ để hướng dẫn nhanh trong file sheet. Bot không đọc tab này.
+
+### Các Cột
+
+| Cột | Ý nghĩa |
+|---|---|
+| A-D | Nội dung hướng dẫn cho người quản trị sheet |
+
+Bạn có thể sửa hoặc xóa tab này mà không ảnh hưởng bot.
+
+## Tab `groups`
+
+Tab này quản lý từng group Telegram mà bot sẽ phục vụ. Mỗi dòng tương ứng một group.
+
+Nếu tab `groups` bị thiếu hoặc không có dòng nào bật `enabled=true`, module moderation vẫn có thể xử lý mọi group mà bot tham gia. Tuy nhiên module gửi tin hẹn giờ cần tab `groups` để biết gửi vào group nào.
+
+### Cột `group_id`
+
+ID của group Telegram.
+
+Giá trị hợp lệ:
+
+```text
+-1001234567890
+```
+
+Bắt buộc có nếu muốn gửi tin hẹn giờ vào group.
+
+### Cột `group_name`
+
+Tên gợi nhớ để người quản trị dễ nhìn trong sheet.
+
+Bot không dùng cột này để xử lý logic.
+
+Ví dụ:
+
+```text
+Group chính
+Cộng đồng VIP
+```
+
+### Cột `enabled`
+
+Bật/tắt cấu hình group.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bot áp dụng cấu hình dòng này |
+| `false` | Bot bỏ qua dòng này |
+
+### Cột `delete_system_messages`
+
+Xóa các thông báo hệ thống của Telegram trong group.
+
+Các loại thông báo gồm:
+
+- Thành viên mới vào group.
+- Thành viên rời group.
+- Đổi tên group.
+- Đổi ảnh group.
+- Xóa ảnh group.
+- Tạo group/supergroup.
+- Ghim tin nhắn.
+- Đổi timer tự xóa tin.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Xóa thông báo hệ thống |
+| `false` | Không xóa |
+
+Khuyến dùng:
+
+```text
+true
+```
+
+### Cột `delete_forwarded_messages`
+
+Xóa tin nhắn được forward vào group.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Xóa tin forward |
+| `false` | Cho phép tin forward |
+
+Nếu bật, bot sẽ xóa các bài có dấu hiệu forward từ user, group, channel hoặc nguồn ẩn danh.
+
+### Cột `delete_inline_keyboard_messages`
+
+Xóa tin nhắn có nút bấm inline keyboard.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Xóa bài có nút bấm |
+| `false` | Cho phép bài có nút bấm |
+
+Dùng để chặn các bài spam dạng có nút `Join`, `Open`, `Claim`, `Click`, ...
+
+### Cột `delete_messages_from_bots`
+
+Xóa tin nhắn được gửi bởi bot khác.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Xóa tin từ bot không nằm trong whitelist |
+| `false` | Cho bot khác gửi tin |
+
+Bot nằm trong tab `bot_allowlist` sẽ được phép gửi tin.
+
+### Cột `remove_unknown_bots`
+
+Tự động xóa/cấm bot lạ khi bot đó được thêm vào group.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Cấm bot lạ khi vừa vào group |
+| `false` | Không can thiệp bot mới vào |
+
+Bot hợp lệ cần được thêm vào tab `bot_allowlist`.
+
+### Cột `exempt_admins`
+
+Miễn kiểm tra moderation cho admin.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Admin không bị check spam, keyword, forward |
+| `false` | Admin cũng bị check như thành viên thường |
+
+Khuyến dùng:
+
+```text
+true
+```
+
+### Cột `spam_max_messages`
+
+Số tin nhắn tối đa một user được gửi trong khoảng thời gian `spam_window_seconds`.
+
+Ví dụ:
+
+```text
+6
+```
+
+Nếu `spam_max_messages=6` và `spam_window_seconds=12`, user gửi tin thứ 7 trong 12 giây sẽ bị xử lý spam.
+
+Đặt `0` nếu muốn tắt kiểm tra spam.
+
+### Cột `spam_window_seconds`
+
+Khoảng thời gian tính spam, đơn vị giây.
+
+Ví dụ:
+
+```text
+12
+```
+
+Nên dùng trong khoảng:
+
+```text
+8 - 30
+```
+
+### Cột `spam_action`
+
+Hành động khi user bị phát hiện spam.
+
+Giá trị hợp lệ:
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `delete` | Chỉ xóa tin vi phạm |
+| `warn` | Xóa tin và cảnh báo user |
+| `ban` | Xóa tin và ban user |
+
+Khuyến dùng ban đầu:
+
+```text
+warn
+```
+
+### Cột `forward_action`
+
+Hành động khi user gửi tin forward.
+
+Giá trị hợp lệ:
+
+```text
+delete
+warn
+ban
+```
+
+Khuyến dùng:
+
+```text
+warn
+```
+
+### Cột `inline_keyboard_action`
+
+Hành động khi user gửi bài có nút inline.
+
+Giá trị hợp lệ:
+
+```text
+delete
+warn
+ban
+```
+
+Khuyến dùng:
+
+```text
+warn
+```
+
+### Cột `ban_after_warnings`
+
+Số lần cảnh báo tối đa trước khi bot ban user.
+
+Ví dụ:
+
+```text
+3
+```
+
+Nếu user bị warn lần thứ 3, bot sẽ ban user.
+
+Đặt `0` nếu chỉ muốn cảnh báo, không tự động ban theo số lần warn.
+
+### Cột `warning_text`
+
+Mẫu tin nhắn cảnh báo.
+
+Có thể dùng các biến:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `{reason}` | Lý do cảnh báo |
+| `{count}` | Số lần user đã bị cảnh báo |
+| `{limit}` | Giới hạn cảnh báo trước khi ban |
+
+Ví dụ:
+
+```text
+Cảnh báo: {reason} ({count}/{limit})
+```
+
+Kết quả:
+
+```text
+Cảnh báo: Từ khóa cấm (1/3)
+```
+
+### Cột `daily_enabled`
+
+Bật/tắt gửi tin nhắn hẹn giờ hằng ngày cho group.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bật gửi tin random hằng ngày |
+| `false` | Tắt gửi tin hằng ngày |
+
+### Cột `daily_window_start`
+
+Giờ bắt đầu khung random gửi tin hằng ngày.
+
+Ví dụ:
+
+```text
+20:00
+```
+
+### Cột `daily_window_end`
+
+Giờ kết thúc khung random gửi tin hằng ngày.
+
+Ví dụ:
+
+```text
+23:59
+```
+
+Bot sẽ chọn ngẫu nhiên một thời điểm trong khoảng `daily_window_start` đến `daily_window_end`.
+
+### Cột `send_if_silent`
+
+Quyết định có gửi tin nếu group im lặng hay không.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Vẫn gửi kể cả group không có ai nhắn |
+| `false` | Chỉ gửi nếu group có tương tác trước đó |
+
+Khuyến dùng:
+
+```text
+false
+```
+
+Để tránh bot tự nói một mình trong group im lặng.
+
+### Cột `message_pool`
+
+Nhóm nội dung sẽ được lấy trong tab `messages`.
+
+Ví dụ:
+
+```text
+default
+sales
+vip
+```
+
+Bot chỉ random các dòng trong tab `messages` có cột `pool` trùng với `message_pool` của group.
+
+### Cột `video_enabled`
+
+Bật/tắt gửi video random hằng ngày.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bật gửi video random |
+| `false` | Tắt gửi video |
+
+### Cột `video_window_start`
+
+Giờ bắt đầu khung random gửi video.
+
+Ví dụ:
+
+```text
+21:00
+```
+
+### Cột `video_window_end`
+
+Giờ kết thúc khung random gửi video.
+
+Ví dụ:
+
+```text
+23:00
+```
+
+### Cột `video_pool`
+
+Nhóm video sẽ được lấy trong tab `video_messages`.
+
+Ví dụ:
+
+```text
+default
+promo
+funny
+```
+
+### Cột `policy_text`
+
+Nội quy riêng cho group này.
+
+Nếu cột này để trống, bot sẽ lấy `policy_text` từ tab `config`.
+
+Ví dụ:
+
+```text
+Nội quy group VIP:
+1. Không spam.
+2. Không quảng cáo.
+3. Tôn trọng thành viên.
+```
+
+### Cột `notes`
+
+Ghi chú nội bộ cho người quản trị sheet.
+
+Bot không dùng cột này để xử lý logic.
+
+## Tab `config`
+
+Tab này chứa cấu hình mặc định cho toàn bộ bot. Mỗi dòng là một cặp `key` và `value`.
+
+### Cột `key`
+
+Tên cấu hình.
+
+Ví dụ:
+
+```text
+policy_text
+delete_system_messages
+spam_max_messages
+```
+
+Không nên đổi tên key nếu không sửa code.
+
+### Cột `value`
+
+Giá trị của cấu hình.
+
+Kiểu giá trị tùy thuộc vào từng key:
+
+- `true` / `false`
+- Số, ví dụ `6`, `12`, `3`
+- Giờ, ví dụ `20:00`
+- Chuỗi nội dung, ví dụ nội quy group
+
+### Cột `enabled`
+
+Bật/tắt dòng cấu hình.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bot sử dụng dòng cấu hình |
+| `false` | Bot bỏ qua dòng cấu hình |
+
+### Các Key Quan Trọng
+
+| Key | Giá trị mẫu | Ý nghĩa |
+|---|---|---|
+| `policy_text` | Nội quy nhóm... | Nội quy mặc định |
+| `delete_system_messages` | `true` | Xóa thông báo hệ thống |
+| `delete_forwarded_messages` | `true` | Xóa tin forward |
+| `delete_inline_keyboard_messages` | `true` | Xóa bài có nút inline |
+| `delete_messages_from_bots` | `true` | Xóa tin từ bot không whitelist |
+| `remove_unknown_bots` | `true` | Cấm bot lạ mới vào |
+| `exempt_admins` | `true` | Miễn check cho admin |
+| `spam_max_messages` | `6` | Số tin tối đa trong cửa sổ spam |
+| `spam_window_seconds` | `12` | Số giây của cửa sổ spam |
+| `spam_action` | `warn` | Hành động khi spam |
+| `forward_action` | `warn` | Hành động khi forward |
+| `inline_keyboard_action` | `warn` | Hành động khi có nút inline |
+| `ban_after_warnings` | `3` | Số lần warn trước khi ban |
+| `daily_window_start` | `20:00` | Giờ bắt đầu gửi tin random |
+| `daily_window_end` | `23:59` | Giờ kết thúc gửi tin random |
+| `send_if_silent` | `false` | Có gửi khi group im lặng không |
+| `send_on_boot` | `false` | Có gửi tin ngay khi bot khởi động không |
+
+## Tab `messages`
+
+Tab này chứa danh sách tin nhắn để bot random gửi hằng ngày hoặc trả lời `/start`.
+
+### Cột `message`
+
+Nội dung tin nhắn.
+
+Ví dụ:
+
+```text
+Chào cả nhà, chúc mọi người một ngày vui vẻ.
+```
+
+Có thể viết nhiều dòng trong một ô nếu Google Sheets cho phép xuống dòng.
+
+### Cột `pool`
+
+Nhóm nội dung.
+
+Ví dụ:
+
+```text
+default
+sales
+vip
+```
+
+Group nào có `message_pool=default` thì chỉ lấy tin có `pool=default`.
+
+Nếu để trống, bot xem như:
+
+```text
+default
+```
+
+### Cột `weight`
+
+Trọng số random.
+
+Giá trị càng cao, tin đó càng dễ được chọn.
+
+Ví dụ:
+
+| message | weight |
+|---|---|
+| Tin A | 1 |
+| Tin B | 3 |
+
+Tin B có khả năng được chọn cao hơn Tin A.
+
+Nếu để trống, bot xem như:
+
+```text
+1
+```
+
+### Cột `enabled`
+
+Bật/tắt tin nhắn.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Tin được đưa vào danh sách random |
+| `false` | Tin bị bỏ qua |
+
+## Tab `keywords`
+
+Tab này chứa danh sách từ khóa cấm.
+
+### Cột `keyword`
+
+Từ khóa hoặc mẫu cần chặn.
+
+Ví dụ:
+
+```text
+casino
+t.me/spam
+free money
+```
+
+Bot sẽ kiểm tra trong text và caption của tin nhắn.
+
+### Cột `match`
+
+Kiểu so khớp.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `contains` | Chỉ cần nội dung có chứa keyword |
+| `regex` | Dùng biểu thức chính quy |
+
+Khuyến dùng nếu không rành kỹ thuật:
+
+```text
+contains
+```
+
+### Cột `action`
+
+Hành động khi phát hiện keyword.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `delete` | Xóa tin vi phạm |
+| `warn` | Xóa tin và cảnh báo user |
+| `ban` | Xóa tin và ban user |
+
+### Cột `reason`
+
+Lý do hiện trong tin cảnh báo.
+
+Ví dụ:
+
+```text
+Từ khóa cấm
+Link spam
+Nội dung quảng cáo
+```
+
+Nếu để trống, bot dùng lý do mặc định:
+
+```text
+Từ khóa cấm.
+```
+
+### Cột `enabled`
+
+Bật/tắt dòng keyword.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Keyword đang hoạt động |
+| `false` | Keyword bị bỏ qua |
+
+## Tab `admins`
+
+Tab này khai báo admin bổ sung cho bot.
+
+Bot vẫn tự nhận Telegram admin thật trong group. Tab này dùng khi bạn muốn cấp quyền dùng lệnh bot cho một user cụ thể.
+
+### Cột `user_id`
+
+Telegram user ID của admin.
+
+Ví dụ:
+
+```text
+123456789
+```
+
+### Cột `chat_id`
+
+Group mà admin này được cấp quyền.
+
+Ví dụ:
+
+```text
+-1001234567890
+```
+
+Nếu để trống, dòng admin có thể áp dụng rộng hơn tùy cách code xử lý hiện tại. Khuyến dùng: luôn điền `chat_id`.
+
+### Cột `enabled`
+
+Bật/tắt quyền admin bổ sung.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | User được dùng lệnh admin của bot |
+| `false` | User không được tính là admin bổ sung |
+
+## Tab `bot_allowlist`
+
+Tab này khai báo bot được phép tồn tại hoặc gửi tin trong group.
+
+Nếu bot khác không nằm trong whitelist và cấu hình đang bật, Cu Bot có thể xóa tin của bot đó hoặc cấm bot đó khi vừa vào group.
+
+### Cột `bot_id`
+
+Telegram user ID của bot được phép.
+
+Ví dụ:
+
+```text
+123456789
+```
+
+Có thể để trống nếu đã điền `username`.
+
+### Cột `username`
+
+Username của bot, không bắt buộc có dấu `@`.
+
+Ví dụ:
+
+```text
+helpful_bot
+@helpful_bot
+```
+
+### Cột `chat_id`
+
+Group mà bot này được phép hoạt động.
+
+Ví dụ:
+
+```text
+-1001234567890
+```
+
+Nếu để trống, bot có thể được phép ở mọi group. Khuyến dùng: điền rõ `chat_id`.
+
+### Cột `enabled`
+
+Bật/tắt dòng whitelist.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bot trong dòng này được phép |
+| `false` | Dòng whitelist bị bỏ qua |
+
+## Tab `video_messages`
+
+Tab này chứa danh sách video nguồn để bot copy ẩn danh vào group theo lịch.
+
+Bot dùng `copy_message`, không dùng `forward_message`, nên group đích không thấy nguồn forward gốc.
+
+### Cột `from_chat_id`
+
+ID group/channel/chat nguồn đang chứa video.
+
+Ví dụ:
+
+```text
+-1009876543210
+```
+
+Bot phải có quyền truy cập chat nguồn này.
+
+### Cột `message_id`
+
+ID của tin nhắn video trong chat nguồn.
+
+Ví dụ:
+
+```text
+456
+```
+
+Cần lấy đúng `message_id` của tin video cần copy.
+
+### Cột `caption`
+
+Caption mới khi bot copy video sang group đích.
+
+Ví dụ:
+
+```text
+Video hôm nay
+```
+
+Nếu để trống, bot giữ caption mặc định theo hành vi Telegram API/thư viện.
+
+### Cột `pool`
+
+Nhóm video.
+
+Ví dụ:
+
+```text
+default
+promo
+vip
+```
+
+Group nào có `video_pool=default` thì chỉ lấy video có `pool=default`.
+
+### Cột `weight`
+
+Trọng số random video.
+
+Giá trị càng cao, video càng dễ được chọn.
+
+Ví dụ:
+
+| video | weight |
+|---|---|
+| Video A | 1 |
+| Video B | 3 |
+
+Video B có khả năng được chọn cao hơn.
+
+### Cột `enabled`
+
+Bật/tắt video trong danh sách random.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Video được đưa vào danh sách random |
+| `false` | Video bị bỏ qua |
+
+## Bảng Giá Trị Hành Động
+
+Những cột sau dùng chung bộ giá trị hành động:
+
+- `spam_action`
+- `forward_action`
+- `inline_keyboard_action`
+- `keywords.action`
+
+| Giá trị | Bot sẽ làm gì |
+|---|---|
+| `delete` | Xóa tin nhắn vi phạm, không cảnh báo |
+| `warn` | Xóa tin nhắn vi phạm và tăng số lần cảnh báo |
+| `ban` | Xóa tin nhắn vi phạm và ban user |
+
+## Bảng Giá Trị Boolean
+
+Những giá trị sau được xem là bật:
+
+```text
+true
+1
+yes
+on
+enabled
+y
+x
+```
+
+Những giá trị khác nên xem như tắt. Để dễ quản lý, khuyến dùng chỉ ghi:
+
+```text
+true
+false
+```
+
+## Cấu Hình Đề Xuất Ban Đầu
+
+Với group mới, nên dùng cấu hình an toàn:
+
+```text
+delete_system_messages = true
+delete_forwarded_messages = true
+delete_inline_keyboard_messages = true
+delete_messages_from_bots = true
+remove_unknown_bots = true
+exempt_admins = true
+spam_max_messages = 6
+spam_window_seconds = 12
+spam_action = warn
+forward_action = warn
+inline_keyboard_action = warn
+ban_after_warnings = 3
+send_if_silent = false
+send_on_boot = false
+```
+
+Nếu group có nhiều thành viên chat nhanh, tăng:
+
+```text
+spam_max_messages = 10
+spam_window_seconds = 15
+```
+
+Nếu group bị spam nặng, dùng:
+
+```text
+spam_action = ban
+forward_action = ban
+```
+
+## Quy Trình Cập Nhật Sheet
+
+1. Sửa nội dung trong Google Sheets.
+2. Chờ bot tự đọc lại theo cache, mặc định khoảng 120 giây.
+3. Hoặc gõ lệnh trong group:
+
+```text
+/reload
+```
+
+4. Test lại bằng cách gửi tin mẫu vào group.
+
+## Lỗi Thường Gặp
+
+### Bot không xóa được tin
+
+Kiểm tra:
+
+- Bot đã là admin chưa.
+- Bot có quyền `Delete messages` chưa.
+- `group_id` có đúng không.
+- Dòng group có `enabled=true` không.
+
+### Bot không ban được user
+
+Kiểm tra:
+
+- Bot có quyền `Ban users` chưa.
+- User bị ban có phải admin không. Telegram không cho bot ban admin cấp cao hơn.
+
+### Bot không gửi tin hẹn giờ
+
+Kiểm tra:
+
+- Tab `groups` có group_id đúng.
+- `daily_enabled=true`.
+- Tab `messages` có tin `enabled=true`.
+- `message_pool` trong `groups` có trùng với `pool` trong `messages` không.
+- Nếu `send_if_silent=false`, group phải có người thật nhắn tin trước đó.
+
+### Bot không gửi video
+
+Kiểm tra:
+
+- `video_enabled=true`.
+- `video_pool` trong `groups` trùng với `pool` trong `video_messages`.
+- `from_chat_id` và `message_id` đúng.
+- Bot có quyền đọc chat nguồn.
+
+### Sửa sheet nhưng bot chưa cập nhật
+
+Dùng lệnh:
+
+```text
+/reload
+```
+
+Hoặc đợi bot tự đọc lại sau thời gian cache.
