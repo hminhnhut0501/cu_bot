@@ -3,6 +3,9 @@ import inspect
 import logging
 import pkgutil
 import threading
+import time
+
+from telebot.apihelper import ApiTelegramException
 
 from core.sheets import SheetStore
 from core.state import RuntimeState
@@ -41,7 +44,42 @@ class BotApplication:
             module.start()
 
         LOGGER.info("Bot is running with %s module(s).", len(self.modules))
-        self.bot.infinity_polling(skip_pending=True, timeout=60, long_polling_timeout=60)
+        self.run_polling()
+
+    def run_polling(self):
+        if self.settings.polling_startup_delay_seconds > 0:
+            LOGGER.info("Waiting %s second(s) before polling.", self.settings.polling_startup_delay_seconds)
+            time.sleep(self.settings.polling_startup_delay_seconds)
+
+        self.remove_existing_webhook()
+
+        first_run = True
+        while True:
+            try:
+                self.bot.infinity_polling(
+                    skip_pending=first_run,
+                    timeout=60,
+                    long_polling_timeout=60,
+                    logger_level=logging.ERROR,
+                )
+                first_run = False
+            except ApiTelegramException as exc:
+                if getattr(exc, "error_code", None) == 409:
+                    LOGGER.warning(
+                        "Telegram polling conflict. Another instance is still polling. "
+                        "Retrying in %s second(s).",
+                        self.settings.polling_retry_seconds,
+                    )
+                    time.sleep(self.settings.polling_retry_seconds)
+                    first_run = False
+                    continue
+                raise
+
+    def remove_existing_webhook(self):
+        try:
+            self.bot.remove_webhook()
+        except Exception as exc:
+            LOGGER.warning("Cannot remove existing webhook before polling: %s", exc)
 
     def _load_modules(self):
         module_classes = []

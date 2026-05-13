@@ -56,6 +56,15 @@ OWNER_IDS=123456789,987654321
 
 Users in `OWNER_IDS` can run admin commands such as `/reload` and `/checkbio` even when testing in private chat.
 
+Polling resilience envs for Render:
+
+```bash
+POLLING_STARTUP_DELAY_SECONDS=5
+POLLING_RETRY_SECONDS=45
+```
+
+These prevent a temporary Telegram `409 Conflict` during Render redeploy overlap from crashing the service.
+
 ## Sheet Schemas
 
 ### `groups`

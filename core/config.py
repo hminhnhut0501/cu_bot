@@ -34,6 +34,8 @@ class Settings:
     bot_token: str
     owner_ids: set[int] = field(default_factory=set)
     parse_mode: str | None = None
+    polling_retry_seconds: int = 45
+    polling_startup_delay_seconds: int = 5
     keep_alive_enabled: bool = True
     keep_alive_port: int = 8080
     sheets_refresh_seconds: int = 120
@@ -79,6 +81,8 @@ def load_settings():
         bot_token=bot_token,
         owner_ids=owner_ids,
         parse_mode=os.environ.get("PARSE_MODE") or None,
+        polling_retry_seconds=_int_env("POLLING_RETRY_SECONDS", 45),
+        polling_startup_delay_seconds=_int_env("POLLING_STARTUP_DELAY_SECONDS", 5),
         keep_alive_enabled=_bool_env("KEEP_ALIVE_ENABLED", True),
         keep_alive_port=_int_env("PORT", _int_env("KEEP_ALIVE_PORT", 8080)),
         sheets_refresh_seconds=_int_env("SHEETS_REFRESH_SECONDS", 120),
