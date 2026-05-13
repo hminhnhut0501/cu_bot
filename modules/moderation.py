@@ -4,14 +4,15 @@ from datetime import datetime, timedelta
 from functools import wraps
 
 import telebot
+from telebot.util import content_type_service
 
-from core.utils import as_bool, as_int, normalize_text
+from core.utils import as_bool, as_int, normalize_id, normalize_text
 from modules.base import BotModule
 
 
 LOGGER = logging.getLogger(__name__)
 
-SERVICE_CONTENT_TYPES = [
+SERVICE_CONTENT_TYPES = sorted(set(content_type_service + [
     "new_chat_members",
     "left_chat_member",
     "new_chat_title",
@@ -32,8 +33,9 @@ SERVICE_CONTENT_TYPES = [
     "general_forum_topic_unhidden",
     "write_access_allowed",
     "user_shared",
+    "users_shared",
     "chat_shared",
-]
+]))
 
 MESSAGE_CONTENT_TYPES = [
     "text",
@@ -87,6 +89,12 @@ class ModerationModule(BotModule):
 
     def handle_service_message(self, message):
         chat_id = message.chat.id
+        LOGGER.info(
+            "Service message received: chat_id=%s message_id=%s content_type=%s",
+            chat_id,
+            message.message_id,
+            message.content_type,
+        )
         if self.group_enabled(chat_id) and self.setting_bool(chat_id, "delete_system_messages", True):
             self.safe_delete(message)
 
@@ -407,12 +415,12 @@ class ModerationModule(BotModule):
         if not rows:
             return True
         chat_id = str(chat_id)
-        return any((row.get("group_id") or row.get("chat_id")) == chat_id for row in rows)
+        return any(normalize_id(row.get("group_id") or row.get("chat_id")) == chat_id for row in rows)
 
     def group_row(self, chat_id):
         chat_id = str(chat_id)
         for row in self.sheets.enabled_rows("groups"):
-            if (row.get("group_id") or row.get("chat_id")) == chat_id:
+            if normalize_id(row.get("group_id") or row.get("chat_id")) == chat_id:
                 return row
         return {}
 

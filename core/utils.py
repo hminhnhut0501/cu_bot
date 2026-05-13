@@ -28,6 +28,18 @@ def as_int(value, default=0):
         return default
 
 
+def normalize_id(value):
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        return str(int(float(text)))
+    except (TypeError, ValueError):
+        return text
+
+
 def as_list(value):
     if value is None:
         return []
