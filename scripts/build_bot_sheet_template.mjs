@@ -38,11 +38,12 @@ writeMatrix("README", "A1:D14", [
   ["", "", "", ""],
 ]);
 
-writeMatrix("groups", "A1:AE4", [
+writeMatrix("groups", "A1:AF4", [
   [
     "group_id",
     "group_name",
     "enabled",
+    "moderation_enabled",
     "delete_system_messages",
     "delete_forwarded_messages",
     "delete_inline_keyboard_messages",
@@ -75,6 +76,7 @@ writeMatrix("groups", "A1:AE4", [
   [
     "-1001234567890",
     "Group chinh",
+    "true",
     "true",
     "true",
     "true",
@@ -115,6 +117,7 @@ writeMatrix("groups", "A1:AE4", [
     "true",
     "true",
     "true",
+    "true",
     3600,
     0,
     "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.",
@@ -138,7 +141,7 @@ writeMatrix("groups", "A1:AE4", [
     "",
     "Dong mau, co the xoa",
   ],
-  ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 ]);
 
 writeMatrix("config", "A1:C22", [

@@ -67,6 +67,7 @@ class ModerationModule(BotModule):
         self.bot.message_handler(commands=["ban", "cam"])(self.admin_only(self.handle_ban_command))
         self.bot.message_handler(commands=["unban", "bocam"])(self.admin_only(self.handle_unban_command))
         self.bot.message_handler(commands=["checkbio", "scanbio", "kiemtrabio"])(self.admin_only(self.handle_check_bio_command))
+        self.bot.message_handler(commands=["debuggroup", "groupdebug", "kiemtragroup"])(self.admin_only(self.handle_debug_group_command))
         self.bot.message_handler(commands=["reload", "refresh"])(self.admin_only(self.handle_reload_command))
         self.bot.message_handler(
             func=lambda message: normalize_text(getattr(message, "text", "")) in {"quy dinh", "noi quy"},
@@ -95,7 +96,7 @@ class ModerationModule(BotModule):
             message.message_id,
             message.content_type,
         )
-        if self.group_enabled(chat_id) and self.setting_bool(chat_id, "delete_system_messages", True):
+        if self.setting_bool(chat_id, "delete_system_messages", True):
             self.safe_delete(message)
 
         if message.content_type == "new_chat_members":
@@ -169,8 +170,33 @@ class ModerationModule(BotModule):
         self.restore_chat_permissions(message.chat.id, target_id)
         self.safe_reply(message, f"Bio user {target_id} đã sạch, đã mở chat lại.")
 
+    def handle_debug_group_command(self, message):
+        bot_user = self.bot.get_me()
+        try:
+            bot_member = self.bot.get_chat_member(message.chat.id, bot_user.id)
+        except Exception as exc:
+            self.safe_reply(message, f"Không đọc được quyền bot trong group này: {exc}")
+            return
+
+        lines = [
+            "Debug group:",
+            f"chat_id: {message.chat.id}",
+            f"bot_id: {bot_user.id}",
+            f"bot_status: {getattr(bot_member, 'status', '-')}",
+            f"can_delete_messages: {getattr(bot_member, 'can_delete_messages', '-')}",
+            f"can_restrict_members: {getattr(bot_member, 'can_restrict_members', '-')}",
+            f"moderation_enabled: {self.setting_bool(message.chat.id, 'moderation_enabled', True)}",
+            f"delete_system_messages: {self.setting_bool(message.chat.id, 'delete_system_messages', True)}",
+            f"spam_max_messages: {self.setting_int(message.chat.id, 'spam_max_messages', 6)}",
+            f"spam_window_seconds: {self.setting_int(message.chat.id, 'spam_window_seconds', 12)}",
+            f"delete_forwarded_messages: {self.setting_bool(message.chat.id, 'delete_forwarded_messages', True)}",
+            f"delete_inline_keyboard_messages: {self.setting_bool(message.chat.id, 'delete_inline_keyboard_messages', True)}",
+            f"scan_bio_links: {self.setting_bool(message.chat.id, 'scan_bio_links', True)}",
+        ]
+        self.safe_reply(message, "\n".join(lines))
+
     def handle_group_message(self, message):
-        if not self.group_enabled(message.chat.id):
+        if not self.moderation_enabled(message.chat.id):
             return
         if getattr(message.from_user, "is_bot", False):
             if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, message.from_user):
@@ -392,7 +418,13 @@ class ModerationModule(BotModule):
         try:
             self.bot.delete_message(message.chat.id, message.message_id)
         except Exception as exc:
-            LOGGER.debug("Cannot delete message %s in %s: %s", message.message_id, message.chat.id, exc)
+            LOGGER.warning(
+                "Cannot delete message: chat_id=%s message_id=%s content_type=%s error=%s",
+                message.chat.id,
+                message.message_id,
+                getattr(message, "content_type", "-"),
+                exc,
+            )
 
     def safe_reply(self, message, text):
         try:
@@ -416,6 +448,9 @@ class ModerationModule(BotModule):
             return True
         chat_id = str(chat_id)
         return any(normalize_id(row.get("group_id") or row.get("chat_id")) == chat_id for row in rows)
+
+    def moderation_enabled(self, chat_id):
+        return self.setting_bool(chat_id, "moderation_enabled", True)
 
     def group_row(self, chat_id):
         chat_id = str(chat_id)

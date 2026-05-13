@@ -117,9 +117,21 @@ Bạn có thể sửa hoặc xóa tab này mà không ảnh hưởng bot.
 
 ## Tab `groups`
 
-Tab này quản lý từng group Telegram mà bot sẽ phục vụ. Mỗi dòng tương ứng một group.
+Tab này chủ yếu quản lý các group cần gửi tin nhắn hẹn giờ hoặc gửi video hẹn giờ. Mỗi dòng tương ứng một group.
 
-Nếu tab `groups` bị thiếu hoặc không có dòng nào bật `enabled=true`, module moderation vẫn có thể xử lý mọi group mà bot tham gia. Tuy nhiên module gửi tin hẹn giờ cần tab `groups` để biết gửi vào group nào.
+Các chức năng quản lý group như xóa tin hệ thống, chống spam, xóa từ khóa cấm, xóa bot lạ, xóa forward và quét bio sẽ tự chạy ở mọi group mà bot được thêm vào và có quyền admin. Bạn không cần khai báo group ID trong tab `groups` chỉ để dọn tin hệ thống.
+
+Tab `groups` vẫn cần thiết cho các chức năng hẹn giờ:
+
+- Gửi tin nhắn random hằng ngày.
+- Gửi video random hằng ngày.
+- Override cấu hình riêng cho từng group.
+
+Nếu muốn tắt moderation cho một group cụ thể, thêm group đó vào tab `groups` và đặt:
+
+```text
+moderation_enabled=false
+```
 
 ### Cột `group_id`
 
@@ -148,12 +160,29 @@ Cộng đồng VIP
 
 ### Cột `enabled`
 
-Bật/tắt cấu hình group.
+Bật/tắt dòng group trong sheet.
 
 | Giá trị | Ý nghĩa |
 |---|---|
 | `true` | Bot áp dụng cấu hình dòng này |
 | `false` | Bot bỏ qua dòng này |
+
+Lưu ý: `enabled=false` làm bot bỏ qua dòng cấu hình đó, đặc biệt là lịch gửi tin/video. Các chức năng moderation mặc định vẫn có thể chạy theo cấu hình chung trong tab `config`, trừ khi bạn dùng `moderation_enabled=false` cho group đó.
+
+### Cột `moderation_enabled`
+
+Bật/tắt moderation riêng cho group này.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bật xóa hệ thống, chống spam, keyword, forward, bio scan |
+| `false` | Tắt moderation cho group này |
+
+Nếu không có cột này hoặc để trống, bot xem như:
+
+```text
+true
+```
 
 ### Cột `delete_system_messages`
 
@@ -1027,6 +1056,53 @@ Cách dùng bằng user ID:
 ```
 
 Nếu bio vẫn còn link Telegram, bot tiếp tục cấm chat user đó. Nếu bio đã sạch, bot mở quyền chat lại.
+
+## Lệnh Kiểm Tra Group
+
+### `/debuggroup`
+
+Dùng trong từng group để kiểm tra bot đang có quyền gì và cấu hình moderation hiện tại là gì.
+
+Lệnh:
+
+```text
+/debuggroup
+```
+
+Bot sẽ trả về các thông tin như:
+
+- `chat_id`
+- trạng thái admin của bot
+- `can_delete_messages`
+- `can_restrict_members`
+- `delete_system_messages`
+- `spam_max_messages`
+- `spam_window_seconds`
+- `scan_bio_links`
+
+Nếu group nào xóa được, group nào không xóa được, hãy chạy `/debuggroup` trong cả hai group để so sánh quyền.
+
+## Privacy Mode Của BotFather
+
+Chức năng chống spam cần bot nhận được tin nhắn thường trong group. Nếu Privacy Mode của BotFather đang bật, bot có thể chỉ nhận lệnh, reply, mention và một số service message; khi đó chống spam sẽ lúc hoạt động lúc không.
+
+Cách tắt:
+
+1. Mở Telegram, vào `@BotFather`.
+2. Gõ:
+
+```text
+/setprivacy
+```
+
+3. Chọn bot của bạn.
+4. Chọn:
+
+```text
+Disable
+```
+
+5. Restart/redeploy bot trên Render.
 
 ## Lỗi Thường Gặp
 

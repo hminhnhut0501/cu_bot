@@ -29,6 +29,7 @@ class CommandsModule(BotModule):
             telebot.types.BotCommand("policy", "Xem nội quy nhóm"),
             telebot.types.BotCommand("reload", "Tải lại cấu hình Google Sheet"),
             telebot.types.BotCommand("checkbio", "Kiểm tra bio thành viên"),
+            telebot.types.BotCommand("debuggroup", "Kiểm tra quyền bot trong group"),
             telebot.types.BotCommand("warn", "Cảnh báo thành viên"),
             telebot.types.BotCommand("ban", "Cấm thành viên"),
             telebot.types.BotCommand("unban", "Bỏ cấm thành viên"),
@@ -54,6 +55,7 @@ class CommandsModule(BotModule):
             "/policy - Xem nội quy nhóm\n"
             "/reload - Tải lại cấu hình Google Sheet\n"
             "/checkbio - Kiểm tra bio thành viên\n"
+            "/debuggroup - Kiểm tra quyền bot trong group\n"
             "/warn - Cảnh báo thành viên\n"
             "/ban - Cấm thành viên\n"
             "/unban - Bỏ cấm thành viên"

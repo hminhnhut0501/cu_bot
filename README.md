@@ -75,6 +75,8 @@ These prevent a temporary Telegram `409 Conflict` during Render redeploy overlap
 
 If the `groups` sheet is empty or missing, moderation runs in every group. Scheduled posts need `groups`.
 
+Moderation features such as system-message cleanup, spam filtering, keyword filtering, bot cleanup, forwarded-post cleanup, and bio scanning run in every group by default when the bot is admin. Use `groups.moderation_enabled=false` only if you want to disable moderation for a specific group. Scheduled messages and scheduled videos still require group IDs in `groups`.
+
 ### `config`
 
 | key | value | enabled |
@@ -147,6 +149,9 @@ The bot uses `copy_message`, so the destination group does not see the original 
 - `/unban <user_id>`: unban and reset warnings.
 - `/reload`: clear sheet cache and reload on next read.
 - `/checkbio <user_id>` or reply `/checkbio`: rescan a member bio. If the bio is clean, chat permissions are restored.
+- `/debuggroup`: show bot permissions and moderation settings for the current group.
+
+For spam filtering, the bot must receive normal group messages. In BotFather, use `/setprivacy` and disable privacy mode for this bot, then restart/redeploy the bot.
 
 ## Run Locally
 
