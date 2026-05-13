@@ -97,7 +97,7 @@ class ModerationModule(BotModule):
             message.content_type,
         )
         if self.setting_bool(chat_id, "delete_system_messages", True):
-            self.safe_delete(message)
+            self.safe_delete(message, f"service:{message.content_type}")
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
@@ -192,6 +192,7 @@ class ModerationModule(BotModule):
             f"delete_forwarded_messages: {self.setting_bool(message.chat.id, 'delete_forwarded_messages', True)}",
             f"delete_inline_keyboard_messages: {self.setting_bool(message.chat.id, 'delete_inline_keyboard_messages', True)}",
             f"scan_bio_links: {self.setting_bool(message.chat.id, 'scan_bio_links', True)}",
+            f"bio_link_delete_message: {self.setting_bool(message.chat.id, 'bio_link_delete_message', False)}",
         ]
         self.safe_reply(message, "\n".join(lines))
 
@@ -200,7 +201,7 @@ class ModerationModule(BotModule):
             return
         if getattr(message.from_user, "is_bot", False):
             if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, message.from_user):
-                self.safe_delete(message)
+                self.safe_delete(message, "bot_message")
             return
 
         self.state.mark_activity(message.chat.id)
@@ -209,7 +210,8 @@ class ModerationModule(BotModule):
             return
 
         if self.detect_bio_link(message.chat.id, message.from_user):
-            self.safe_delete(message)
+            if self.setting_bool(message.chat.id, "bio_link_delete_message", False):
+                self.safe_delete(message, "bio_link")
             return
         if self.detect_spam(message):
             return
@@ -232,7 +234,7 @@ class ModerationModule(BotModule):
         count = self.state.add_user_message(message.chat.id, message.from_user.id, window)
         if count <= limit:
             return False
-        self.safe_delete(message)
+        self.safe_delete(message, "spam")
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
@@ -249,7 +251,7 @@ class ModerationModule(BotModule):
             match_type = (row.get("match") or "contains").strip().lower()
             matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
             if matched:
-                self.safe_delete(message)
+                self.safe_delete(message, f"keyword:{keyword}")
                 self.apply_action(message, row.get("action") or "warn", row.get("reason") or "Từ khóa cấm.")
                 return True
         return False
@@ -263,7 +265,7 @@ class ModerationModule(BotModule):
         )
         if not forwarded:
             return False
-        self.safe_delete(message)
+        self.safe_delete(message, "forwarded_message")
         self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), "Không được forward bài vào nhóm.")
         return True
 
@@ -273,7 +275,7 @@ class ModerationModule(BotModule):
         markup = getattr(message, "reply_markup", None)
         if not markup or not getattr(markup, "keyboard", None) and not getattr(markup, "inline_keyboard", None):
             return False
-        self.safe_delete(message)
+        self.safe_delete(message, "inline_keyboard")
         self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.")
         return True
 
@@ -414,15 +416,23 @@ class ModerationModule(BotModule):
         except Exception as exc:
             LOGGER.warning("Cannot ban %s in %s: %s", user_id, chat_id, exc)
 
-    def safe_delete(self, message):
+    def safe_delete(self, message, reason="unknown"):
         try:
             self.bot.delete_message(message.chat.id, message.message_id)
-        except Exception as exc:
-            LOGGER.warning(
-                "Cannot delete message: chat_id=%s message_id=%s content_type=%s error=%s",
+            LOGGER.info(
+                "Deleted message: chat_id=%s message_id=%s content_type=%s reason=%s",
                 message.chat.id,
                 message.message_id,
                 getattr(message, "content_type", "-"),
+                reason,
+            )
+        except Exception as exc:
+            LOGGER.warning(
+                "Cannot delete message: chat_id=%s message_id=%s content_type=%s reason=%s error=%s",
+                message.chat.id,
+                message.message_id,
+                getattr(message, "content_type", "-"),
+                reason,
                 exc,
             )
 
