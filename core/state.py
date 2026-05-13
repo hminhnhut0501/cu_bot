@@ -9,6 +9,7 @@ class RuntimeState:
     group_activity: dict[int, bool] = field(default_factory=lambda: defaultdict(bool))
     user_windows: dict[tuple[int, int], deque] = field(default_factory=lambda: defaultdict(deque))
     warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
+    bio_scan_cache: dict[tuple[int, int], tuple[float, bool]] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
 
     def mark_activity(self, chat_id):
@@ -40,3 +41,17 @@ class RuntimeState:
     def reset_warnings(self, chat_id, user_id):
         with self.lock:
             self.warnings.pop((int(chat_id), int(user_id)), None)
+
+    def cached_bio_scan(self, chat_id, user_id, ttl_seconds):
+        key = (int(chat_id), int(user_id))
+        current_time = time()
+        with self.lock:
+            cached = self.bio_scan_cache.get(key)
+            if cached and current_time - cached[0] < ttl_seconds:
+                return cached[1]
+        return None
+
+    def set_bio_scan(self, chat_id, user_id, has_blocked_link):
+        key = (int(chat_id), int(user_id))
+        with self.lock:
+            self.bio_scan_cache[key] = (time(), bool(has_blocked_link))

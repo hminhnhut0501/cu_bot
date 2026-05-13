@@ -38,7 +38,7 @@ writeMatrix("README", "A1:D14", [
   ["", "", "", ""],
 ]);
 
-writeMatrix("groups", "A1:AA4", [
+writeMatrix("groups", "A1:AE4", [
   [
     "group_id",
     "group_name",
@@ -48,6 +48,10 @@ writeMatrix("groups", "A1:AA4", [
     "delete_inline_keyboard_messages",
     "delete_messages_from_bots",
     "remove_unknown_bots",
+    "scan_bio_links",
+    "bio_scan_cache_seconds",
+    "bio_link_restrict_seconds",
+    "bio_link_warning_text",
     "exempt_admins",
     "spam_max_messages",
     "spam_window_seconds",
@@ -78,6 +82,10 @@ writeMatrix("groups", "A1:AA4", [
     "true",
     "true",
     "true",
+    3600,
+    0,
+    "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.",
+    "true",
     6,
     12,
     "warn",
@@ -107,6 +115,10 @@ writeMatrix("groups", "A1:AA4", [
     "true",
     "true",
     "true",
+    3600,
+    0,
+    "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.",
+    "true",
     8,
     15,
     "delete",
@@ -126,10 +138,10 @@ writeMatrix("groups", "A1:AA4", [
     "",
     "Dong mau, co the xoa",
   ],
-  ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 ]);
 
-writeMatrix("config", "A1:C18", [
+writeMatrix("config", "A1:C22", [
   ["key", "value", "enabled"],
   ["policy_text", "Noi quy nhom:\\n1. Ton trong thanh vien.\\n2. Khong spam/quang cao.\\n3. Khong forward bai co nut bam.\\n4. Tuan thu quan tri vien.", "true"],
   ["delete_system_messages", "true", "true"],
@@ -137,6 +149,10 @@ writeMatrix("config", "A1:C18", [
   ["delete_inline_keyboard_messages", "true", "true"],
   ["delete_messages_from_bots", "true", "true"],
   ["remove_unknown_bots", "true", "true"],
+  ["scan_bio_links", "true", "true"],
+  ["bio_scan_cache_seconds", "3600", "true"],
+  ["bio_link_restrict_seconds", "0", "true"],
+  ["bio_link_warning_text", "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.", "true"],
   ["exempt_admins", "true", "true"],
   ["spam_max_messages", "6", "true"],
   ["spam_window_seconds", "12", "true"],

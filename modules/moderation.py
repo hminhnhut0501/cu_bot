@@ -1,5 +1,6 @@
 import logging
 import re
+from datetime import datetime, timedelta
 from functools import wraps
 
 import telebot
@@ -46,6 +47,7 @@ MESSAGE_CONTENT_TYPES = [
 class ModerationModule(BotModule):
     name = "moderation"
     priority = 10
+    BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
 
     def register(self):
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.handle_service_message)
@@ -53,6 +55,7 @@ class ModerationModule(BotModule):
         self.bot.message_handler(commands=["warn", "canhbao"])(self.admin_only(self.handle_warn_command))
         self.bot.message_handler(commands=["ban", "cam"])(self.admin_only(self.handle_ban_command))
         self.bot.message_handler(commands=["unban", "bocam"])(self.admin_only(self.handle_unban_command))
+        self.bot.message_handler(commands=["checkbio", "scanbio", "kiemtrabio"])(self.admin_only(self.handle_check_bio_command))
         self.bot.message_handler(commands=["reload", "refresh"])(self.admin_only(self.handle_reload_command))
         self.bot.message_handler(
             func=lambda message: normalize_text(getattr(message, "text", "")) in {"quy dinh", "noi quy"},
@@ -79,15 +82,16 @@ class ModerationModule(BotModule):
             self.handle_new_members(message)
 
     def handle_new_members(self, message):
-        if not self.setting_bool(message.chat.id, "remove_unknown_bots", True):
-            return
         for user in message.new_chat_members or []:
             if getattr(user, "is_bot", False) and not self.bot_allowed(message.chat.id, user):
-                try:
-                    self.bot.ban_chat_member(message.chat.id, user.id)
-                    LOGGER.info("Removed unknown bot %s from chat %s", user.id, message.chat.id)
-                except Exception as exc:
-                    LOGGER.warning("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
+                if self.setting_bool(message.chat.id, "remove_unknown_bots", True):
+                    try:
+                        self.bot.ban_chat_member(message.chat.id, user.id)
+                        LOGGER.info("Removed unknown bot %s from chat %s", user.id, message.chat.id)
+                    except Exception as exc:
+                        LOGGER.warning("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
+                continue
+            self.detect_bio_link(message.chat.id, user)
 
     def handle_policy(self, message):
         self.send_policy(message.chat.id, message.message_id)
@@ -127,6 +131,24 @@ class ModerationModule(BotModule):
         except Exception as exc:
             self.safe_reply(message, f"Khong the bo cam: {exc}")
 
+    def handle_check_bio_command(self, message):
+        target_id = self.target_user_id(message)
+        if not target_id:
+            self.safe_reply(message, "Hay reply thanh vien can quet bio hoac ghi /checkbio <user_id>.")
+            return
+
+        user = getattr(getattr(message, "reply_to_message", None), "from_user", None)
+        if not user or user.id != target_id:
+            user = type("BioTarget", (), {"id": target_id, "is_bot": False, "first_name": str(target_id)})()
+
+        has_link = self.detect_bio_link(message.chat.id, user, force=True, notify=True)
+        if has_link:
+            self.safe_reply(message, f"User {target_id} van co link Telegram trong bio, da bi cam chat.")
+            return
+
+        self.restore_chat_permissions(message.chat.id, target_id)
+        self.safe_reply(message, f"Bio user {target_id} da sach, da mo chat lai.")
+
     def handle_group_message(self, message):
         if not self.group_enabled(message.chat.id):
             return
@@ -140,6 +162,9 @@ class ModerationModule(BotModule):
         if self.is_admin(message.chat.id, message.from_user.id) and self.setting_bool(message.chat.id, "exempt_admins", True):
             return
 
+        if self.detect_bio_link(message.chat.id, message.from_user):
+            self.safe_delete(message)
+            return
         if self.detect_spam(message):
             return
         if self.detect_forbidden_keyword(message):
@@ -201,6 +226,109 @@ class ModerationModule(BotModule):
         self.safe_delete(message)
         self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Khong duoc gui bai co nut bam.")
         return True
+
+    def detect_bio_link(self, chat_id, user, force=False, notify=True):
+        if not self.setting_bool(chat_id, "scan_bio_links", True):
+            return False
+        if getattr(user, "is_bot", False):
+            return False
+
+        ttl_seconds = self.setting_int(chat_id, "bio_scan_cache_seconds", 3600)
+        if not force and ttl_seconds > 0:
+            cached = self.state.cached_bio_scan(chat_id, user.id, ttl_seconds)
+            if cached is not None:
+                if cached:
+                    self.restrict_user_chat(chat_id, user.id)
+                    if notify:
+                        self.notify_bio_link_violation(chat_id, user)
+                return cached
+
+        bio = self.get_user_bio(user.id)
+        has_link = bool(bio and self.BIO_LINK_PATTERN.search(bio))
+        self.state.set_bio_scan(chat_id, user.id, has_link)
+        if not has_link:
+            return False
+
+        self.restrict_user_chat(chat_id, user.id)
+        if notify:
+            self.notify_bio_link_violation(chat_id, user)
+        return True
+
+    def get_user_bio(self, user_id):
+        try:
+            chat = self.bot.get_chat(user_id)
+            return getattr(chat, "bio", "") or ""
+        except Exception as exc:
+            LOGGER.debug("Cannot read bio for user %s: %s", user_id, exc)
+            return ""
+
+    def restrict_user_chat(self, chat_id, user_id):
+        seconds = self.setting_int(chat_id, "bio_link_restrict_seconds", 0)
+        until_date = None
+        if seconds > 0:
+            until_date = datetime.now() + timedelta(seconds=seconds)
+        permissions = telebot.types.ChatPermissions(
+            can_send_messages=False,
+            can_send_audios=False,
+            can_send_documents=False,
+            can_send_photos=False,
+            can_send_videos=False,
+            can_send_video_notes=False,
+            can_send_voice_notes=False,
+            can_send_polls=False,
+            can_send_other_messages=False,
+            can_add_web_page_previews=False,
+        )
+        try:
+            self.bot.restrict_chat_member(
+                chat_id,
+                user_id,
+                until_date=until_date,
+                permissions=permissions,
+                use_independent_chat_permissions=True,
+            )
+        except Exception as exc:
+            LOGGER.warning("Cannot restrict user %s in %s for bio link: %s", user_id, chat_id, exc)
+
+    def restore_chat_permissions(self, chat_id, user_id):
+        permissions = telebot.types.ChatPermissions(
+            can_send_messages=True,
+            can_send_audios=True,
+            can_send_documents=True,
+            can_send_photos=True,
+            can_send_videos=True,
+            can_send_video_notes=True,
+            can_send_voice_notes=True,
+            can_send_polls=True,
+            can_send_other_messages=True,
+            can_add_web_page_previews=True,
+            can_invite_users=True,
+        )
+        try:
+            self.bot.restrict_chat_member(
+                chat_id,
+                user_id,
+                permissions=permissions,
+                use_independent_chat_permissions=True,
+            )
+        except Exception as exc:
+            LOGGER.warning("Cannot restore permissions for user %s in %s: %s", user_id, chat_id, exc)
+
+    def notify_bio_link_violation(self, chat_id, user):
+        mention = self.user_mention(user)
+        text = self.setting(
+            chat_id,
+            "bio_link_warning_text",
+            "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.",
+        )
+        try:
+            self.bot.send_message(chat_id, text.format(mention=mention, user_id=user.id))
+        except Exception as exc:
+            LOGGER.warning("Cannot notify bio violation in %s: %s", chat_id, exc)
+
+    def user_mention(self, user):
+        name = getattr(user, "first_name", None) or getattr(user, "username", None) or str(user.id)
+        return f"{name} ({user.id})"
 
     def apply_action(self, message, action, reason):
         action = (action or "warn").strip().lower()

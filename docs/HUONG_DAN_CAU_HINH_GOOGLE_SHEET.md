@@ -138,6 +138,76 @@ Tự động xóa/cấm bot lạ khi bot đó được thêm vào group.
 
 Bot hợp lệ cần được thêm vào tab `bot_allowlist`.
 
+### Cột `scan_bio_links`
+
+Bật/tắt chức năng quét bio của thành viên để tìm link Telegram.
+
+Bot sẽ kiểm tra bio khi thành viên mới vào group hoặc khi thành viên gửi tin nhắn. Nếu bio có link dạng `t.me/...`, `telegram.me/...` hoặc `telegram.dog/...`, bot sẽ cấm user chat và gửi thông báo yêu cầu gỡ link.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Bật quét bio và cấm chat user có link Telegram |
+| `false` | Tắt quét bio |
+
+Khuyến dùng nếu muốn hạn chế seller kéo link:
+
+```text
+true
+```
+
+### Cột `bio_scan_cache_seconds`
+
+Thời gian cache kết quả quét bio, đơn vị giây.
+
+Ví dụ:
+
+```text
+3600
+```
+
+Nghĩa là trong 1 giờ, bot không gọi Telegram API để quét lại bio của cùng một user trong cùng một group. Giá trị này giúp tránh gọi API quá nhiều khi group đông.
+
+Nếu muốn bot quét lại thường xuyên hơn, có thể giảm xuống:
+
+```text
+600
+```
+
+### Cột `bio_link_restrict_seconds`
+
+Thời gian cấm chat khi bio có link Telegram, đơn vị giây.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `0` | Cấm chat vô thời hạn, admin cần dùng `/checkbio` để mở lại |
+| `3600` | Cấm chat 1 giờ |
+| `86400` | Cấm chat 1 ngày |
+
+Khuyến dùng:
+
+```text
+0
+```
+
+Vì mục tiêu là user phải gỡ link rồi nhờ admin kiểm tra lại.
+
+### Cột `bio_link_warning_text`
+
+Mẫu thông báo gửi vào group khi user có link Telegram trong bio.
+
+Có thể dùng các biến:
+
+| Biến | Ý nghĩa |
+|---|---|
+| `{mention}` | Tên và user ID của người vi phạm |
+| `{user_id}` | Telegram user ID |
+
+Ví dụ:
+
+```text
+{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.
+```
+
 ### Cột `exempt_admins`
 
 Miễn kiểm tra moderation cho admin.
@@ -447,6 +517,10 @@ Bật/tắt dòng cấu hình.
 | `delete_inline_keyboard_messages` | `true` | Xóa bài có nút inline |
 | `delete_messages_from_bots` | `true` | Xóa tin từ bot không whitelist |
 | `remove_unknown_bots` | `true` | Cấm bot lạ mới vào |
+| `scan_bio_links` | `true` | Quét bio và cấm chat user có link Telegram |
+| `bio_scan_cache_seconds` | `3600` | Thời gian cache kết quả quét bio |
+| `bio_link_restrict_seconds` | `0` | Thời gian cấm chat khi bio có link |
+| `bio_link_warning_text` | `{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.` | Thông báo khi bio có link |
 | `exempt_admins` | `true` | Miễn check cho admin |
 | `spam_max_messages` | `6` | Số tin tối đa trong cửa sổ spam |
 | `spam_window_seconds` | `12` | Số giây của cửa sổ spam |
@@ -845,6 +919,28 @@ forward_action = ban
 
 4. Test lại bằng cách gửi tin mẫu vào group.
 
+## Lệnh Admin Liên Quan Đến Bio
+
+### `/checkbio`
+
+Quét lại bio của một user.
+
+Cách dùng bằng reply:
+
+```text
+/checkbio
+```
+
+Reply lệnh này vào tin nhắn của user cần kiểm tra.
+
+Cách dùng bằng user ID:
+
+```text
+/checkbio 123456789
+```
+
+Nếu bio vẫn còn link Telegram, bot tiếp tục cấm chat user đó. Nếu bio đã sạch, bot mở quyền chat lại.
+
 ## Lỗi Thường Gặp
 
 ### Bot không xóa được tin
@@ -881,6 +977,31 @@ Kiểm tra:
 - `video_pool` trong `groups` trùng với `pool` trong `video_messages`.
 - `from_chat_id` và `message_id` đúng.
 - Bot có quyền đọc chat nguồn.
+
+### Bot không quét được bio
+
+Kiểm tra:
+
+- Bot có nhìn thấy user đó trong group không.
+- User có từng tương tác với bot/group chưa.
+- Telegram API có trả được bio của user đó không. Một số trường hợp quyền riêng tư hoặc API có thể khiến bot không đọc được bio.
+- `scan_bio_links=true` trong tab `groups` hoặc `config`.
+
+### User đã gỡ link bio nhưng vẫn chưa chat được
+
+Admin dùng lệnh:
+
+```text
+/checkbio
+```
+
+Reply vào user đó, hoặc dùng:
+
+```text
+/checkbio 123456789
+```
+
+Nếu bio đã sạch, bot sẽ mở chat lại.
 
 ### Sửa sheet nhưng bot chưa cập nhật
 

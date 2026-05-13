@@ -58,6 +58,10 @@ If the `groups` sheet is empty or missing, moderation runs in every group. Sched
 | delete_inline_keyboard_messages | true | true |
 | delete_messages_from_bots | true | true |
 | remove_unknown_bots | true | true |
+| scan_bio_links | true | true |
+| bio_scan_cache_seconds | 3600 | true |
+| bio_link_restrict_seconds | 0 | true |
+| bio_link_warning_text | {mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai. | true |
 | exempt_admins | true | true |
 | spam_max_messages | 6 | true |
 | spam_window_seconds | 12 | true |
@@ -115,6 +119,7 @@ The bot uses `copy_message`, so the destination group does not see the original 
 - `/ban <user_id>` or reply `/ban`: ban a user.
 - `/unban <user_id>`: unban and reset warnings.
 - `/reload`: clear sheet cache and reload on next read.
+- `/checkbio <user_id>` or reply `/checkbio`: rescan a member bio. If the bio is clean, chat permissions are restored.
 
 ## Run Locally
 
