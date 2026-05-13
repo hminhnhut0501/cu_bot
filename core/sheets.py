@@ -7,6 +7,11 @@ import requests
 
 from core.utils import as_bool
 
+try:
+    import ftfy
+except ImportError:
+    ftfy = None
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -82,4 +87,27 @@ class SheetStore:
         return [{"message": self._clean_cell(row[0])} for row in simple_reader if row]
 
     def _clean_cell(self, value):
-        return (value or "").strip().replace("\\n", "\n")
+        cleaned = (value or "").strip().replace("\\n", "\n")
+        return self._repair_mojibake(cleaned)
+
+    def _repair_mojibake(self, value):
+        if not value or not any(marker in value for marker in ("Ã", "Â", "Ä", "Æ", "áº", "á»")):
+            return value
+        if ftfy:
+            repaired = ftfy.fix_text(value)
+            if self._looks_more_readable(repaired, value):
+                return repaired
+        for encoding in ("cp1252", "latin1"):
+            try:
+                repaired = value.encode(encoding).decode("utf-8")
+            except UnicodeError:
+                continue
+            if self._looks_more_readable(repaired, value):
+                return repaired
+        return value
+
+    def _looks_more_readable(self, repaired, original):
+        mojibake_markers = ("Ã", "Â", "Ä", "Æ", "áº", "á»")
+        return sum(original.count(marker) for marker in mojibake_markers) > sum(
+            repaired.count(marker) for marker in mojibake_markers
+        )
