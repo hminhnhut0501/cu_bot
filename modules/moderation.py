@@ -189,6 +189,7 @@ class ModerationModule(BotModule):
             f"can_restrict_members: {getattr(bot_member, 'can_restrict_members', '-')}",
             f"moderation_enabled: {self.setting_bool(message.chat.id, 'moderation_enabled', True)}",
             f"delete_system_messages: {self.setting_bool(message.chat.id, 'delete_system_messages', True)}",
+            f"delete_messages_from_bots: {self.setting_bool(message.chat.id, 'delete_messages_from_bots', True)}",
             f"spam_max_messages: {self.setting_int(message.chat.id, 'spam_max_messages', 6)}",
             f"spam_window_seconds: {self.setting_int(message.chat.id, 'spam_window_seconds', 12)}",
             f"delete_forwarded_messages: {self.setting_bool(message.chat.id, 'delete_forwarded_messages', True)}",
@@ -200,6 +201,9 @@ class ModerationModule(BotModule):
 
     def handle_group_message(self, message):
         if not self.moderation_enabled(message.chat.id):
+            return
+        if self.is_anonymous_admin_message(message):
+            self.state.mark_activity(message.chat.id)
             return
         if getattr(message.from_user, "is_bot", False):
             if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, message.from_user):
@@ -229,6 +233,15 @@ class ModerationModule(BotModule):
     def is_command_message(self, message):
         text = getattr(message, "text", None) or ""
         return text.strip().startswith("/")
+
+    def is_anonymous_admin_message(self, message):
+        sender_chat = getattr(message, "sender_chat", None)
+        if not sender_chat:
+            return False
+        if getattr(sender_chat, "id", None) == getattr(message.chat, "id", None):
+            return True
+        sender_type = getattr(sender_chat, "type", "")
+        return sender_type in {"channel", "supergroup", "group"}
 
     def detect_spam(self, message):
         limit = self.setting_int(message.chat.id, "spam_max_messages", 6)
