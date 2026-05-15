@@ -641,6 +641,8 @@ Bật/tắt dòng cấu hình.
 | `spam_max_messages` | `6` | Số tin tối đa trong cửa sổ spam |
 | `spam_window_seconds` | `12` | Số giây của cửa sổ spam |
 | `spam_action` | `warn` | Hành động khi spam |
+| `forward_warning_reason` | `Không được forward video/bài vào nhóm.` | Lý do cảnh báo khi user forward video/bài |
+| `forward_warning_text` | `{mention} vui lòng không forward video/bài vào nhóm. ({count}/{limit})` | Nội dung cảnh báo forward, có tag người vi phạm |
 | `media_spam_max_messages` | `3` | Số sticker/media tối đa trong cửa sổ spam |
 | `media_spam_window_seconds` | `10` | Số giây của cửa sổ spam sticker/media |
 | `media_spam_action` | `restrict` | Hành động khi spam sticker/media |

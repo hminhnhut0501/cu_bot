@@ -131,7 +131,8 @@ class ModerationModule(BotModule):
         if not target_id:
             self.safe_reply(message, "Hãy reply thành viên cần cảnh báo hoặc ghi /warn <user_id>.")
             return
-        count = self.warn_user(message.chat.id, target_id, reason=self.command_reason(message))
+        target_user = getattr(getattr(message, "reply_to_message", None), "from_user", None)
+        count = self.warn_user(message.chat.id, target_id, reason=self.command_reason(message), user=target_user)
         self.safe_reply(message, f"Đã cảnh báo user {target_id}. Tổng cảnh báo: {count}.")
 
     def handle_ban_command(self, message):
@@ -310,7 +311,8 @@ class ModerationModule(BotModule):
         if not forwarded:
             return False
         self.safe_delete(message, "forwarded_message")
-        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), "Không được forward bài vào nhóm.")
+        reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
+        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason)
         return True
 
     def detect_inline_keyboard(self, message):
@@ -426,7 +428,10 @@ class ModerationModule(BotModule):
             LOGGER.warning("Cannot notify bio violation in %s: %s", chat_id, exc)
 
     def user_mention(self, user):
-        name = getattr(user, "first_name", None) or getattr(user, "username", None) or str(user.id)
+        first_name = getattr(user, "first_name", None) or ""
+        last_name = getattr(user, "last_name", None) or ""
+        full_name = " ".join(part for part in (first_name, last_name) if part).strip()
+        name = full_name or getattr(user, "username", None) or str(user.id)
         return f'<a href="tg://user?id={user.id}">{escape(str(name))}</a>'
 
     def restrict_user_for_spam(self, chat_id, user_id):
@@ -478,21 +483,33 @@ class ModerationModule(BotModule):
             self.ban_user(message.chat.id, message.from_user.id)
             return
         if action == "warn":
-            self.warn_user(message.chat.id, message.from_user.id, reason)
+            self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user)
 
-    def warn_user(self, chat_id, user_id, reason=""):
+    def warn_user(self, chat_id, user_id, reason="", user=None):
         count = self.state.add_warning(chat_id, user_id)
         ban_after = self.setting_int(chat_id, "ban_after_warnings", 3)
         if ban_after and count >= ban_after:
             self.ban_user(chat_id, user_id)
             return count
 
-        text = self.setting(chat_id, "warning_text", "Cảnh báo: {reason} ({count}/{limit})")
+        text = self.setting(chat_id, "warning_text", "Cảnh báo {mention}: {reason} ({count}/{limit})")
+        if reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm."):
+            text = self.setting(chat_id, "forward_warning_text", text)
+        mention = self.user_mention(user) if user else str(user_id)
         try:
-            self.bot.send_message(
+            sent = self.bot.send_message(
                 chat_id,
-                text.format(reason=reason, count=count, limit=ban_after or "-"),
+                text.format(
+                    mention=mention,
+                    user_id=user_id,
+                    reason=reason,
+                    count=count,
+                    limit=ban_after or "-",
+                ),
             )
+            delete_after = self.setting_int(chat_id, "warning_notice_delete_seconds", 0)
+            if delete_after > 0:
+                self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
         except Exception as exc:
             LOGGER.warning("Cannot send warning in %s: %s", chat_id, exc)
         return count
