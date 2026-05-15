@@ -643,6 +643,8 @@ Bật/tắt dòng cấu hình.
 | `spam_action` | `warn` | Hành động khi spam |
 | `forward_warning_reason` | `Không được forward video/bài vào nhóm.` | Lý do cảnh báo khi user forward video/bài |
 | `forward_warning_text` | `{mention} vui lòng không forward video/bài vào nhóm. ({count}/{limit})` | Nội dung cảnh báo forward, có tag người vi phạm |
+| `forward_warning_delete_seconds` | `180` | Tự xóa cảnh báo forward sau số giây này. Đặt `0` để không tự xóa |
+| `warning_notice_delete_seconds` | `180` | Tự xóa toàn bộ cảnh báo thường sau số giây này. Đặt `0` để không tự xóa |
 | `media_spam_max_messages` | `3` | Số sticker/media tối đa trong cửa sổ spam |
 | `media_spam_window_seconds` | `10` | Số giây của cửa sổ spam sticker/media |
 | `media_spam_action` | `restrict` | Hành động khi spam sticker/media |

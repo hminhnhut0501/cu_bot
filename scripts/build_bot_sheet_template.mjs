@@ -144,7 +144,7 @@ writeMatrix("groups", "A1:AF4", [
   ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 ]);
 
-writeMatrix("config", "A1:C30", [
+writeMatrix("config", "A1:C32", [
   ["key", "value", "enabled"],
   ["policy_text", "Noi quy nhom:\\n1. Ton trong thanh vien.\\n2. Khong spam/quang cao.\\n3. Khong forward bai co nut bam.\\n4. Tuan thu quan tri vien.", "true"],
   ["delete_system_messages", "true", "true"],
@@ -162,6 +162,8 @@ writeMatrix("config", "A1:C30", [
   ["spam_action", "warn", "true"],
   ["forward_warning_reason", "Không được forward video/bài vào nhóm.", "true"],
   ["forward_warning_text", "{mention} vui lòng không forward video/bài vào nhóm. ({count}/{limit})", "true"],
+  ["forward_warning_delete_seconds", "180", "true"],
+  ["warning_notice_delete_seconds", "180", "true"],
   ["media_spam_max_messages", "3", "true"],
   ["media_spam_window_seconds", "10", "true"],
   ["media_spam_action", "restrict", "true"],

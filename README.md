@@ -97,6 +97,8 @@ Moderation features such as system-message cleanup, spam filtering, keyword filt
 | spam_action | warn | true |
 | forward_warning_reason | Không được forward video/bài vào nhóm. | true |
 | forward_warning_text | {mention} vui lòng không forward video/bài vào nhóm. ({count}/{limit}) | true |
+| forward_warning_delete_seconds | 180 | true |
+| warning_notice_delete_seconds | 180 | true |
 | media_spam_max_messages | 3 | true |
 | media_spam_window_seconds | 10 | true |
 | media_spam_action | restrict | true |

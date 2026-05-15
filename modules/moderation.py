@@ -496,6 +496,7 @@ class ModerationModule(BotModule):
         if reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm."):
             text = self.setting(chat_id, "forward_warning_text", text)
         mention = self.user_mention(user) if user else str(user_id)
+        is_forward_warning = reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
         try:
             sent = self.bot.send_message(
                 chat_id,
@@ -507,7 +508,8 @@ class ModerationModule(BotModule):
                     limit=ban_after or "-",
                 ),
             )
-            delete_after = self.setting_int(chat_id, "warning_notice_delete_seconds", 0)
+            delete_after_key = "forward_warning_delete_seconds" if is_forward_warning else "warning_notice_delete_seconds"
+            delete_after = self.setting_int(chat_id, delete_after_key, 180)
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
         except Exception as exc:
