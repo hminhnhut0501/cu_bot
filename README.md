@@ -25,7 +25,7 @@ GOOGLE_SHEETS_API_KEY=your-google-api-key
 To use Supabase instead of Google Sheets, create the tables with:
 
 ```text
-docs/supabase/generated_from_your_sheet_fixed.sql
+docs/supabase/import_minimal_one_message.sql
 ```
 
 Then configure the bot runtime:
