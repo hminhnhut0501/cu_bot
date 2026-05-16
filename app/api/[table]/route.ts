@@ -6,6 +6,12 @@ import { TABLE_MAP } from "@/lib/tables";
 
 export const dynamic = "force-dynamic";
 
+type Payload = Record<string, unknown>;
+
+type BulkPayload = {
+  rows?: Payload[];
+};
+
 type Params = {
   params: {
     table: string;
@@ -95,9 +101,9 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   try {
     const supabaseAdmin = getSupabaseAdmin();
-    const body = await request.json();
+    const body = (await request.json()) as Payload & BulkPayload;
     if (Array.isArray(body.rows)) {
-      const rows = body.rows.map((row) => cleanPayload(params.table, row));
+      const rows = body.rows.map((row: Payload) => cleanPayload(params.table, row));
       if (!rows.length) {
         return badRequest("No rows to insert.");
       }
