@@ -634,6 +634,7 @@ Bật/tắt dòng cấu hình.
 | `delete_messages_from_bots` | `true` | Xóa tin từ bot không whitelist |
 | `remove_unknown_bots` | `true` | Cấm bot lạ mới vào |
 | `scan_bio_links` | `true` | Quét bio và cấm chat user có link Telegram |
+| `bio_link_delete_message` | `true` | Xóa tin nhắn của user khi user bị chặn vì bio có link |
 | `bio_scan_cache_seconds` | `3600` | Thời gian cache kết quả quét bio |
 | `bio_link_restrict_seconds` | `0` | Thời gian cấm chat khi bio có link |
 | `bio_link_warning_text` | `{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.` | Thông báo khi bio có link |
@@ -651,6 +652,7 @@ Bật/tắt dòng cấu hình.
 | `spam_restrict_seconds` | `300` | Thời gian tạm cấm chat khi spam |
 | `bio_link_notice_delete_seconds` | `30` | Tự xóa thông báo bio sau số giây này |
 | `spam_notice_delete_seconds` | `20` | Tự xóa thông báo spam sau số giây này |
+| `violation_delete_retry_seconds` | `2` | Xóa lại tin vi phạm sau số giây này để tránh lần xóa đầu bị trượt. Đặt `0` để tắt |
 | `forward_action` | `warn` | Hành động khi forward |
 | `inline_keyboard_action` | `warn` | Hành động khi có nút inline |
 | `ban_after_warnings` | `3` | Số lần warn trước khi ban |
@@ -770,12 +772,12 @@ Hành động khi phát hiện keyword.
 
 ### Cột `delete`
 
-Quyết định có xóa tin chứa từ khóa cấm hay không.
+Cột này giữ lại để tương thích sheet cũ. Code hiện tại luôn xóa tin chứa từ khóa cấm trước khi cảnh báo, ban hoặc restrict để tránh tin vi phạm còn nằm trong group.
 
 | Giá trị | Ý nghĩa |
 |---|---|
-| `true` | Xóa tin vi phạm. Đây là mặc định nếu để trống |
-| `false` | Không xóa tin, chỉ thực hiện action |
+| `true` | Xóa tin vi phạm |
+| `false` | Không còn khuyến dùng. Bot vẫn xóa tin vi phạm theo cơ chế mới |
 
 Khuyến dùng:
 

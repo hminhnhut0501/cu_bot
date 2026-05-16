@@ -88,6 +88,7 @@ Moderation features such as system-message cleanup, spam filtering, keyword filt
 | delete_messages_from_bots | true | true |
 | remove_unknown_bots | true | true |
 | scan_bio_links | true | true |
+| bio_link_delete_message | true | true |
 | bio_scan_cache_seconds | 3600 | true |
 | bio_link_restrict_seconds | 0 | true |
 | bio_link_warning_text | {mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai. | true |
@@ -104,6 +105,8 @@ Moderation features such as system-message cleanup, spam filtering, keyword filt
 | media_spam_action | restrict | true |
 | spam_restrict_seconds | 300 | true |
 | bio_link_notice_delete_seconds | 30 | true |
+| spam_notice_delete_seconds | 20 | true |
+| violation_delete_retry_seconds | 2 | true |
 | ban_after_warnings | 3 | true |
 | daily_window_start | 20:00 | true |
 | daily_window_end | 23:59 | true |
@@ -124,7 +127,7 @@ Group rows override config keys when the same column exists in `groups`.
 | casino | contains | warn | true | Tu khoa cam | true |
 | `telegram\.me/` | regex | ban | true | Link spam | true |
 
-Actions: `delete`, `warn`, `ban`.
+Actions: `delete`, `warn`, `ban`. Keyword violations are deleted before the action is applied.
 
 ### `admins`
 

@@ -144,7 +144,7 @@ writeMatrix("groups", "A1:AF4", [
   ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
 ]);
 
-writeMatrix("config", "A1:C32", [
+writeMatrix("config", "A1:C34", [
   ["key", "value", "enabled"],
   ["policy_text", "Noi quy nhom:\\n1. Ton trong thanh vien.\\n2. Khong spam/quang cao.\\n3. Khong forward bai co nut bam.\\n4. Tuan thu quan tri vien.", "true"],
   ["delete_system_messages", "true", "true"],
@@ -153,6 +153,7 @@ writeMatrix("config", "A1:C32", [
   ["delete_messages_from_bots", "true", "true"],
   ["remove_unknown_bots", "true", "true"],
   ["scan_bio_links", "true", "true"],
+  ["bio_link_delete_message", "true", "true"],
   ["bio_scan_cache_seconds", "3600", "true"],
   ["bio_link_restrict_seconds", "0", "true"],
   ["bio_link_warning_text", "{mention} vui long go link Telegram trong bio roi lien he admin de mo chat lai.", "true"],
@@ -170,6 +171,7 @@ writeMatrix("config", "A1:C32", [
   ["spam_restrict_seconds", "300", "true"],
   ["bio_link_notice_delete_seconds", "30", "true"],
   ["spam_notice_delete_seconds", "20", "true"],
+  ["violation_delete_retry_seconds", "2", "true"],
   ["forward_action", "warn", "true"],
   ["inline_keyboard_action", "warn", "true"],
   ["ban_after_warnings", "3", "true"],

@@ -196,7 +196,7 @@ class ModerationModule(BotModule):
             f"delete_forwarded_messages: {self.setting_bool(message.chat.id, 'delete_forwarded_messages', True)}",
             f"delete_inline_keyboard_messages: {self.setting_bool(message.chat.id, 'delete_inline_keyboard_messages', True)}",
             f"scan_bio_links: {self.setting_bool(message.chat.id, 'scan_bio_links', True)}",
-            f"bio_link_delete_message: {self.setting_bool(message.chat.id, 'bio_link_delete_message', False)}",
+            f"bio_link_delete_message: {self.setting_bool(message.chat.id, 'bio_link_delete_message', True)}",
         ]
         self.safe_reply(message, "\n".join(lines))
 
@@ -217,8 +217,8 @@ class ModerationModule(BotModule):
             return
 
         if self.detect_bio_link(message.chat.id, message.from_user):
-            if self.setting_bool(message.chat.id, "bio_link_delete_message", False):
-                self.safe_delete(message, "bio_link")
+            if self.setting_bool(message.chat.id, "bio_link_delete_message", True):
+                self.delete_violation_message(message, "bio_link")
             return
         if self.detect_spam(message):
             return
@@ -252,7 +252,7 @@ class ModerationModule(BotModule):
         count = self.state.add_user_message(message.chat.id, message.from_user.id, window)
         if count <= limit:
             return False
-        self.safe_delete(message, "spam")
+        self.delete_violation_message(message, "spam")
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
@@ -273,7 +273,7 @@ class ModerationModule(BotModule):
         if count <= limit:
             return False
 
-        self.safe_delete(message, f"{content_type}_spam")
+        self.delete_violation_message(message, f"{content_type}_spam")
         action = self.setting(message.chat.id, "media_spam_action", "restrict")
         reason = f"Gửi quá nhiều {content_type} trong thời gian ngắn."
         if action == "restrict":
@@ -297,12 +297,8 @@ class ModerationModule(BotModule):
             matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
             if matched:
                 action = row.get("action") or "warn"
-                should_delete = as_bool(row.get("delete"), True)
-                if should_delete:
-                    self.safe_delete(message, f"keyword:{keyword}:before_{action}")
+                self.delete_violation_message(message, f"keyword:{keyword}:before_{action}")
                 self.apply_action(message, action, row.get("reason") or "Từ khóa cấm.")
-                if should_delete and action.strip().lower() == "ban":
-                    self.delete_later(message.chat.id, message.message_id, 2, f"keyword:{keyword}:after_ban")
                 return True
         return False
 
@@ -315,7 +311,7 @@ class ModerationModule(BotModule):
         )
         if not forwarded:
             return False
-        self.safe_delete(message, "forwarded_message")
+        self.delete_violation_message(message, "forwarded_message")
         reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
         self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason)
         return True
@@ -326,7 +322,7 @@ class ModerationModule(BotModule):
         markup = getattr(message, "reply_markup", None)
         if not markup or not getattr(markup, "keyboard", None) and not getattr(markup, "inline_keyboard", None):
             return False
-        self.safe_delete(message, "inline_keyboard")
+        self.delete_violation_message(message, "inline_keyboard")
         self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.")
         return True
 
@@ -480,6 +476,12 @@ class ModerationModule(BotModule):
         timer.daemon = True
         timer.start()
 
+    def delete_violation_message(self, message, reason):
+        deleted = self.safe_delete(message, reason)
+        retry_seconds = self.setting_int(message.chat.id, "violation_delete_retry_seconds", 2)
+        if not deleted and retry_seconds > 0:
+            self.delete_later(message.chat.id, message.message_id, retry_seconds, f"{reason}:retry")
+
     def apply_action(self, message, action, reason):
         action = (action or "warn").strip().lower()
         if action == "delete":
@@ -538,6 +540,7 @@ class ModerationModule(BotModule):
                 getattr(message, "content_type", "-"),
                 reason,
             )
+            return True
         except Exception as exc:
             LOGGER.warning(
                 "Cannot delete message: chat_id=%s message_id=%s content_type=%s reason=%s error=%s",
@@ -547,6 +550,7 @@ class ModerationModule(BotModule):
                 reason,
                 exc,
             )
+            return False
 
     def safe_reply(self, message, text):
         try:
