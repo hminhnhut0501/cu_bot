@@ -124,7 +124,7 @@ class ModerationModule(BotModule):
 
     def handle_reload_command(self, message):
         self.sheets._cache.clear()
-        self.safe_reply(message, "Đã tải lại cấu hình từ Google Sheet.")
+        self.safe_reply(message, "Đã tải lại cấu hình.")
 
     def handle_warn_command(self, message):
         target_id = self.target_user_id(message)

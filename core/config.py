@@ -46,6 +46,9 @@ class Settings:
     google_sheets_api_key: str | None = None
     google_sheet_tabs: dict[str, str] = field(default_factory=dict)
     repair_mojibake: bool = False
+    data_backend: str = "google_sheets"
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
     legacy_message_sheet_url: str | None = None
     timezone: str = "Asia/Ho_Chi_Minh"
 
@@ -92,6 +95,9 @@ def load_settings():
         google_sheets_api_key=os.environ.get("GOOGLE_SHEETS_API_KEY") or None,
         google_sheet_tabs=google_sheet_tabs,
         repair_mojibake=_bool_env("REPAIR_MOJIBAKE", False),
+        data_backend=(os.environ.get("DATA_BACKEND") or "google_sheets").strip().lower(),
+        supabase_url=os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or None,
+        supabase_service_role_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or None,
         legacy_message_sheet_url=legacy_message_sheet_url,
         timezone=os.environ.get("TZ", "Asia/Ho_Chi_Minh"),
     )

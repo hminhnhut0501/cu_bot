@@ -8,6 +8,7 @@ import time
 from telebot.apihelper import ApiTelegramException
 
 from core.sheets import SheetStore
+from core.supabase_store import SupabaseStore
 from core.state import RuntimeState
 from keep_alive import keep_alive
 from modules.base import BotModule
@@ -20,16 +21,25 @@ class BotApplication:
     def __init__(self, bot, settings):
         self.bot = bot
         self.settings = settings
-        self.sheets = SheetStore(
-            settings.sheet_urls,
-            settings.sheets_refresh_seconds,
-            google_sheet_id=settings.google_sheet_id,
-            google_sheets_api_key=settings.google_sheets_api_key,
-            google_sheet_tabs=settings.google_sheet_tabs,
-            repair_mojibake=settings.repair_mojibake,
-        )
+        self.sheets = self._create_data_store()
         self.state = RuntimeState()
         self.modules = []
+
+    def _create_data_store(self):
+        if self.settings.data_backend == "supabase":
+            return SupabaseStore(
+                self.settings.supabase_url,
+                self.settings.supabase_service_role_key,
+                self.settings.sheets_refresh_seconds,
+            )
+        return SheetStore(
+            self.settings.sheet_urls,
+            self.settings.sheets_refresh_seconds,
+            google_sheet_id=self.settings.google_sheet_id,
+            google_sheets_api_key=self.settings.google_sheets_api_key,
+            google_sheet_tabs=self.settings.google_sheet_tabs,
+            repair_mojibake=self.settings.repair_mojibake,
+        )
 
     def start(self):
         if self.settings.keep_alive_enabled:

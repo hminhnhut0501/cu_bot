@@ -20,6 +20,57 @@ GOOGLE_SHEET_ID=your-spreadsheet-id
 GOOGLE_SHEETS_API_KEY=your-google-api-key
 ```
 
+## Supabase Backend
+
+To use Supabase instead of Google Sheets, create the tables with:
+
+```text
+docs/supabase/generated_from_your_sheet_fixed.sql
+```
+
+Then configure the bot runtime:
+
+```bash
+BOT_TOKEN=123456:telegram-token
+DATA_BACKEND=supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SHEETS_REFRESH_SECONDS=120
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` has full database access. Keep it server-side only and rotate it if it was shared publicly.
+
+## Vercel Control Panel
+
+This repository also contains a Next.js control panel for Supabase tables. Import this Git repository into Vercel and add these environment variables:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+CP_ADMIN_PASSWORD=choose-a-strong-password
+```
+
+Vercel build settings can stay on the defaults:
+
+```text
+Framework Preset: Next.js
+Build Command: npm run build
+Install Command: npm install
+Output Directory: .next
+```
+
+Open the deployed Vercel URL, enter `CP_ADMIN_PASSWORD`, and manage:
+
+```text
+groups
+config
+messages
+keywords
+admins
+bot_allowlist
+video_messages
+```
+
 The bot reads tabs directly from Google Sheets API as JSON, so Vietnamese text is preserved correctly. The default tab names are:
 
 ```text

@@ -27,7 +27,7 @@ class CommandsModule(BotModule):
             telebot.types.BotCommand("start", "Nhận một tin nhắn ngẫu nhiên"),
             telebot.types.BotCommand("help", "Xem menu chức năng"),
             telebot.types.BotCommand("policy", "Xem nội quy nhóm"),
-            telebot.types.BotCommand("reload", "Tải lại cấu hình Google Sheet"),
+            telebot.types.BotCommand("reload", "Tải lại cấu hình"),
             telebot.types.BotCommand("checkbio", "Kiểm tra bio thành viên"),
             telebot.types.BotCommand("debuggroup", "Kiểm tra quyền bot trong group"),
             telebot.types.BotCommand("warn", "Cảnh báo thành viên"),
@@ -53,7 +53,7 @@ class CommandsModule(BotModule):
             "Menu chức năng:\n"
             "/start - Nhận một tin nhắn ngẫu nhiên\n"
             "/policy - Xem nội quy nhóm\n"
-            "/reload - Tải lại cấu hình Google Sheet\n"
+            "/reload - Tải lại cấu hình\n"
             "/checkbio - Kiểm tra bio thành viên\n"
             "/debuggroup - Kiểm tra quyền bot trong group\n"
             "/warn - Cảnh báo thành viên\n"
