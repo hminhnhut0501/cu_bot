@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isAuthorized } from "@/lib/apiAuth";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { TABLE_MAP } from "@/lib/tables";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +68,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   }
 
   const search = request.nextUrl.searchParams.get("search")?.trim();
+  const supabaseAdmin = getSupabaseAdmin();
   let query = supabaseAdmin.from(params.table).select("*").order("id", { ascending: true });
   if (search) {
     const searchFields = config.fields.filter((field) => field.type === "text" || field.type === "textarea").slice(0, 5);
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const body = await request.json();
     if (Array.isArray(body.rows)) {
       const rows = body.rows.map((row) => cleanPayload(params.table, row));
@@ -126,6 +128,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   try {
+    const supabaseAdmin = getSupabaseAdmin();
     const body = await request.json();
     const id = Number(body.id);
     if (!id) {
@@ -155,6 +158,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     return badRequest("Missing id.");
   }
 
+  const supabaseAdmin = getSupabaseAdmin();
   const { error } = await supabaseAdmin.from(params.table).delete().eq("id", id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

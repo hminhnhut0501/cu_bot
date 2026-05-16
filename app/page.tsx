@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  ClipboardPaste,
   Check,
   Database,
   Edit3,
@@ -21,6 +20,7 @@ import {
 import { FieldConfig, TableConfig } from "@/lib/tables";
 
 type Row = Record<string, any>;
+type BulkRow = Record<string, string | number | boolean | null>;
 
 type Meta = {
   tables: TableConfig[];
@@ -98,17 +98,17 @@ function parseDelimited(line: string) {
   return line.split(delimiter).map((part) => part.trim()).filter(Boolean);
 }
 
-function parseBulkRows(tableKey: string, text: string) {
+function parseBulkRows(tableKey: string, text: string): BulkRow[] {
   const lines = splitBulkLines(text);
   if (tableKey === "messages") {
-    return lines.map((line) => {
+    return lines.map((line): BulkRow => {
       const [message, pool = "default", weight = "1"] = parseDelimited(line);
       return { message, pool, weight: Number(weight) || 1, enabled: true };
     });
   }
 
   if (tableKey === "keywords") {
-    return lines.map((line) => {
+    return lines.map((line): BulkRow => {
       const [keyword, actionOrMatch = "delete", reason = "Từ khóa cấm"] = parseDelimited(line);
       const isMatch = ["contains", "regex"].includes(actionOrMatch);
       return {
@@ -122,7 +122,7 @@ function parseBulkRows(tableKey: string, text: string) {
   }
 
   if (tableKey === "video_messages") {
-    return lines.map((line) => {
+    return lines.map((line): BulkRow => {
       const parts = parseDelimited(line);
       const numbers = line.match(/-?\d{5,}/g) || [];
       const fromChatId = parts[0]?.startsWith("-100") ? parts[0] : numbers[0] || "";
@@ -433,7 +433,7 @@ export default function HomePage() {
             </button>
             {bulkTables.has(table.key) ? (
               <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
-                <ClipboardPaste size={17} />
+                <Edit3 size={17} />
                 Nhập nhanh
               </button>
             ) : null}
