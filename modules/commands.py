@@ -40,7 +40,7 @@ class CommandsModule(BotModule):
             LOGGER.warning("Cannot set bot commands menu: %s", exc)
 
     def handle_start(self, message):
-        selected = weighted_choice(self.sheets.enabled_rows("messages"))
+        selected = weighted_choice(self.store.enabled_rows("messages"))
         text = (
             selected.get("message") or selected.get("text")
             if selected
@@ -64,7 +64,7 @@ class CommandsModule(BotModule):
 
     def handle_policy_callback(self, call):
         self.bot.answer_callback_query(call.id)
-        text = self.sheets.value(
+        text = self.store.value(
             "policy_text",
             "Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam/quảng cáo.\n3. Không gửi nội dung cấm.",
         )

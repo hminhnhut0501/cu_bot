@@ -7,9 +7,11 @@ import {
   Edit3,
   Loader2,
   Plus,
+  Power,
   RefreshCcw,
   Save,
   Search,
+  ShieldCheck,
   Trash2,
   X
 } from "lucide-react";
@@ -43,6 +45,39 @@ function emptyValues(table: TableConfig) {
 
 function titleFor(row: Row, table: TableConfig) {
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
+}
+
+function fieldByKey(table: TableConfig, key: string) {
+  return table.fields.find((field) => field.key === key);
+}
+
+function displayValue(value: unknown) {
+  if (value === true) {
+    return "Bật";
+  }
+  if (value === false) {
+    return "Tắt";
+  }
+  if (value === null || value === undefined || value === "") {
+    return "Chưa đặt";
+  }
+  return String(value);
+}
+
+function previewText(row: Row, table: TableConfig) {
+  const key = table.titleField;
+  const raw = row[key] || row.value || row.reason || row.notes || "";
+  return String(raw).replace(/\s+/g, " ").trim();
+}
+
+function groupedFields(table: TableConfig) {
+  const groups: Record<string, FieldConfig[]> = {};
+  for (const field of table.fields) {
+    const section = field.section || "Thông tin";
+    groups[section] = groups[section] || [];
+    groups[section].push(field);
+  }
+  return Object.entries(groups);
 }
 
 export default function HomePage() {
@@ -155,7 +190,7 @@ export default function HomePage() {
           body: JSON.stringify(draft)
         });
       }
-      setNotice("Da luu.");
+      setNotice("Đã lưu thay đổi.");
       await loadRows(search);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot save.");
@@ -165,14 +200,14 @@ export default function HomePage() {
   }
 
   async function remove(row: Row) {
-    if (!table || !window.confirm(`Xoa "${titleFor(row, table)}"?`)) {
+    if (!table || !window.confirm(`Xóa "${titleFor(row, table)}"?`)) {
       return;
     }
     setError("");
     try {
       await api(`/api/${table.key}?id=${row.id}`, { method: "DELETE" });
       await loadRows(search);
-      setNotice("Da xoa.");
+      setNotice("Đã xóa.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot delete.");
     }
@@ -195,13 +230,13 @@ export default function HomePage() {
     return (
       <main className="loading">
         <Loader2 className="spin" size={22} />
-        Dang tai control panel
+        Đang tải control panel
       </main>
     );
   }
 
   if (!meta || !table) {
-    return <main className="loading">Khong doc duoc cau hinh control panel.</main>;
+    return <main className="loading">Không đọc được cấu hình control panel.</main>;
   }
 
   if (meta.passwordRequired && !savedPassword) {
@@ -210,7 +245,7 @@ export default function HomePage() {
         <form className="login-panel" onSubmit={unlock}>
           <Database size={28} />
           <h1>Cu Bot CP</h1>
-          <p>Nhap mat khau admin da cau hinh trong Vercel.</p>
+          <p>Nhập mật khẩu admin đã cấu hình trong Vercel.</p>
           <input
             type="password"
             value={password}
@@ -220,7 +255,7 @@ export default function HomePage() {
           />
           <button type="submit">
             <Check size={17} />
-            Dang nhap
+            Đăng nhập
           </button>
         </form>
       </main>
@@ -234,7 +269,7 @@ export default function HomePage() {
           <Database size={24} />
           <div>
             <h1>Cu Bot CP</h1>
-            <span>Supabase control panel</span>
+            <span>Quản trị Supabase</span>
           </div>
         </div>
         <nav>
@@ -266,14 +301,14 @@ export default function HomePage() {
               }}
             >
               <Search size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tim kiem" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm" />
             </form>
-            <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tai lai">
+            <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
             <button type="button" className="primary" onClick={startCreate}>
               <Plus size={17} />
-              Them
+              Thêm
             </button>
           </div>
         </header>
@@ -282,46 +317,56 @@ export default function HomePage() {
         {notice ? <div className="alert success">{notice}</div> : null}
 
         <div className="content-grid">
-          <section className="table-panel">
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Noi dung</th>
-                    <th>Enabled</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.id}</td>
-                      <td>
-                        <button className="row-title" type="button" onClick={() => startEdit(row)}>
-                          {titleFor(row, table)}
-                        </button>
-                      </td>
-                      <td>{row.enabled === false ? "Off" : "On"}</td>
-                      <td className="row-actions">
-                        <button type="button" title="Sua" onClick={() => startEdit(row)}>
-                          <Edit3 size={16} />
-                        </button>
-                        <button type="button" title="Xoa" onClick={() => remove(row)}>
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {!rows.length && !loading ? (
-                    <tr>
-                      <td colSpan={4} className="empty">
-                        Chua co du lieu
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
+          <section className="list-panel">
+            <div className="list-header">
+              <div>
+                <strong>{rows.length}</strong>
+                <span> mục</span>
+              </div>
+              <span>Chọn một mục để chỉnh sửa</span>
+            </div>
+
+            <div className="card-list">
+              {rows.map((row) => (
+                <article className={`data-card ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
+                  <button className="card-main" type="button" onClick={() => startEdit(row)}>
+                    <div className="card-title-row">
+                      <h3>{titleFor(row, table)}</h3>
+                      <span className={row.enabled === false ? "status off" : "status on"}>
+                        <Power size={13} />
+                        {row.enabled === false ? "Tắt" : "Bật"}
+                      </span>
+                    </div>
+                    <p>{previewText(row, table) || "Chưa có nội dung mô tả."}</p>
+                    <div className="meta-grid">
+                      {table.summaryFields.map((key) => {
+                        const field = fieldByKey(table, key);
+                        return (
+                          <span className="meta-pill" key={key}>
+                            <b>{field?.label || key}</b>
+                            {displayValue(row[key])}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </button>
+                  <div className="card-actions">
+                    <button type="button" title="Sửa" onClick={() => startEdit(row)}>
+                      <Edit3 size={16} />
+                    </button>
+                    <button type="button" title="Xóa" onClick={() => remove(row)}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {!rows.length && !loading ? (
+                <div className="empty-state">
+                  <ShieldCheck size={28} />
+                  <strong>Chưa có dữ liệu</strong>
+                  <span>Bấm Thêm để tạo mục đầu tiên.</span>
+                </div>
+              ) : null}
             </div>
           </section>
 
@@ -329,57 +374,63 @@ export default function HomePage() {
             {Object.keys(draft).length ? (
               <form onSubmit={save}>
                 <div className="editor-title">
-                  <h3>{selected ? "Sua dong" : "Them dong"}</h3>
+                  <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
                   <button type="button" className="icon-button" onClick={() => setDraft({})}>
                     <X size={17} />
                   </button>
                 </div>
                 <div className="fields">
-                  {table.fields.map((field) => (
-                    <label key={field.key} className={field.type === "boolean" ? "checkbox-field" : ""}>
-                      <span>{field.label}</span>
-                      {field.type === "textarea" ? (
-                        <textarea
-                          value={draft[field.key] ?? ""}
-                          onChange={(event) => updateField(field, event.target.value)}
-                          placeholder={field.placeholder}
-                          rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
-                        />
-                      ) : field.type === "boolean" ? (
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft[field.key])}
-                          onChange={(event) => updateField(field, event.target.checked)}
-                        />
-                      ) : field.type === "select" ? (
-                        <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
-                          <option value="">Mac dinh</option>
-                          {field.options?.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.type === "number" ? "number" : "text"}
-                          value={draft[field.key] ?? ""}
-                          onChange={(event) => updateField(field, event.target.value)}
-                          placeholder={field.placeholder}
-                        />
-                      )}
-                    </label>
+                  {groupedFields(table).map(([section, fields]) => (
+                    <section className="field-section" key={section}>
+                      <h4>{section}</h4>
+                      {fields.map((field) => (
+                        <label key={field.key} className={field.type === "boolean" ? "checkbox-field" : ""}>
+                          <span>{field.label}</span>
+                          {field.type === "textarea" ? (
+                            <textarea
+                              value={draft[field.key] ?? ""}
+                              onChange={(event) => updateField(field, event.target.value)}
+                              placeholder={field.placeholder}
+                              rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
+                            />
+                          ) : field.type === "boolean" ? (
+                            <input
+                              type="checkbox"
+                              checked={Boolean(draft[field.key])}
+                              onChange={(event) => updateField(field, event.target.checked)}
+                            />
+                          ) : field.type === "select" ? (
+                            <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
+                              <option value="">Mặc định</option>
+                              {field.options?.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={field.type === "number" ? "number" : "text"}
+                              value={draft[field.key] ?? ""}
+                              onChange={(event) => updateField(field, event.target.value)}
+                              placeholder={field.placeholder}
+                            />
+                          )}
+                          {field.helper ? <small>{field.helper}</small> : null}
+                        </label>
+                      ))}
+                    </section>
                   ))}
                 </div>
                 <button className="primary save" disabled={saving} type="submit">
                   {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                  Luu
+                  Lưu
                 </button>
               </form>
             ) : (
               <div className="placeholder">
                 <Edit3 size={24} />
-                Chon mot dong de sua hoac bam Them.
+                Chọn một mục để sửa hoặc bấm Thêm.
               </div>
             )}
           </section>

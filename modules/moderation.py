@@ -123,7 +123,7 @@ class ModerationModule(BotModule):
         self.send_policy(message.chat.id, message.message_id)
 
     def handle_reload_command(self, message):
-        self.sheets._cache.clear()
+        self.store._cache.clear()
         self.safe_reply(message, "Đã tải lại cấu hình.")
 
     def handle_warn_command(self, message):
@@ -289,7 +289,7 @@ class ModerationModule(BotModule):
         if not text:
             return False
         normalized = normalize_text(text)
-        for row in self.sheets.enabled_rows("keywords"):
+        for row in self.store.enabled_rows("keywords"):
             keyword = normalize_text(row.get("keyword") or row.get("word"))
             if not keyword:
                 continue
@@ -559,7 +559,7 @@ class ModerationModule(BotModule):
             LOGGER.warning("Cannot reply in %s: %s", message.chat.id, exc)
 
     def send_policy(self, chat_id, reply_to_message_id=None):
-        text = self.setting(chat_id, "policy_text", None) or self.sheets.value(
+        text = self.setting(chat_id, "policy_text", None) or self.store.value(
             "policy_text",
             "Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam/quảng cáo.\n3. Không gửi nội dung cấm.",
         )
@@ -569,7 +569,7 @@ class ModerationModule(BotModule):
             LOGGER.warning("Cannot send policy to %s: %s", chat_id, exc)
 
     def group_enabled(self, chat_id):
-        rows = self.sheets.enabled_rows("groups")
+        rows = self.store.enabled_rows("groups")
         if not rows:
             return True
         chat_id = str(chat_id)
@@ -580,7 +580,7 @@ class ModerationModule(BotModule):
 
     def group_row(self, chat_id):
         chat_id = str(chat_id)
-        for row in self.sheets.enabled_rows("groups"):
+        for row in self.store.enabled_rows("groups"):
             if normalize_id(row.get("group_id") or row.get("chat_id")) == chat_id:
                 return row
         return {}
@@ -589,7 +589,7 @@ class ModerationModule(BotModule):
         row = self.group_row(chat_id)
         if row.get(key) not in (None, ""):
             return row.get(key)
-        return self.sheets.value(key, default)
+        return self.store.value(key, default)
 
     def setting_bool(self, chat_id, key, default=False):
         return as_bool(self.setting(chat_id, key, default), default)
@@ -600,7 +600,7 @@ class ModerationModule(BotModule):
     def bot_allowed(self, chat_id, user):
         if getattr(user, "id", None) == self.bot.get_me().id:
             return True
-        rows = self.sheets.enabled_rows("bot_allowlist")
+        rows = self.store.enabled_rows("bot_allowlist")
         if not rows:
             return False
         username = (getattr(user, "username", "") or "").lstrip("@").lower()
@@ -617,7 +617,7 @@ class ModerationModule(BotModule):
     def is_admin(self, chat_id, user_id):
         if int(user_id) in self.settings.owner_ids:
             return True
-        for row in self.sheets.enabled_rows("admins"):
+        for row in self.store.enabled_rows("admins"):
             row_chat = row.get("chat_id") or row.get("group_id")
             if row_chat and row_chat != str(chat_id):
                 continue

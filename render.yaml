@@ -8,5 +8,5 @@ services:
     envVars:
       - key: KEEP_ALIVE_ENABLED
         value: "true"
-      - key: SHEETS_REFRESH_SECONDS
+      - key: DATA_REFRESH_SECONDS
         value: "120"

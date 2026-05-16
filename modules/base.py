@@ -5,7 +5,7 @@ class BotModule:
     def __init__(self, app):
         self.app = app
         self.bot = app.bot
-        self.sheets = app.sheets
+        self.store = app.store
         self.state = app.state
         self.settings = app.settings
 

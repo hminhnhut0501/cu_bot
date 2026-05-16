@@ -1,13 +1,13 @@
 # Cu Bot
 
-Telegram group-management bot with modular features and Google Sheet driven settings.
+Telegram group-management bot with Supabase-driven settings and a Vercel admin control panel.
 
 ## Main Features
 
 - Auto-loads modules from `modules/`.
-- Reads settings from public Google Sheets CSV URLs with cache refresh.
+- Reads settings from Supabase with cache refresh.
 - Deletes Telegram system/service messages in groups where the bot is admin.
-- Sends a random scheduled daily message from a sheet list.
+- Sends a scheduled daily message from Supabase content.
 - Copies a random video anonymously from a configured source message list.
 - Moderates spam, forbidden keywords, forwarded posts, inline-button posts, bot messages, and unknown bots.
 - Supports warnings and bans through admin commands.
@@ -16,13 +16,13 @@ Telegram group-management bot with modular features and Google Sheet driven sett
 
 ```bash
 BOT_TOKEN=123456:telegram-token
-GOOGLE_SHEET_ID=your-spreadsheet-id
-GOOGLE_SHEETS_API_KEY=your-google-api-key
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ## Supabase Backend
 
-To use Supabase instead of Google Sheets, create the tables with:
+Create the database tables and essential seed data with:
 
 ```text
 docs/supabase/import_essential.sql
@@ -32,10 +32,9 @@ Then configure the bot runtime:
 
 ```bash
 BOT_TOKEN=123456:telegram-token
-DATA_BACKEND=supabase
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SHEETS_REFRESH_SECONDS=120
+DATA_REFRESH_SECONDS=120
 ```
 
 `SUPABASE_SERVICE_ROLE_KEY` has full database access. Keep it server-side only and rotate it if it was shared publicly.
@@ -71,34 +70,6 @@ bot_allowlist
 video_messages
 ```
 
-The bot reads tabs directly from Google Sheets API as JSON, so Vietnamese text is preserved correctly. The default tab names are:
-
-```text
-groups
-config
-messages
-keywords
-admins
-bot_allowlist
-video_messages
-```
-
-If your tab names are different, map them with:
-
-```bash
-GOOGLE_SHEET_TABS_JSON={"groups":"Groups","messages":"Messages"}
-```
-
-Legacy compatibility: published CSV URLs still work through `GROUPS_CSV_URL`, `MESSAGES_CSV_URL`, `CONFIG_CSV_URL`, etc. Prefer `GOOGLE_SHEET_ID + GOOGLE_SHEETS_API_KEY` for Vietnamese content.
-
-If your sheet already contains broken mojibake text and you want the bot to try repairing it at runtime, set:
-
-```bash
-REPAIR_MOJIBAKE=true
-```
-
-Keep it unset or `false` for normal Vietnamese text.
-
 Optional bot owner env:
 
 ```bash
@@ -116,7 +87,7 @@ POLLING_RETRY_SECONDS=45
 
 These prevent a temporary Telegram `409 Conflict` during Render redeploy overlap from crashing the service.
 
-## Sheet Schemas
+## Supabase Tables
 
 ### `groups`
 
@@ -124,7 +95,7 @@ These prevent a temporary Telegram `409 Conflict` during Render redeploy overlap
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | -1001234567890 | true | true | 20:00 | 23:59 | false | default | true | 21:00 | 23:00 | default | 6 | 12 |
 
-If the `groups` sheet is empty or missing, moderation runs in every group. Scheduled posts need `groups`.
+If the `groups` table is empty or missing, moderation runs in every group. Scheduled posts need `groups`.
 
 Moderation features such as system-message cleanup, spam filtering, keyword filtering, bot cleanup, forwarded-post cleanup, and bio scanning run in every group by default when the bot is admin. Use `groups.moderation_enabled=false` only if you want to disable moderation for a specific group. Scheduled messages and scheduled videos still require group IDs in `groups`.
 
@@ -132,7 +103,7 @@ Moderation features such as system-message cleanup, spam filtering, keyword filt
 
 | key | value | enabled |
 |---|---|---|
-| policy_text | Noi quy nhom... | true |
+| policy_text | Nội quy nhóm... | true |
 | delete_system_messages | true | true |
 | delete_forwarded_messages | true | true |
 | delete_inline_keyboard_messages | true | true |
@@ -210,7 +181,7 @@ The bot uses `copy_message`, so the destination group does not see the original 
 - `/warn <user_id>` or reply `/warn`: warn a user.
 - `/ban <user_id>` or reply `/ban`: ban a user.
 - `/unban <user_id>`: unban and reset warnings.
-- `/reload`: clear sheet cache and reload on next read.
+- `/reload`: clear Supabase cache and reload on next read.
 - `/checkbio <user_id>` or reply `/checkbio`: rescan a member bio. If the bio is clean, chat permissions are restored.
 - `/debuggroup`: show bot permissions and moderation settings for the current group.
 

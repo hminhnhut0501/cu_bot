@@ -139,7 +139,7 @@ insert into groups (
   notes
 ) values (
   '-1002151486481',
-  'Hang Cu chat',
+  'Hàng Cú chat',
   true,
   true,
   true,
@@ -153,7 +153,7 @@ insert into groups (
   'warn',
   'warn',
   3,
-  'Canh bao: {reason} ({count}/{limit})',
+  'Cảnh báo: {reason} ({count}/{limit})',
   true,
   '20:00',
   '23:59',
@@ -161,32 +161,32 @@ insert into groups (
   'default',
   false,
   'default',
-  'Sua group_id/group_name trong control panel neu can.'
+  'Sửa group_id và tên nhóm trong control panel nếu cần.'
 );
 
 insert into config (key, value, enabled, notes) values
   (
     'policy_text',
-    'Quy dinh nhom:\n1. Ton trong thanh vien.\n2. Khong spam hoac quang cao.\n3. Khong forward bai/video vao nhom.\n4. Admin co quyen mute/kick/ban neu vi pham.',
+    'Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam hoặc quảng cáo.\n3. Không forward bài/video vào nhóm.\n4. Admin có quyền mute/kick/ban nếu vi phạm.',
     true,
-    'Noi quy hien khi go /policy.'
+    'Nội quy hiển thị khi gõ /policy.'
   ),
-  ('send_on_boot', 'false', true, 'Khong gui tin ngay khi bot khoi dong.'),
-  ('send_if_silent', 'false', true, 'Chi gui tin hang ngay neu group co hoat dong.');
+  ('send_on_boot', 'false', true, 'Không gửi tin ngay khi bot khởi động.'),
+  ('send_if_silent', 'false', true, 'Chỉ gửi tin hằng ngày nếu group có hoạt động.');
 
 insert into messages (message, pool, weight, enabled, notes) values
   (
-    'Bot dang hoat dong. Admin co the sua noi dung nay trong control panel.',
+    'Bot đang hoạt động. Admin có thể sửa nội dung này trong control panel.',
     'default',
     1,
     true,
-    'Tin nhan mac dinh duy nhat.'
+    'Tin nhắn mặc định duy nhất.'
   );
 
 insert into admins (user_id, chat_id, enabled, notes) values
-  ('887869657', '-1002151486481', true, 'Admin tu sheet'),
-  ('7344961485', null, true, 'Admin global tu sheet'),
-  ('5080922525', null, true, 'Admin global tu sheet');
+  ('887869657', '-1002151486481', true, 'Admin chính'),
+  ('7344961485', null, true, 'Admin toàn hệ thống'),
+  ('5080922525', null, true, 'Admin toàn hệ thống');
 
 select 'groups' as table_name, count(*) as row_count from groups;
 select 'config' as table_name, count(*) as row_count from config;

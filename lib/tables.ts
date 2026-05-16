@@ -7,6 +7,8 @@ export type FieldConfig = {
   required?: boolean;
   options?: string[];
   placeholder?: string;
+  section?: string;
+  helper?: string;
 };
 
 export type TableConfig = {
@@ -15,121 +17,129 @@ export type TableConfig = {
   description: string;
   fields: FieldConfig[];
   titleField: string;
+  summaryFields: string[];
 };
 
 export const TABLES: TableConfig[] = [
   {
     key: "groups",
-    label: "Groups",
-    description: "Cau hinh group Telegram va lich gui tin.",
+    label: "Nhóm",
+    description: "Quản lý group Telegram, chống spam và lịch gửi nội dung.",
     titleField: "group_name",
+    summaryFields: ["group_id", "daily_enabled", "video_enabled", "spam_action"],
     fields: [
-      { key: "group_id", label: "Group ID", type: "text", required: true, placeholder: "-100..." },
-      { key: "group_name", label: "Ten group", type: "text" },
-      { key: "enabled", label: "Bat group", type: "boolean" },
-      { key: "delete_system_messages", label: "Xoa tin he thong", type: "boolean" },
-      { key: "delete_forwarded_messages", label: "Chan forward", type: "boolean" },
-      { key: "delete_inline_keyboard_messages", label: "Chan nut bam", type: "boolean" },
-      { key: "delete_messages_from_bots", label: "Chan bot la", type: "boolean" },
-      { key: "remove_unknown_bots", label: "Kick bot la", type: "boolean" },
-      { key: "exempt_admins", label: "Bo qua admin", type: "boolean" },
-      { key: "spam_max_messages", label: "Spam max", type: "number" },
-      { key: "spam_window_seconds", label: "Spam window", type: "number" },
-      { key: "spam_action", label: "Spam action", type: "select", options: ["delete", "warn", "ban"] },
-      { key: "forward_action", label: "Forward action", type: "select", options: ["delete", "warn", "ban"] },
-      { key: "inline_keyboard_action", label: "Button action", type: "select", options: ["delete", "warn", "ban"] },
-      { key: "ban_after_warnings", label: "Ban sau canh bao", type: "number" },
-      { key: "warning_text", label: "Mau canh bao", type: "textarea" },
-      { key: "daily_enabled", label: "Gui tin moi ngay", type: "boolean" },
-      { key: "daily_window_start", label: "Gio bat dau", type: "text", placeholder: "20:00" },
-      { key: "daily_window_end", label: "Gio ket thuc", type: "text", placeholder: "23:59" },
-      { key: "send_if_silent", label: "Gui khi group im lang", type: "boolean" },
-      { key: "message_pool", label: "Pool tin nhan", type: "text" },
-      { key: "video_enabled", label: "Gui video", type: "boolean" },
-      { key: "video_window_start", label: "Gio video bat dau", type: "text" },
-      { key: "video_window_end", label: "Gio video ket thuc", type: "text" },
-      { key: "video_pool", label: "Pool video", type: "text" },
-      { key: "policy_text", label: "Noi quy rieng", type: "textarea" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "group_id", label: "Group ID", type: "text", required: true, placeholder: "-100...", section: "Thông tin nhóm" },
+      { key: "group_name", label: "Tên nhóm", type: "text", section: "Thông tin nhóm" },
+      { key: "enabled", label: "Bật nhóm", type: "boolean", section: "Thông tin nhóm" },
+      { key: "delete_system_messages", label: "Xóa tin hệ thống", type: "boolean", section: "Kiểm duyệt" },
+      { key: "delete_forwarded_messages", label: "Chặn tin forward", type: "boolean", section: "Kiểm duyệt" },
+      { key: "delete_inline_keyboard_messages", label: "Chặn bài có nút bấm", type: "boolean", section: "Kiểm duyệt" },
+      { key: "delete_messages_from_bots", label: "Chặn bot lạ gửi tin", type: "boolean", section: "Kiểm duyệt" },
+      { key: "remove_unknown_bots", label: "Tự kick bot lạ", type: "boolean", section: "Kiểm duyệt" },
+      { key: "exempt_admins", label: "Bỏ qua admin", type: "boolean", section: "Kiểm duyệt" },
+      { key: "spam_max_messages", label: "Số tin spam tối đa", type: "number", section: "Chống spam" },
+      { key: "spam_window_seconds", label: "Khung thời gian spam", type: "number", section: "Chống spam" },
+      { key: "spam_action", label: "Xử lý spam", type: "select", options: ["delete", "warn", "ban"], section: "Chống spam" },
+      { key: "forward_action", label: "Xử lý forward", type: "select", options: ["delete", "warn", "ban"], section: "Chống spam" },
+      { key: "inline_keyboard_action", label: "Xử lý bài có nút", type: "select", options: ["delete", "warn", "ban"], section: "Chống spam" },
+      { key: "ban_after_warnings", label: "Ban sau số cảnh báo", type: "number", section: "Chống spam" },
+      { key: "warning_text", label: "Mẫu cảnh báo", type: "textarea", section: "Chống spam" },
+      { key: "daily_enabled", label: "Gửi tin hằng ngày", type: "boolean", section: "Lịch gửi tin" },
+      { key: "daily_window_start", label: "Bắt đầu", type: "text", placeholder: "20:00", section: "Lịch gửi tin" },
+      { key: "daily_window_end", label: "Kết thúc", type: "text", placeholder: "23:59", section: "Lịch gửi tin" },
+      { key: "send_if_silent", label: "Gửi khi nhóm im lặng", type: "boolean", section: "Lịch gửi tin" },
+      { key: "message_pool", label: "Nhóm nội dung", type: "text", section: "Lịch gửi tin" },
+      { key: "video_enabled", label: "Gửi video", type: "boolean", section: "Video" },
+      { key: "video_window_start", label: "Video bắt đầu", type: "text", section: "Video" },
+      { key: "video_window_end", label: "Video kết thúc", type: "text", section: "Video" },
+      { key: "video_pool", label: "Nhóm video", type: "text", section: "Video" },
+      { key: "policy_text", label: "Nội quy riêng", type: "textarea", section: "Nội dung" },
+      { key: "notes", label: "Ghi chú", type: "textarea", section: "Nội dung" }
     ]
   },
   {
     key: "config",
-    label: "Config",
-    description: "Cau hinh mac dinh dung chung cho bot.",
+    label: "Cài đặt",
+    description: "Các thiết lập mặc định dùng chung cho bot.",
     titleField: "key",
+    summaryFields: ["value", "enabled"],
     fields: [
-      { key: "key", label: "Key", type: "text", required: true },
-      { key: "value", label: "Value", type: "textarea" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "key", label: "Mã cài đặt", type: "text", required: true },
+      { key: "value", label: "Giá trị", type: "textarea" },
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   },
   {
     key: "messages",
-    label: "Messages",
-    description: "Noi dung bot gui ngau nhien moi ngay hoac khi /start.",
+    label: "Tin nhắn",
+    description: "Nội dung bot gửi khi /start hoặc theo lịch.",
     titleField: "message",
+    summaryFields: ["pool", "weight", "enabled"],
     fields: [
-      { key: "message", label: "Noi dung", type: "textarea", required: true },
-      { key: "pool", label: "Pool", type: "text" },
-      { key: "weight", label: "Weight", type: "number" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "message", label: "Nội dung", type: "textarea", required: true },
+      { key: "pool", label: "Nhóm nội dung", type: "text" },
+      { key: "weight", label: "Độ ưu tiên", type: "number" },
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   },
   {
     key: "keywords",
-    label: "Keywords",
-    description: "Tu khoa cam va hanh dong xu ly.",
+    label: "Từ khóa cấm",
+    description: "Từ khóa cần xóa, cảnh báo hoặc ban.",
     titleField: "keyword",
+    summaryFields: ["match", "action", "reason"],
     fields: [
-      { key: "keyword", label: "Tu khoa", type: "text", required: true },
-      { key: "match", label: "Match", type: "select", options: ["contains", "regex"] },
-      { key: "action", label: "Action", type: "select", options: ["delete", "warn", "ban"] },
-      { key: "reason", label: "Ly do", type: "text" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "keyword", label: "Từ khóa", type: "text", required: true },
+      { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex"] },
+      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "ban"] },
+      { key: "reason", label: "Lý do", type: "text" },
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   },
   {
     key: "admins",
-    label: "Admins",
-    description: "User duoc phep dung lenh quan tri.",
+    label: "Quản trị viên",
+    description: "User được phép dùng lệnh quản trị bot.",
     titleField: "user_id",
+    summaryFields: ["chat_id", "enabled", "notes"],
     fields: [
       { key: "user_id", label: "User ID", type: "text", required: true },
       { key: "chat_id", label: "Chat ID", type: "text" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   },
   {
     key: "bot_allowlist",
-    label: "Bot Allowlist",
-    description: "Bot duoc phep ton tai/gui tin trong group.",
+    label: "Bot được phép",
+    description: "Danh sách bot được phép tồn tại hoặc gửi tin.",
     titleField: "username",
+    summaryFields: ["bot_id", "chat_id", "enabled"],
     fields: [
       { key: "bot_id", label: "Bot ID", type: "text" },
       { key: "username", label: "Username", type: "text" },
       { key: "chat_id", label: "Chat ID", type: "text" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   },
   {
     key: "video_messages",
-    label: "Videos",
-    description: "Nguon message video de bot copy an danh.",
+    label: "Video",
+    description: "Nguồn message video để bot copy ẩn danh.",
     titleField: "message_id",
+    summaryFields: ["from_chat_id", "pool", "enabled"],
     fields: [
       { key: "from_chat_id", label: "Source chat ID", type: "text", required: true },
       { key: "message_id", label: "Message ID", type: "text", required: true },
       { key: "caption", label: "Caption", type: "textarea" },
-      { key: "pool", label: "Pool", type: "text" },
-      { key: "weight", label: "Weight", type: "number" },
-      { key: "enabled", label: "Enabled", type: "boolean" },
-      { key: "notes", label: "Ghi chu", type: "textarea" }
+      { key: "pool", label: "Nhóm video", type: "text" },
+      { key: "weight", label: "Độ ưu tiên", type: "number" },
+      { key: "enabled", label: "Trạng thái", type: "boolean" },
+      { key: "notes", label: "Ghi chú", type: "textarea" }
     ]
   }
 ];
