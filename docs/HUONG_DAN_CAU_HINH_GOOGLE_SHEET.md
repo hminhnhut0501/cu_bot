@@ -768,6 +768,21 @@ Hành động khi phát hiện keyword.
 | `warn` | Xóa tin và cảnh báo user |
 | `ban` | Xóa tin và ban user |
 
+### Cột `delete`
+
+Quyết định có xóa tin chứa từ khóa cấm hay không.
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `true` | Xóa tin vi phạm. Đây là mặc định nếu để trống |
+| `false` | Không xóa tin, chỉ thực hiện action |
+
+Khuyến dùng:
+
+```text
+true
+```
+
 ### Cột `reason`
 
 Lý do hiện trong tin cảnh báo.

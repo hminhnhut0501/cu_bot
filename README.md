@@ -119,10 +119,10 @@ Group rows override config keys when the same column exists in `groups`.
 
 ### `keywords`
 
-| keyword | match | action | reason | enabled |
-|---|---|---|---|---|
-| casino | contains | warn | Tu khoa cam | true |
-| `telegram\.me/` | regex | ban | Link spam | true |
+| keyword | match | action | delete | reason | enabled |
+|---|---|---|---|---|---|
+| casino | contains | warn | true | Tu khoa cam | true |
+| `telegram\.me/` | regex | ban | true | Link spam | true |
 
 Actions: `delete`, `warn`, `ban`.
 

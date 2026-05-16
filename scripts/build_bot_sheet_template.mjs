@@ -190,16 +190,16 @@ writeMatrix("messages", "A1:D8", [
   ["", "", "", ""],
 ]);
 
-writeMatrix("keywords", "A1:E9", [
-  ["keyword", "match", "action", "reason", "enabled"],
-  ["casino", "contains", "warn", "Tu khoa cam", "true"],
-  ["telegram.me/", "contains", "delete", "Link spam", "true"],
-  ["t.me/spam", "contains", "ban", "Link spam nang", "true"],
-  ["free money", "contains", "warn", "Noi dung spam", "true"],
-  ["telegram\\.me/", "regex", "delete", "Regex mau", "false"],
-  ["", "", "", "", ""],
-  ["", "", "", "", ""],
-  ["", "", "", "", ""],
+writeMatrix("keywords", "A1:F9", [
+  ["keyword", "match", "action", "delete", "reason", "enabled"],
+  ["casino", "contains", "warn", "true", "Tu khoa cam", "true"],
+  ["telegram.me/", "contains", "delete", "true", "Link spam", "true"],
+  ["t.me/spam", "contains", "ban", "true", "Link spam nang", "true"],
+  ["free money", "contains", "warn", "true", "Noi dung spam", "true"],
+  ["telegram\\.me/", "regex", "delete", "true", "Regex mau", "false"],
+  ["", "", "", "", "", ""],
+  ["", "", "", "", "", ""],
+  ["", "", "", "", "", ""],
 ]);
 
 writeMatrix("admins", "A1:C5", [

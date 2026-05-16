@@ -296,8 +296,13 @@ class ModerationModule(BotModule):
             match_type = (row.get("match") or "contains").strip().lower()
             matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
             if matched:
-                self.safe_delete(message, f"keyword:{keyword}")
-                self.apply_action(message, row.get("action") or "warn", row.get("reason") or "Từ khóa cấm.")
+                action = row.get("action") or "warn"
+                should_delete = as_bool(row.get("delete"), True)
+                if should_delete:
+                    self.safe_delete(message, f"keyword:{keyword}:before_{action}")
+                self.apply_action(message, action, row.get("reason") or "Từ khóa cấm.")
+                if should_delete and action.strip().lower() == "ban":
+                    self.delete_later(message.chat.id, message.message_id, 2, f"keyword:{keyword}:after_ban")
                 return True
         return False
 
