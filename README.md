@@ -70,6 +70,14 @@ bot_allowlist
 video_messages
 ```
 
+The control panel supports quick paste for `messages`, `keywords`, and `video_messages`:
+
+```text
+messages: one message per line, or message | pool | weight
+keywords: keyword | delete/warn/ban | reason
+video_messages: from_chat_id | message_id | caption
+```
+
 Optional bot owner env:
 
 ```bash

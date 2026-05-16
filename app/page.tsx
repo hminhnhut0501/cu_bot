@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  ClipboardPaste,
   Check,
   Database,
   Edit3,
@@ -12,6 +13,7 @@ import {
   Save,
   Search,
   ShieldCheck,
+  Sparkles,
   Trash2,
   X
 } from "lucide-react";
@@ -26,6 +28,7 @@ type Meta = {
 };
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
+const bulkTables = new Set(["messages", "keywords", "video_messages"]);
 
 function emptyValues(table: TableConfig) {
   const values: Row = {};
@@ -80,6 +83,78 @@ function groupedFields(table: TableConfig) {
   return Object.entries(groups);
 }
 
+function splitBulkLines(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function parseDelimited(line: string) {
+  const delimiter = line.includes("|") ? "|" : line.includes("\t") ? "\t" : line.includes(",") ? "," : "";
+  if (!delimiter) {
+    return [line];
+  }
+  return line.split(delimiter).map((part) => part.trim()).filter(Boolean);
+}
+
+function parseBulkRows(tableKey: string, text: string) {
+  const lines = splitBulkLines(text);
+  if (tableKey === "messages") {
+    return lines.map((line) => {
+      const [message, pool = "default", weight = "1"] = parseDelimited(line);
+      return { message, pool, weight: Number(weight) || 1, enabled: true };
+    });
+  }
+
+  if (tableKey === "keywords") {
+    return lines.map((line) => {
+      const [keyword, actionOrMatch = "delete", reason = "Từ khóa cấm"] = parseDelimited(line);
+      const isMatch = ["contains", "regex"].includes(actionOrMatch);
+      return {
+        keyword,
+        match: isMatch ? actionOrMatch : "contains",
+        action: isMatch ? "delete" : actionOrMatch || "delete",
+        reason,
+        enabled: true
+      };
+    });
+  }
+
+  if (tableKey === "video_messages") {
+    return lines.map((line) => {
+      const parts = parseDelimited(line);
+      const numbers = line.match(/-?\d{5,}/g) || [];
+      const fromChatId = parts[0]?.startsWith("-100") ? parts[0] : numbers[0] || "";
+      const messageId = parts[1] && /^\d+$/.test(parts[1]) ? parts[1] : numbers[1] || "";
+      const caption = parts.length >= 3 ? parts.slice(2).join(" ") : "";
+      return {
+        from_chat_id: fromChatId,
+        message_id: messageId,
+        caption,
+        pool: "default",
+        weight: 1,
+        enabled: Boolean(fromChatId && messageId)
+      };
+    }).filter((row) => row.from_chat_id && row.message_id);
+  }
+
+  return [];
+}
+
+function bulkHint(tableKey: string) {
+  if (tableKey === "messages") {
+    return "Mỗi dòng là một tin nhắn. Có thể dùng: nội dung | nhóm nội dung | độ ưu tiên.";
+  }
+  if (tableKey === "keywords") {
+    return "Mỗi dòng là một từ khóa. Có thể dùng: từ khóa | delete/warn/ban | lý do.";
+  }
+  if (tableKey === "video_messages") {
+    return "Mỗi dòng gồm source chat ID và message ID. Ví dụ: -1001234567890 | 456 | caption.";
+  }
+  return "";
+}
+
 export default function HomePage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState("");
@@ -93,6 +168,8 @@ export default function HomePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [bulkText, setBulkText] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -109,6 +186,7 @@ export default function HomePage() {
   }, []);
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
+  const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText) : []), [bulkText, table]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -162,6 +240,34 @@ export default function HomePage() {
     setSelected(null);
     setDraft(emptyValues(table));
     setNotice("");
+  }
+
+  async function saveBulk() {
+    if (!table) {
+      return;
+    }
+    const parsed = parseBulkRows(table.key, bulkText);
+    if (!parsed.length) {
+      setError("Không nhận diện được dữ liệu. Kiểm tra lại nội dung vừa paste.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/${table.key}`, {
+        method: "POST",
+        body: JSON.stringify({ rows: parsed })
+      });
+      setNotice(`Đã thêm ${parsed.length} mục.`);
+      setBulkText("");
+      setBulkOpen(false);
+      await loadRows(search);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể nhập hàng loạt.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startEdit(row: Row) {
@@ -287,6 +393,21 @@ export default function HomePage() {
       </aside>
 
       <section className="workspace">
+        <section className="dashboard-strip">
+          <div>
+            <span>Tổng mục</span>
+            <strong>{rows.length}</strong>
+          </div>
+          <div>
+            <span>Đang bật</span>
+            <strong>{rows.filter((row) => row.enabled !== false).length}</strong>
+          </div>
+          <div>
+            <span>Màn hình</span>
+            <strong>{table.label}</strong>
+          </div>
+        </section>
+
         <header className="topbar">
           <div>
             <h2>{table.label}</h2>
@@ -310,11 +431,57 @@ export default function HomePage() {
               <Plus size={17} />
               Thêm
             </button>
+            {bulkTables.has(table.key) ? (
+              <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
+                <ClipboardPaste size={17} />
+                Nhập nhanh
+              </button>
+            ) : null}
           </div>
         </header>
 
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
+
+        {bulkOpen && bulkTables.has(table.key) ? (
+          <section className="bulk-panel">
+            <div className="bulk-copy">
+              <Sparkles size={20} />
+              <div>
+                <h3>Paste nhiều dữ liệu</h3>
+                <p>{bulkHint(table.key)}</p>
+              </div>
+            </div>
+            <textarea
+              value={bulkText}
+              onChange={(event) => setBulkText(event.target.value)}
+              placeholder={bulkHint(table.key)}
+              rows={6}
+            />
+            <div className="bulk-footer">
+              <span>Nhận diện được {parsedBulkRows.length} mục</span>
+              <div>
+                <button type="button" className="ghost" onClick={() => setBulkText("")}>
+                  Xóa nội dung
+                </button>
+                <button type="button" className="primary" disabled={saving || !parsedBulkRows.length} onClick={saveBulk}>
+                  {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                  Lưu tất cả
+                </button>
+              </div>
+            </div>
+            {parsedBulkRows.length ? (
+              <div className="bulk-preview">
+                {parsedBulkRows.slice(0, 5).map((row, index) => (
+                  <span key={`${index}-${JSON.stringify(row)}`}>
+                    {index + 1}. {titleFor(row, table)}
+                  </span>
+                ))}
+                {parsedBulkRows.length > 5 ? <span>... và {parsedBulkRows.length - 5} mục khác</span> : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="content-grid">
           <section className="list-panel">

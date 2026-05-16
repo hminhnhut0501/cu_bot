@@ -93,7 +93,20 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const payload = cleanPayload(params.table, await request.json());
+    const body = await request.json();
+    if (Array.isArray(body.rows)) {
+      const rows = body.rows.map((row) => cleanPayload(params.table, row));
+      if (!rows.length) {
+        return badRequest("No rows to insert.");
+      }
+      const { data, error } = await supabaseAdmin.from(params.table).insert(rows).select("*");
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+      return NextResponse.json({ rows: data || [] });
+    }
+
+    const payload = cleanPayload(params.table, body);
     const { data, error } = await supabaseAdmin.from(params.table).insert(payload).select("*").single();
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
