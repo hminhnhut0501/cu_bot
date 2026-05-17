@@ -56,6 +56,15 @@ type Lookups = {
   videos: Row[];
   moduleSettings: Row[];
 };
+type CommandInsight = {
+  severity: "critical" | "high" | "warning" | "info" | "healthy";
+  title: string;
+  body: string;
+  impact: string;
+  action: string;
+  targetLayer: string;
+  targetTable: string;
+};
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
@@ -976,6 +985,8 @@ export default function HomePage() {
   const [activeModule, setActiveModule] = useState("moderation");
   const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
   const [quickFilter, setQuickFilter] = useState("");
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
 
   useEffect(() => {
@@ -1095,13 +1106,14 @@ export default function HomePage() {
       issues: disabledBots + offModules + missingSetup
     };
   }, [lookups.bots, lookups.groups, lookups.messages, moduleRows, selectedBot]);
-  const commandInsights = useMemo(() => {
-    const insights = [];
+  const commandInsights = useMemo<CommandInsight[]>(() => {
+    const insights: CommandInsight[] = [];
     if (healthSummary.disabledBots) {
       insights.push({
-        tone: "danger",
+        severity: "critical",
         title: `${healthSummary.disabledBots} bot đang offline`,
         body: "Một số bot đang tắt hoặc paused. Kiểm tra token, trạng thái và Render service.",
+        impact: "Runtime coverage is reduced. Some groups may not receive moderation or automation.",
         action: "Review bots",
         targetLayer: "bot",
         targetTable: "bots"
@@ -1109,9 +1121,10 @@ export default function HomePage() {
     }
     if (healthSummary.offModules) {
       insights.push({
-        tone: "warning",
+        severity: "high",
         title: `${healthSummary.offModules} module đang tắt`,
         body: "Các service bảo vệ/tự động hóa đang bị disable nên group có thể không được vận hành đầy đủ.",
+        impact: "Protection is degraded until disabled services are restored.",
         action: "Review modules",
         targetLayer: "modules",
         targetTable: "module_settings"
@@ -1119,9 +1132,10 @@ export default function HomePage() {
     }
     if (!healthSummary.groups) {
       insights.push({
-        tone: "warning",
+        severity: "warning",
         title: "Chưa có group hoạt động",
         body: "Bot cần được nối group/kênh và có quyền admin trước khi module vận hành.",
+        impact: "No group is currently under bot control.",
         action: "Connect group",
         targetLayer: "group",
         targetTable: "groups"
@@ -1129,9 +1143,10 @@ export default function HomePage() {
     }
     if (healthSummary.missingSetup) {
       insights.push({
-        tone: "info",
+        severity: "info",
         title: `${healthSummary.missingSetup} bước setup còn thiếu`,
         body: "Hoàn tất group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
+        impact: "Automation may not trigger until setup is completed.",
         action: "Quick setup",
         targetLayer: "automation",
         targetTable: "messages"
@@ -1139,9 +1154,10 @@ export default function HomePage() {
     }
     if (!insights.length) {
       insights.push({
-        tone: "ok",
+        severity: "healthy",
         title: "System steady",
         body: "Bot, group và module chính đang ở trạng thái ổn định. Theo dõi activity stream để phát hiện bất thường.",
+        impact: "Coverage is healthy in the current scope.",
         action: "View activity",
         targetLayer: "logs",
         targetTable: "audit_logs"
@@ -1150,9 +1166,10 @@ export default function HomePage() {
     return insights.slice(0, 3);
   }, [healthSummary]);
   const liveActivity = useMemo(() => [
-    `${healthSummary.enabledModules} module active across ${healthSummary.groups} group`,
-    `${visibleRows.length} ${table?.label || "item"} visible in current scope`,
-    healthSummary.issues ? `${healthSummary.issues} operational issue needs review` : "No critical issue detected"
+    { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module active across ${healthSummary.groups} group` },
+    { severity: "info", text: `${visibleRows.length} ${table?.label || "item"} visible in current scope` },
+    { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} operational issue needs review` : "No critical issue detected" },
+    { severity: healthSummary.offModules ? "high" : "info", text: healthSummary.offModules ? "Protection sync degraded by disabled modules" : "Runtime sync appears stable" }
   ], [healthSummary, table?.label, visibleRows.length]);
   const activeModuleStats = useMemo(() => {
     const ruleTables = ["keywords", "domain_blacklist", "link_shorteners", "auto_replies"];
@@ -1177,6 +1194,22 @@ export default function HomePage() {
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
   }, [rows]);
+  const commandItems = useMemo(() => [
+    { title: "Restore protection", hint: "Open disabled modules and recover protection", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
+    { title: "Run permission audit", hint: "Review groups and bot allowlist", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
+    { title: "Apply scam protection preset", hint: "Open keyword/domain protection workflow", action: () => goToInsight({ targetLayer: "security", targetTable: "keywords" }) },
+    { title: "Open runtime logs", hint: "Inspect audit and recent events", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
+    { title: "Sync automation", hint: "Review scheduled posts and message pools", action: () => goToInsight({ targetLayer: "automation", targetTable: "scheduled_posts" }) },
+    { title: "Enable emergency verification", hint: "Open captcha and verification controls", action: () => goToInsight({ targetLayer: "security", targetTable: "verification_settings" }) },
+    { title: "Create new control item", hint: `Create in ${table?.label || "current view"}`, action: () => startCreate() }
+  ], [table?.label]);
+  const filteredCommandItems = useMemo(() => {
+    const query = commandSearch.trim().toLowerCase();
+    if (!query) {
+      return commandItems;
+    }
+    return commandItems.filter((item) => `${item.title} ${item.hint}`.toLowerCase().includes(query));
+  }, [commandItems, commandSearch]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -1286,6 +1319,20 @@ export default function HomePage() {
     }
   }, [activeKey, activeLayer]);
 
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen((value) => !value);
+      }
+      if (event.key === "Escape") {
+        setCommandOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   function selectLayer(layerKey: string) {
     const layer = SYSTEM_LAYERS.find((item) => item.key === layerKey);
     if (!layer) {
@@ -1303,6 +1350,12 @@ export default function HomePage() {
   function goToInsight(insight: { targetLayer: string; targetTable: string }) {
     selectLayer(insight.targetLayer);
     setActiveKey(insight.targetTable);
+  }
+
+  function runCommand(action: () => void) {
+    action();
+    setCommandOpen(false);
+    setCommandSearch("");
   }
 
   function startCreate() {
@@ -1742,12 +1795,19 @@ export default function HomePage() {
             <span className="eyebrow">Live command center</span>
             <h2>{commandInsights[0]?.title}</h2>
             <p>{commandInsights[0]?.body}</p>
+            <div className={`severity-ribbon ${commandInsights[0]?.severity}`}>
+              <strong>{commandInsights[0]?.severity?.toUpperCase()}</strong>
+              <span>{commandInsights[0]?.impact}</span>
+            </div>
             <div className="command-actions">
               {commandInsights.map((insight) => (
-                <button key={insight.title} type="button" className={insight.tone === "ok" ? "secondary" : "primary"} onClick={() => goToInsight(insight)}>
+                <button key={insight.title} type="button" className={insight.severity === "healthy" ? "secondary" : "primary"} onClick={() => goToInsight(insight)}>
                   {insight.action}
                 </button>
               ))}
+              <button type="button" className="ghost dark" onClick={() => setCommandOpen(true)}>
+                Command palette
+              </button>
             </div>
           </div>
           <div className="live-feed">
@@ -1756,7 +1816,10 @@ export default function HomePage() {
               <strong>Live activity</strong>
             </div>
             {liveActivity.map((item) => (
-              <span key={item}>{item}</span>
+              <span key={item.text} className={`event-line ${item.severity}`}>
+                <i />
+                {item.text}
+              </span>
             ))}
           </div>
         </section>
@@ -2596,7 +2659,15 @@ export default function HomePage() {
                   </div>
                 </section>
                 <section className="inspector-section">
-                  <h4>Activity gần đây</h4>
+                  <h4>Runtime diagnostics</h4>
+                  <div className="diagnostic-grid">
+                    <span className="ok">Runtime loaded</span>
+                    <span className="ok">Scope resolved</span>
+                    <span className={selected.enabled === false ? "warn" : "ok"}>{selected.enabled === false ? "Participation disabled" : "Participation active"}</span>
+                  </div>
+                </section>
+                <section className="inspector-section">
+                  <h4>Activity timeline</h4>
                   <div className="activity-stream">
                     {cockpitActivity(selected, table).map((item) => (
                       <span key={item}><i />{item}</span>
@@ -2624,6 +2695,33 @@ export default function HomePage() {
         </div>
         )}
       </section>
+      {commandOpen ? (
+        <section className="command-palette-backdrop" onClick={() => setCommandOpen(false)}>
+          <div className="command-palette" onClick={(event) => event.stopPropagation()}>
+            <div className="command-palette-head">
+              <Search size={18} />
+              <input
+                value={commandSearch}
+                onChange={(event) => setCommandSearch(event.target.value)}
+                placeholder="Run command: enable anti spam, open logs, apply preset..."
+                autoFocus
+              />
+              <span>⌘K</span>
+            </div>
+            <div className="command-palette-list">
+              {filteredCommandItems.map((item) => (
+                <button key={item.title} type="button" onClick={() => runCommand(item.action)}>
+                  <strong>{item.title}</strong>
+                  <span>{item.hint}</span>
+                </button>
+              ))}
+              {!filteredCommandItems.length ? (
+                <div className="command-empty">No command matched. Try “logs”, “preset”, “permission”, or “automation”.</div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
