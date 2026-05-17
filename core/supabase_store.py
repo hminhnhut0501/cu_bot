@@ -14,6 +14,7 @@ BOT_SCOPED_TABLES = {
     "audit_logs",
     "auto_replies",
     "bot_allowlist",
+    "bot_metrics",
     "captcha_questions",
     "config",
     "domain_blacklist",

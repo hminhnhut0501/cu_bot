@@ -21,6 +21,19 @@ import { FieldConfig, TableConfig } from "@/lib/tables";
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
+type BulkDefaults = {
+  bot_key: string;
+  pool: string;
+  weight: number;
+  action: string;
+  match: string;
+  reason: string;
+  risk: string;
+  risk_level: string;
+  status: string;
+  source: string;
+  enabled: boolean;
+};
 
 type Meta = {
   tables: TableConfig[];
@@ -29,6 +42,19 @@ type Meta = {
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
+const defaultBulkDefaults: BulkDefaults = {
+  bot_key: "main",
+  pool: "default",
+  weight: 1,
+  action: "delete",
+  match: "contains",
+  reason: "Từ khóa cấm",
+  risk: "scam",
+  risk_level: "scam",
+  status: "confirmed",
+  source: "cp_bulk",
+  enabled: true
+};
 
 function emptyValues(table: TableConfig) {
   const values: Row = {};
@@ -117,30 +143,31 @@ function parseDelimited(line: string) {
   if (!delimiter) {
     return [line];
   }
-  return line.split(delimiter).map((part) => part.trim()).filter(Boolean);
+  return line.split(delimiter).map((part) => part.trim());
 }
 
-function parseBulkRows(tableKey: string, text: string): BulkRow[] {
+function parseBulkRows(tableKey: string, text: string, defaults: BulkDefaults): BulkRow[] {
   const lines = splitBulkLines(text);
   if (tableKey === "messages") {
     return lines.map((line): BulkRow => {
-      const [message, pool = "default", weight = "1"] = parseDelimited(line);
-      return { message, pool, weight: Number(weight) || 1, enabled: true };
-    });
+      const [message, pool = defaults.pool, weight = String(defaults.weight)] = parseDelimited(line);
+      return { bot_key: defaults.bot_key, message, pool: pool || defaults.pool, weight: Number(weight) || defaults.weight, enabled: defaults.enabled };
+    }).filter((row) => Boolean(row.message));
   }
 
   if (tableKey === "keywords") {
     return lines.map((line): BulkRow => {
-      const [keyword, actionOrMatch = "delete", reason = "Từ khóa cấm"] = parseDelimited(line);
+      const [keyword, actionOrMatch = defaults.action, reason = defaults.reason] = parseDelimited(line);
       const isMatch = ["contains", "regex"].includes(actionOrMatch);
       return {
+        bot_key: defaults.bot_key,
         keyword,
-        match: isMatch ? actionOrMatch : "contains",
-        action: isMatch ? "delete" : actionOrMatch || "delete",
-        reason,
-        enabled: true
+        match: isMatch ? actionOrMatch : defaults.match,
+        action: isMatch ? defaults.action : actionOrMatch || defaults.action,
+        reason: reason || defaults.reason,
+        enabled: defaults.enabled
       };
-    });
+    }).filter((row) => Boolean(row.keyword));
   }
 
   if (tableKey === "video_messages") {
@@ -151,12 +178,13 @@ function parseBulkRows(tableKey: string, text: string): BulkRow[] {
       const messageId = parts[1] && /^\d+$/.test(parts[1]) ? parts[1] : numbers[1] || "";
       const caption = parts.length >= 3 ? parts.slice(2).join(" ") : "";
       return {
+        bot_key: defaults.bot_key,
         from_chat_id: fromChatId,
         message_id: messageId,
         caption,
-        pool: "default",
-        weight: 1,
-        enabled: Boolean(fromChatId && messageId)
+        pool: defaults.pool,
+        weight: defaults.weight,
+        enabled: defaults.enabled && Boolean(fromChatId && messageId)
       };
     }).filter((row) => row.from_chat_id && row.message_id);
   }
@@ -168,34 +196,35 @@ function parseBulkRows(tableKey: string, text: string): BulkRow[] {
       const username = raw.match(/@([a-zA-Z0-9_]{5,})/)?.[1] || "";
       const numbers = raw.match(/\b\d{6,}\b/g) || [];
       return {
+        bot_key: defaults.bot_key,
         uid: parts[0]?.match(/^\d{6,}$/) ? parts[0] : numbers[0] || "",
         username,
         bank_account: parts[1] && /^\d{6,}$/.test(parts[1]) ? parts[1] : numbers[1] || "",
         phone: numbers.find((item) => [9, 10, 11].includes(item.length)) || "",
         name: "",
-        risk_level: "scam",
-        reason: parts[2] || "Dữ liệu scam",
+        risk_level: defaults.risk_level,
+        reason: parts[2] || defaults.reason || "Dữ liệu scam",
         evidence: line,
-        source: "cp_bulk",
-        status: "confirmed",
-        enabled: true
+        source: defaults.source,
+        status: defaults.status,
+        enabled: defaults.enabled
       };
     });
   }
 
   if (tableKey === "domain_blacklist" || tableKey === "link_shorteners") {
     return lines.map((line): BulkRow => {
-      const [domain, action = "delete", notes = ""] = parseDelimited(line);
+      const [domain, action = defaults.action, notes = ""] = parseDelimited(line);
       return tableKey === "domain_blacklist"
-        ? { domain, risk: "scam", action, enabled: true, notes }
-        : { domain, action, enabled: true, notes };
-    });
+        ? { bot_key: defaults.bot_key, domain, risk: defaults.risk, action: action || defaults.action, enabled: defaults.enabled, notes }
+        : { bot_key: defaults.bot_key, domain, action: action || defaults.action, enabled: defaults.enabled, notes };
+    }).filter((row) => Boolean(row.domain));
   }
 
   if (tableKey === "auto_replies") {
     return lines.map((line): BulkRow => {
-      const [trigger, reply = "", match = "contains"] = parseDelimited(line);
-      return { trigger, reply, match, enabled: true };
+      const [trigger, reply = "", match = defaults.match] = parseDelimited(line);
+      return { bot_key: defaults.bot_key, trigger, reply, match: match || defaults.match, enabled: defaults.enabled };
     }).filter((row) => row.trigger && row.reply);
   }
 
@@ -242,6 +271,7 @@ export default function HomePage() {
   const [notice, setNotice] = useState("");
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -258,7 +288,7 @@ export default function HomePage() {
   }, []);
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
-  const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText) : []), [bulkText, table]);
+  const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -318,7 +348,7 @@ export default function HomePage() {
     if (!table) {
       return;
     }
-    const parsed = parseBulkRows(table.key, bulkText);
+    const parsed = parseBulkRows(table.key, bulkText, bulkDefaults);
     if (!parsed.length) {
       setError("Không nhận diện được dữ liệu. Kiểm tra lại nội dung vừa paste.");
       return;
@@ -401,6 +431,13 @@ export default function HomePage() {
     setDraft((current) => ({
       ...current,
       [field.key]: field.type === "number" ? (value === "" ? "" : Number(value)) : value
+    }));
+  }
+
+  function updateBulkDefault(key: keyof BulkDefaults, value: string | number | boolean) {
+    setBulkDefaults((current) => ({
+      ...current,
+      [key]: key === "weight" ? Number(value) || 1 : value
     }));
   }
 
@@ -523,6 +560,88 @@ export default function HomePage() {
                 <h3>Paste nhiều dữ liệu</h3>
                 <p>{bulkHint(table.key)}</p>
               </div>
+            </div>
+            <div className="bulk-defaults">
+              <label>
+                <span>Bot</span>
+                <input value={bulkDefaults.bot_key} onChange={(event) => updateBulkDefault("bot_key", event.target.value)} />
+              </label>
+              {["messages", "video_messages"].includes(table.key) ? (
+                <>
+                  <label>
+                    <span>Nhóm nội dung</span>
+                    <input value={bulkDefaults.pool} onChange={(event) => updateBulkDefault("pool", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>Độ ưu tiên</span>
+                    <input type="number" value={bulkDefaults.weight} onChange={(event) => updateBulkDefault("weight", event.target.value)} />
+                  </label>
+                </>
+              ) : null}
+              {["keywords", "domain_blacklist", "link_shorteners"].includes(table.key) ? (
+                <label>
+                  <span>Hành động mặc định</span>
+                  <select value={bulkDefaults.action} onChange={(event) => updateBulkDefault("action", event.target.value)}>
+                    <option value="delete">delete</option>
+                    <option value="warn">warn</option>
+                    <option value="mute">mute</option>
+                    <option value="kick">kick</option>
+                    <option value="ban">ban</option>
+                  </select>
+                </label>
+              ) : null}
+              {["keywords", "auto_replies"].includes(table.key) ? (
+                <label>
+                  <span>Kiểu khớp</span>
+                  <select value={bulkDefaults.match} onChange={(event) => updateBulkDefault("match", event.target.value)}>
+                    <option value="contains">contains</option>
+                    <option value="exact">exact</option>
+                    <option value="regex">regex</option>
+                  </select>
+                </label>
+              ) : null}
+              {table.key === "keywords" || table.key === "scam_entities" ? (
+                <label>
+                  <span>Lý do mặc định</span>
+                  <input value={bulkDefaults.reason} onChange={(event) => updateBulkDefault("reason", event.target.value)} />
+                </label>
+              ) : null}
+              {table.key === "domain_blacklist" ? (
+                <label>
+                  <span>Loại rủi ro</span>
+                  <select value={bulkDefaults.risk} onChange={(event) => updateBulkDefault("risk", event.target.value)}>
+                    <option value="scam">scam</option>
+                    <option value="phishing">phishing</option>
+                    <option value="telegram_clone">telegram_clone</option>
+                    <option value="nsfw">nsfw</option>
+                  </select>
+                </label>
+              ) : null}
+              {table.key === "scam_entities" ? (
+                <>
+                  <label>
+                    <span>Mức rủi ro</span>
+                    <select value={bulkDefaults.risk_level} onChange={(event) => updateBulkDefault("risk_level", event.target.value)}>
+                      <option value="watch">watch</option>
+                      <option value="suspicious">suspicious</option>
+                      <option value="scam">scam</option>
+                      <option value="danger">danger</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Trạng thái</span>
+                    <select value={bulkDefaults.status} onChange={(event) => updateBulkDefault("status", event.target.value)}>
+                      <option value="pending">pending</option>
+                      <option value="confirmed">confirmed</option>
+                      <option value="rejected">rejected</option>
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              <label className="checkbox-field">
+                <span>Bật sau khi nhập</span>
+                <input type="checkbox" checked={bulkDefaults.enabled} onChange={(event) => updateBulkDefault("enabled", event.target.checked)} />
+              </label>
             </div>
             <textarea
               value={bulkText}

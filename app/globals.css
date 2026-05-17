@@ -321,6 +321,21 @@ button.primary:hover,
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
+.bulk-defaults {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e7edf3;
+  border-radius: 8px;
+}
+
+.bulk-defaults label {
+  margin-bottom: 0;
+}
+
 .bulk-footer {
   display: flex;
   justify-content: space-between;
@@ -695,6 +710,10 @@ textarea:focus {
   .bulk-footer {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .bulk-defaults {
+    grid-template-columns: 1fr;
   }
 
   nav {

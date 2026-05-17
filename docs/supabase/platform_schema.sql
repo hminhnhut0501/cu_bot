@@ -3,6 +3,7 @@
 -- This resets bot platform tables and inserts minimal seed data for one bot.
 
 drop table if exists audit_logs cascade;
+drop table if exists bot_metrics cascade;
 drop table if exists reputation_events cascade;
 drop table if exists reputation_rules cascade;
 drop table if exists scam_reports cascade;
@@ -280,6 +281,16 @@ create table audit_logs (
   created_at timestamptz not null default now()
 );
 
+create table bot_metrics (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  metric_key text not null,
+  metric_value integer not null default 0,
+  period text not null default 'today',
+  notes text,
+  updated_at timestamptz not null default now()
+);
+
 alter table bots enable row level security;
 alter table groups enable row level security;
 alter table config enable row level security;
@@ -301,6 +312,7 @@ alter table scam_reports enable row level security;
 alter table reputation_rules enable row level security;
 alter table reputation_events enable row level security;
 alter table audit_logs enable row level security;
+alter table bot_metrics enable row level security;
 
 insert into bots (bot_key, name, username, enabled) values
   ('main', 'Bot chính', null, true);
@@ -339,6 +351,7 @@ insert into module_settings (bot_key, module_key, module_name, category, enabled
   ('main', 'anti_scam', 'Tra cứu và báo cáo scam', 'Bảo mật', true, '{}'::jsonb, null),
   ('main', 'auto_reply', 'Auto reply', 'Tăng tương tác', true, '{}'::jsonb, null),
   ('main', 'reputation', 'Điểm tương tác', 'Tăng tương tác', true, '{}'::jsonb, null),
+  ('main', 'analytics', 'Thống kê dashboard', 'Quản trị', true, '{}'::jsonb, null),
   ('main', 'scheduled_posts', 'Đăng bài định kỳ', 'Vận hành', true, '{}'::jsonb, null),
   ('main', 'monetization', 'Kiếm tiền / vận hành', 'Vận hành', false, '{}'::jsonb, null);
 
@@ -387,3 +400,11 @@ insert into reputation_rules (bot_key, action_key, points, daily_limit, enabled,
   ('main', 'message', 1, 20, true, 'Gửi tin nhắn'),
   ('main', 'help_member', 5, 10, true, 'Giúp đỡ thành viên'),
   ('main', 'check_in', 2, 1, true, 'Check-in hằng ngày');
+
+insert into bot_metrics (bot_key, metric_key, metric_value, period, notes) values
+  ('main', 'member_count', 0, 'today', 'Tổng member hiện tại'),
+  ('main', 'active_members', 0, 'today', 'Member hoạt động'),
+  ('main', 'deleted_messages', 0, 'today', 'Tin đã xóa'),
+  ('main', 'spam_events', 0, 'today', 'Sự kiện spam'),
+  ('main', 'scam_reports', 0, 'today', 'Báo cáo scam'),
+  ('main', 'verified_members', 0, 'today', 'Member verify thành công');

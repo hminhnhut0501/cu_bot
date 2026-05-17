@@ -314,6 +314,20 @@ export const TABLES: TableConfig[] = [
     titleField: "action",
     summaryFields: ["bot_key", "actor_user_id", "target_user_id", "created_at"],
     fields: [botKey, { key: "chat_id", label: "Chat ID", type: "text" }, { key: "actor_user_id", label: "Người thực hiện", type: "text" }, { key: "action", label: "Hành động", type: "text", required: true }, { key: "target_user_id", label: "Đối tượng", type: "text" }, { key: "details", label: "Chi tiết", type: "textarea" }]
+  },
+  {
+    key: "bot_metrics",
+    label: "Thống kê",
+    description: "Các chỉ số dashboard: member, active, spam, tin đã xóa, scam report, verify.",
+    titleField: "metric_key",
+    summaryFields: ["bot_key", "metric_value", "period", "updated_at"],
+    fields: [
+      botKey,
+      { key: "metric_key", label: "Mã chỉ số", type: "text", required: true },
+      { key: "metric_value", label: "Giá trị", type: "number" },
+      { key: "period", label: "Kỳ", type: "select", options: ["today", "week", "month", "all_time"] },
+      notes
+    ]
   }
 ];
 

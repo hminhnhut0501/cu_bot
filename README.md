@@ -92,8 +92,11 @@ verification: simple math captcha, auto kick unverified members
 anti_scam: private /check and /report, admin /addscam, scam database lookup
 auto_reply: rule/support/price style automatic replies
 reputation: lightweight activity point event logging
+analytics: dashboard metric rows for member/activity/spam/scam/verify counters
 scheduled_posts: daily message/video pool scheduling
 ```
+
+For fast import in the CP, open a supported screen, click `Nhập nhanh`, set common defaults once, then paste many rows from Sheets/Excel. The CP will split each pasted row into separate records and apply the shared defaults automatically.
 
 Optional bot owner env:
 
