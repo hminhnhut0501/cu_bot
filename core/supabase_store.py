@@ -18,6 +18,9 @@ BOT_SCOPED_TABLES = {
     "captcha_questions",
     "config",
     "domain_blacklist",
+    "entertainment_events",
+    "giveaway_campaigns",
+    "giveaway_entries",
     "groups",
     "keywords",
     "link_shorteners",
@@ -97,6 +100,21 @@ class SupabaseStore:
         if table in BOT_SCOPED_TABLES and not data.get("bot_key"):
             data["bot_key"] = self.bot_key
         response = requests.post(url, headers=headers, json=data, timeout=15)
+        response.raise_for_status()
+        self._cache.pop(table.lower(), None)
+        rows = response.json()
+        return rows[0] if rows else {}
+
+    def update(self, table, row_id, payload):
+        url = f"{self.supabase_url}/rest/v1/{table}"
+        headers = {
+            "apikey": self.service_role_key,
+            "authorization": f"Bearer {self.service_role_key}",
+            "content-type": "application/json",
+            "prefer": "return=representation",
+        }
+        params = {"id": f"eq.{row_id}"}
+        response = requests.patch(url, headers=headers, params=params, json=payload, timeout=15)
         response.raise_for_status()
         self._cache.pop(table.lower(), None)
         rows = response.json()

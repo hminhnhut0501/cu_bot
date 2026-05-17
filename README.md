@@ -93,6 +93,8 @@ anti_scam: private /check and /report, admin /addscam, scam database lookup
 auto_reply: rule/support/price style automatic replies
 reputation: lightweight activity point event logging
 analytics: dashboard metric rows for member/activity/spam/scam/verify counters
+entertainment: parent module for giveaway, polls, check-in streak, mini quiz, lucky number, leaderboard
+giveaway: /giveaway, /join, /draw lightweight lucky draw workflow
 scheduled_posts: daily message/video pool scheduling
 ```
 

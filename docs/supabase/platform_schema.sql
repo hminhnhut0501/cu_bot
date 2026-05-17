@@ -4,6 +4,9 @@
 
 drop table if exists audit_logs cascade;
 drop table if exists bot_metrics cascade;
+drop table if exists giveaway_entries cascade;
+drop table if exists giveaway_campaigns cascade;
+drop table if exists entertainment_events cascade;
 drop table if exists reputation_events cascade;
 drop table if exists reputation_rules cascade;
 drop table if exists scam_reports cascade;
@@ -270,6 +273,50 @@ create table reputation_events (
   created_at timestamptz not null default now()
 );
 
+create table giveaway_campaigns (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  chat_id text not null,
+  title text not null,
+  prize text,
+  description text,
+  status text not null default 'open',
+  winner_count integer not null default 1,
+  require_keyword text,
+  start_at timestamptz,
+  end_at timestamptz,
+  winners text,
+  enabled boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table giveaway_entries (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  giveaway_id bigint not null,
+  chat_id text not null,
+  user_id text not null,
+  username text,
+  display_name text,
+  entry_note text,
+  created_at timestamptz not null default now(),
+  unique (giveaway_id, user_id)
+);
+
+create table entertainment_events (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  event_key text not null,
+  event_name text not null,
+  event_type text not null default 'custom',
+  chat_id text,
+  config jsonb not null default '{}'::jsonb,
+  enabled boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 create table audit_logs (
   id bigserial primary key,
   bot_key text not null default 'main',
@@ -313,6 +360,9 @@ alter table reputation_rules enable row level security;
 alter table reputation_events enable row level security;
 alter table audit_logs enable row level security;
 alter table bot_metrics enable row level security;
+alter table giveaway_campaigns enable row level security;
+alter table giveaway_entries enable row level security;
+alter table entertainment_events enable row level security;
 
 insert into bots (bot_key, name, username, enabled) values
   ('main', 'Bot chính', null, true);
@@ -351,6 +401,13 @@ insert into module_settings (bot_key, module_key, module_name, category, enabled
   ('main', 'anti_scam', 'Tra cứu và báo cáo scam', 'Bảo mật', true, '{}'::jsonb, null),
   ('main', 'auto_reply', 'Auto reply', 'Tăng tương tác', true, '{}'::jsonb, null),
   ('main', 'reputation', 'Điểm tương tác', 'Tăng tương tác', true, '{}'::jsonb, null),
+  ('main', 'entertainment', 'Giải trí', 'Tăng tương tác', true, '{"children":["giveaway","poll_event","checkin_streak","mini_quiz","lucky_number","leaderboard"]}'::jsonb, 'Module lớn cho hoạt động giải trí/tăng tương tác'),
+  ('main', 'giveaway', 'Giveaway quay số may mắn', 'Giải trí', true, '{}'::jsonb, 'Tạo giveaway, member tham gia, admin quay số'),
+  ('main', 'poll_event', 'Bình chọn / sự kiện', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
+  ('main', 'checkin_streak', 'Check-in chuỗi ngày', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
+  ('main', 'mini_quiz', 'Đố vui nhanh', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
+  ('main', 'lucky_number', 'Số may mắn', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
+  ('main', 'leaderboard', 'Bảng xếp hạng tương tác', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
   ('main', 'analytics', 'Thống kê dashboard', 'Quản trị', true, '{}'::jsonb, null),
   ('main', 'scheduled_posts', 'Đăng bài định kỳ', 'Vận hành', true, '{}'::jsonb, null),
   ('main', 'monetization', 'Kiếm tiền / vận hành', 'Vận hành', false, '{}'::jsonb, null);
@@ -408,3 +465,12 @@ insert into bot_metrics (bot_key, metric_key, metric_value, period, notes) value
   ('main', 'spam_events', 0, 'today', 'Sự kiện spam'),
   ('main', 'scam_reports', 0, 'today', 'Báo cáo scam'),
   ('main', 'verified_members', 0, 'today', 'Member verify thành công');
+
+insert into giveaway_campaigns (bot_key, chat_id, title, prize, description, status, winner_count, require_keyword, enabled, notes) values
+  ('main', '-1002151486481', 'Giveaway mẫu', 'Phần thưởng mẫu', 'Member bấm /join giveaway_id để tham gia.', 'open', 1, '', true, 'Sửa hoặc xóa dòng mẫu trong CP.');
+
+insert into entertainment_events (bot_key, event_key, event_name, event_type, config, enabled, notes) values
+  ('main', 'weekly_poll', 'Bình chọn tuần', 'poll_event', '{"question":"Bạn muốn event gì tuần này?"}'::jsonb, false, 'Module con gợi ý'),
+  ('main', 'daily_checkin', 'Check-in hằng ngày', 'checkin_streak', '{"points":2}'::jsonb, false, 'Module con gợi ý'),
+  ('main', 'quick_quiz', 'Đố vui nhanh', 'mini_quiz', '{"points":5}'::jsonb, false, 'Module con gợi ý'),
+  ('main', 'lucky_number', 'Số may mắn', 'lucky_number', '{"min":1,"max":99}'::jsonb, false, 'Module con gợi ý');

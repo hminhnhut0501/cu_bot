@@ -308,6 +308,61 @@ export const TABLES: TableConfig[] = [
     fields: [botKey, { key: "action_key", label: "Hành động", type: "text", required: true }, { key: "points", label: "Điểm", type: "number" }, { key: "daily_limit", label: "Giới hạn/ngày", type: "number" }, enabled, notes]
   },
   {
+    key: "giveaway_campaigns",
+    label: "Giveaway",
+    description: "Tạo giveaway, quản lý phần thưởng, số người thắng và trạng thái quay số.",
+    titleField: "title",
+    summaryFields: ["bot_key", "chat_id", "status", "winner_count"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Giveaway" },
+      { key: "title", label: "Tên giveaway", type: "text", required: true, section: "Giveaway" },
+      { key: "prize", label: "Phần thưởng", type: "text", section: "Giveaway" },
+      { key: "description", label: "Mô tả", type: "textarea", section: "Giveaway" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["draft", "open", "closed", "drawn"], section: "Giveaway" },
+      { key: "winner_count", label: "Số người thắng", type: "number", section: "Quay số" },
+      { key: "require_keyword", label: "Từ khóa bắt buộc", type: "text", section: "Quay số", helper: "Có thể để trống." },
+      { key: "start_at", label: "Bắt đầu", type: "text", section: "Thời gian" },
+      { key: "end_at", label: "Kết thúc", type: "text", section: "Thời gian" },
+      { key: "winners", label: "Người thắng", type: "textarea", section: "Kết quả" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "giveaway_entries",
+    label: "Lượt tham gia",
+    description: "Danh sách member đã tham gia giveaway.",
+    titleField: "display_name",
+    summaryFields: ["bot_key", "giveaway_id", "user_id", "created_at"],
+    fields: [
+      botKey,
+      { key: "giveaway_id", label: "Giveaway ID", type: "number", required: true },
+      { key: "chat_id", label: "Chat ID", type: "text", required: true },
+      { key: "user_id", label: "User ID", type: "text", required: true },
+      { key: "username", label: "Username", type: "text" },
+      { key: "display_name", label: "Tên hiển thị", type: "text" },
+      { key: "entry_note", label: "Ghi chú", type: "textarea" }
+    ]
+  },
+  {
+    key: "entertainment_events",
+    label: "Giải trí",
+    description: "Module con: giveaway, bình chọn, check-in, mini quiz, số may mắn, leaderboard.",
+    titleField: "event_name",
+    summaryFields: ["bot_key", "event_type", "enabled"],
+    fields: [
+      botKey,
+      { key: "event_key", label: "Mã event", type: "text", required: true },
+      { key: "event_name", label: "Tên event", type: "text", required: true },
+      { key: "event_type", label: "Loại", type: "select", options: ["giveaway", "poll_event", "checkin_streak", "mini_quiz", "lucky_number", "leaderboard", "custom"] },
+      { key: "chat_id", label: "Chat ID", type: "text" },
+      { key: "config", label: "Cấu hình JSON", type: "textarea", helper: "Ví dụ: {\"points\":2}" },
+      enabled,
+      notes
+    ]
+  },
+  {
     key: "audit_logs",
     label: "Nhật ký",
     description: "Ai xóa tin, ai ban member, ai sửa quyền, các hành động vận hành.",
