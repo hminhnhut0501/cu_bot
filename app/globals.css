@@ -154,6 +154,68 @@ nav button:hover {
   padding: 24px;
 }
 
+.bot-context {
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.bot-context-copy span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 3px;
+}
+
+.bot-context-copy strong {
+  display: block;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.bot-context-copy p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.35;
+  font-size: 13px;
+}
+
+.bot-switcher {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  overflow-x: auto;
+}
+
+.bot-switcher button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #344054;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-weight: 800;
+}
+
+.bot-switcher button.active {
+  border-color: #9de3d8;
+  background: #ecfdf9;
+  color: var(--accent-dark);
+}
+
 .scope-bar {
   display: grid;
   grid-template-columns: minmax(180px, 260px) minmax(220px, 340px) minmax(160px, 1fr);
@@ -1513,6 +1575,7 @@ textarea:focus {
   }
 
   .dashboard-strip,
+  .bot-context,
   .hero-panel,
   .module-overview,
   .scope-bar,

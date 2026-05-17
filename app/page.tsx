@@ -765,6 +765,7 @@ export default function HomePage() {
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
+  const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
   const visibleRows = useMemo(() => rows.filter((row) => {
     if (table?.key !== "bots" && selectedBot && row.bot_key && row.bot_key !== selectedBot) {
       return false;
@@ -884,13 +885,22 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.passwordRequired, savedPassword]);
 
+  useEffect(() => {
+    if (!lookups.bots.length || activeKey === "bots") {
+      return;
+    }
+    if (!selectedBot || !lookups.bots.some((bot) => bot.bot_key === selectedBot)) {
+      setSelectedBot(String(lookups.bots[0].bot_key || "main"));
+    }
+  }, [activeKey, lookups.bots, selectedBot]);
+
   function startCreate() {
     if (!table) {
       return;
     }
     setSelected(null);
     const nextDraft = emptyValues(table);
-    if (selectedBot && table.fields.some((field) => field.key === "bot_key")) {
+    if (table.key !== "bots" && selectedBot && table.fields.some((field) => field.key === "bot_key")) {
       nextDraft.bot_key = selectedBot;
     }
     if (selectedGroup) {
@@ -1181,6 +1191,46 @@ export default function HomePage() {
       </aside>
 
       <section className="workspace">
+        <section className="bot-context">
+          <div className="bot-context-copy">
+            <span>Đang cấu hình</span>
+            <strong>{activeKey === "bots" ? "Toàn bộ bot" : currentBot?.name || selectedBot || "Chưa chọn bot"}</strong>
+            <p>
+              {activeKey === "bots"
+                ? "Màn này dùng để thêm bot mới và nhập token từ BotFather."
+                : `Mọi thay đổi bên dưới chỉ áp dụng cho bot ${currentBot?.bot_key || selectedBot || "đang chọn"}.`}
+            </p>
+          </div>
+          <div className="bot-switcher">
+            {activeKey === "bots" ? (
+              <button type="button" className="active" onClick={() => setSelectedBot("")}>
+                <Bot size={16} />
+                Tất cả
+              </button>
+            ) : null}
+            {lookups.bots.map((bot) => (
+              <button
+                key={bot.bot_key || bot.id}
+                type="button"
+                className={bot.bot_key === selectedBot && activeKey !== "bots" ? "active" : ""}
+                onClick={() => {
+                  setSelectedBot(String(bot.bot_key || ""));
+                  setSelectedGroup("");
+                }}
+              >
+                <Bot size={16} />
+                {bot.name || bot.bot_key}
+              </button>
+            ))}
+            {!lookups.bots.length ? (
+              <button type="button" className="active" onClick={() => setActiveKey("bots")}>
+                <Plus size={16} />
+                Thêm bot
+              </button>
+            ) : null}
+          </div>
+        </section>
+
         <section className={`hero-panel ${hero.tone}`}>
           <div className="hero-icon">
             <HeroIcon size={28} />
@@ -1198,15 +1248,15 @@ export default function HomePage() {
 
         <section className="scope-bar">
           <label>
-            <span>Bot đang quản lý</span>
+            <span>{activeKey === "bots" ? "Hiển thị bot" : "Bot đang cấu hình"}</span>
             <select value={selectedBot} onChange={(event) => setSelectedBot(event.target.value)}>
-              <option value="">Tất cả bot</option>
+              {activeKey === "bots" ? <option value="">Tất cả bot</option> : null}
               {lookups.bots.map((bot) => (
                 <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
                   {bot.name || bot.bot_key}
                 </option>
               ))}
-              {!lookups.bots.some((bot) => bot.bot_key === "main") ? <option value="main">main</option> : null}
+              {!lookups.bots.length ? <option value="main">main</option> : null}
             </select>
           </label>
           <label>
