@@ -3,8 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  Archive,
   BarChart3,
   Check,
+  CheckSquare,
   Database,
   Edit3,
   Gift,
@@ -20,6 +22,7 @@ import {
   Users,
   Sparkles,
   Trash2,
+  WalletCards,
   X
 } from "lucide-react";
 
@@ -90,6 +93,25 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
   }
 };
 const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "check", "report"];
+const CONFIG_LABELS: Record<string, string> = {
+  policy_text: "Nội quy nhóm",
+  scam_review_channel_id: "Channel duyệt báo cáo scam",
+  delete_system_messages: "Xóa tin hệ thống",
+  delete_forwarded_messages: "Chặn tin forward",
+  delete_inline_keyboard_messages: "Chặn bài có nút bấm",
+  delete_messages_from_bots: "Chặn bot lạ gửi tin",
+  remove_unknown_bots: "Tự kick bot lạ",
+  exempt_admins: "Bỏ qua admin",
+  scan_bio_links: "Quét link trong bio",
+  bio_link_delete_message: "Xóa tin khi bio có link",
+  bio_link_warning_text: "Cảnh báo bio có link",
+  captcha_text: "Tin nhắn captcha",
+  show_policy_button: "Hiện nút Quy định",
+  policy_button_text: "Tên nút Quy định",
+  bot_menu_commands: "Menu lệnh Telegram",
+  help_menu_commands: "Menu trong /help",
+  start_fallback_text: "Tin /start khi chưa có nội dung"
+};
 const defaultBulkDefaults: BulkDefaults = {
   bot_key: "main",
   pool: "default",
@@ -143,6 +165,9 @@ function draftFromRow(row: Row) {
 }
 
 function titleFor(row: Row, table: TableConfig) {
+  if (table.key === "config") {
+    return CONFIG_LABELS[String(row.key || "")] || String(row.key || "Cài đặt").replaceAll("_", " ");
+  }
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
 }
 
@@ -194,6 +219,49 @@ function previewText(row: Row, table: TableConfig) {
   const key = table.titleField;
   const raw = row[key] || row.value || row.reason || row.notes || "";
   return String(raw).replace(/\s+/g, " ").trim();
+}
+
+function statusClass(row: Row) {
+  if (row.enabled === false || row.status === "paused" || row.status === "closed" || row.status === "rejected") {
+    return "off";
+  }
+  if (row.status === "pending" || row.status === "draft") {
+    return "pending";
+  }
+  return "on";
+}
+
+function statusText(row: Row) {
+  if (row.enabled === false) {
+    return "Tắt";
+  }
+  const labels: Record<string, string> = {
+    active: "Đang chạy",
+    open: "Đang mở",
+    drawn: "Đã quay",
+    closed: "Đã đóng",
+    pending: "Chờ xử lý",
+    confirmed: "Đã xác nhận",
+    rejected: "Từ chối",
+    draft: "Nháp"
+  };
+  return labels[String(row.status || "")] || "Bật";
+}
+
+function heroFor(activeKey: string) {
+  if (["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist"].includes(activeKey)) {
+    return { title: "Trung tâm bảo mật", desc: "Chặn spam, link xấu, captcha và quyền bot bằng các lựa chọn rõ ràng.", icon: ShieldCheck, tone: "security" };
+  }
+  if (["messages", "video_messages", "auto_replies", "scheduled_posts"].includes(activeKey)) {
+    return { title: "Trung tâm nội dung", desc: "Quản lý tin nhắn, video, auto reply và lịch gửi theo group.", icon: Sparkles, tone: "content" };
+  }
+  if (["scam_entities", "scam_reports"].includes(activeKey)) {
+    return { title: "Trung tâm chống scam", desc: "Tra cứu, báo cáo và duyệt dữ liệu lừa đảo từ thành viên.", icon: Archive, tone: "scam" };
+  }
+  if (["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules"].includes(activeKey)) {
+    return { title: "Trung tâm tương tác", desc: "Giveaway, event, điểm tương tác và các hoạt động giữ group sống.", icon: Gift, tone: "fun" };
+  }
+  return { title: "Bảng điều khiển", desc: "Chọn bot, chọn group, rồi cấu hình từng module bằng thao tác thân thiện.", icon: BarChart3, tone: "main" };
 }
 
 function groupedFields(table: TableConfig) {
@@ -374,6 +442,7 @@ export default function HomePage() {
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
   const [selectedBot, setSelectedBot] = useState("main");
   const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [] });
 
   useEffect(() => {
@@ -396,6 +465,8 @@ export default function HomePage() {
   const activeGuide = table ? TABLE_GUIDES[table.key] : undefined;
   const messagePools = useMemo(() => uniqueValues(lookups.messages, "pool"), [lookups.messages]);
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
+  const hero = useMemo(() => heroFor(activeKey), [activeKey]);
+  const HeroIcon = hero.icon;
   const visibleRows = useMemo(() => rows.filter((row) => {
     if (selectedBot && row.bot_key && row.bot_key !== selectedBot) {
       return false;
@@ -408,6 +479,7 @@ export default function HomePage() {
     }
     return true;
   }), [rows, selectedBot, selectedGroup]);
+  const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
@@ -468,6 +540,7 @@ export default function HomePage() {
       setRows(payload.rows || []);
       setSelected(null);
       setDraft({});
+      setSelectedIds(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot load rows.");
     } finally {
@@ -588,6 +661,26 @@ export default function HomePage() {
     }
   }
 
+  async function removeSelected() {
+    if (!table || !selectedVisibleRows.length || !window.confirm(`Xóa ${selectedVisibleRows.length} mục đã chọn?`)) {
+      return;
+    }
+    setError("");
+    setSaving(true);
+    try {
+      for (const row of selectedVisibleRows) {
+        await api(`/api/${table.key}?id=${row.id}`, { method: "DELETE" });
+      }
+      setSelectedIds(new Set());
+      await loadRows(search);
+      setNotice(`Đã xóa ${selectedVisibleRows.length} mục.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cannot delete selected rows.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function unlock(event: FormEvent) {
     event.preventDefault();
     window.localStorage.setItem("cu_bot_cp_password", password);
@@ -606,6 +699,35 @@ export default function HomePage() {
       ...current,
       [key]: key === "weight" ? Number(value) || 1 : value
     }));
+  }
+
+  function toggleSelected(id: unknown) {
+    const key = String(id);
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((current) => {
+      const visibleIds = visibleRows.map((row) => String(row.id));
+      const allSelected = visibleIds.length > 0 && visibleIds.every((id) => current.has(id));
+      const next = new Set(current);
+      for (const id of visibleIds) {
+        if (allSelected) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      }
+      return next;
+    });
   }
 
   function dataListForField(field: FieldConfig) {
@@ -703,6 +825,21 @@ export default function HomePage() {
       </aside>
 
       <section className="workspace">
+        <section className={`hero-panel ${hero.tone}`}>
+          <div className="hero-icon">
+            <HeroIcon size={28} />
+          </div>
+          <div>
+            <span>{table.label}</span>
+            <h2>{hero.title}</h2>
+            <p>{hero.desc}</p>
+          </div>
+          <div className="hero-stats">
+            <strong>{visibleRows.length}</strong>
+            <span>mục đang xem</span>
+          </div>
+        </section>
+
         <section className="scope-bar">
           <label>
             <span>Bot đang quản lý</span>
@@ -769,21 +906,6 @@ export default function HomePage() {
           </button>
         </section>
 
-        <section className="dashboard-strip">
-          <div>
-            <span>Tổng mục</span>
-            <strong>{visibleRows.length}</strong>
-          </div>
-          <div>
-            <span>Đang bật</span>
-            <strong>{visibleRows.filter((row) => row.enabled !== false).length}</strong>
-          </div>
-          <div>
-            <span>Màn hình</span>
-            <strong>{table.label}</strong>
-          </div>
-        </section>
-
         <header className="topbar">
           <div>
             <h2>{table.label}</h2>
@@ -807,6 +929,16 @@ export default function HomePage() {
               <Plus size={17} />
               Thêm
             </button>
+            <button type="button" className="secondary" onClick={toggleAllVisible} disabled={!visibleRows.length}>
+              <CheckSquare size={17} />
+              {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
+            </button>
+            {selectedVisibleRows.length ? (
+              <button type="button" className="danger" disabled={saving} onClick={removeSelected}>
+                <Trash2 size={17} />
+                Xóa {selectedVisibleRows.length} mục
+              </button>
+            ) : null}
             {bulkTables.has(table.key) ? (
               <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
                 <Edit3 size={17} />
@@ -1023,12 +1155,20 @@ export default function HomePage() {
             <div className="card-list">
               {visibleRows.map((row) => (
                 <article className={`data-card ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
+                  <label className="select-card" title="Chọn mục này">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(String(row.id))}
+                      onChange={() => toggleSelected(row.id)}
+                    />
+                    <span />
+                  </label>
                   <button className="card-main" type="button" onClick={() => startEdit(row)}>
                     <div className="card-title-row">
                       <h3>{titleFor(row, table)}</h3>
-                      <span className={row.enabled === false ? "status off" : "status on"}>
+                      <span className={`status ${statusClass(row)}`}>
                         <Power size={13} />
-                        {row.enabled === false ? "Tắt" : "Bật"}
+                        {statusText(row)}
                       </span>
                     </div>
                     <p>{previewText(row, table) || "Chưa có nội dung mô tả."}</p>
