@@ -33,11 +33,13 @@ class CommandsModule(BotModule):
     priority = 1
 
     def register(self):
-        self.bot.message_handler(commands=["start"])(self.handle_start)
-        self.bot.message_handler(commands=["help", "menu"])(self.handle_help)
-        self.bot.callback_query_handler(func=lambda call: call.data == "show_policy")(self.handle_policy_callback)
+        self.bot.message_handler(commands=["start"])(self.active(self.handle_start))
+        self.bot.message_handler(commands=["help", "menu"])(self.active(self.handle_help))
+        self.bot.callback_query_handler(func=lambda call: call.data == "show_policy")(self.active(self.handle_policy_callback))
 
     def start(self):
+        if not self.bot_active():
+            return
         self.register_bot_commands()
 
     def register_bot_commands(self):

@@ -8,9 +8,9 @@ class AntiScamModule(BotModule):
     priority = 20
 
     def register(self):
-        self.bot.message_handler(commands=["check", "kiemtra", "tra"])(self.handle_check)
-        self.bot.message_handler(commands=["report", "baocao"])(self.handle_report)
-        self.bot.message_handler(commands=["addscam", "themscam"])(self.handle_add_scam)
+        self.bot.message_handler(commands=["check", "kiemtra", "tra"])(self.active(self.handle_check))
+        self.bot.message_handler(commands=["report", "baocao"])(self.active(self.handle_report))
+        self.bot.message_handler(commands=["addscam", "themscam"])(self.active(self.handle_add_scam))
 
     def is_enabled(self):
         return self.module_enabled("anti_scam", True)

@@ -28,6 +28,8 @@ class ScheduledPostsModule(BotModule):
             time.sleep(1)
 
     def schedule_daily_jobs(self):
+        if not self.bot_active():
+            return
         schedule.clear("daily_messages")
         schedule.clear("daily_videos")
 
@@ -49,12 +51,16 @@ class ScheduledPostsModule(BotModule):
                 LOGGER.info("Daily video for %s scheduled at %s", group["group_id"], run_at)
 
     def send_boot_messages(self):
+        if not self.bot_active():
+            return
         if not as_bool(self.store.value("send_on_boot", "false"), False):
             return
         for group in self.target_groups():
             self.send_random_message(group, force=True)
 
     def send_random_message(self, group, force=False):
+        if not self.bot_active():
+            return
         chat_id = int(group["group_id"])
         send_if_silent = as_bool(group.get("send_if_silent") or self.store.value("send_if_silent", "false"), False)
         if not force and not send_if_silent and not self.state.consume_activity(chat_id):
@@ -78,6 +84,8 @@ class ScheduledPostsModule(BotModule):
             LOGGER.warning("Cannot send scheduled message to %s: %s", chat_id, exc)
 
     def copy_random_video(self, group):
+        if not self.bot_active():
+            return
         chat_id = int(group["group_id"])
         pool = group.get("video_pool") or "default"
         candidates = [

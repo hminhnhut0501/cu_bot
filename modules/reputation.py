@@ -9,7 +9,7 @@ class ReputationModule(BotModule):
         self.bot.message_handler(
             func=lambda message: bool(getattr(message, "from_user", None)) and not getattr(message.from_user, "is_bot", False),
             content_types=["text", "photo", "video", "document", "sticker", "animation", "voice"],
-        )(self.track_activity)
+        )(self.active(self.track_activity))
 
     def is_enabled(self):
         return self.module_enabled("reputation", False)

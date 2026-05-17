@@ -9,11 +9,11 @@ class GiveawayModule(BotModule):
     priority = 35
 
     def register(self):
-        self.bot.message_handler(commands=["giveaway", "taogiveaway"])(self.handle_create)
-        self.bot.message_handler(commands=["giveaways", "giveawaylist"])(self.handle_list)
-        self.bot.message_handler(commands=["join", "thamgia"])(self.handle_join)
-        self.bot.message_handler(commands=["draw", "quayso"])(self.handle_draw)
-        self.bot.message_handler(commands=["closegiveaway", "donggiveaway"])(self.handle_close)
+        self.bot.message_handler(commands=["giveaway", "taogiveaway"])(self.active(self.handle_create))
+        self.bot.message_handler(commands=["giveaways", "giveawaylist"])(self.active(self.handle_list))
+        self.bot.message_handler(commands=["join", "thamgia"])(self.active(self.handle_join))
+        self.bot.message_handler(commands=["draw", "quayso"])(self.active(self.handle_draw))
+        self.bot.message_handler(commands=["closegiveaway", "donggiveaway"])(self.active(self.handle_close))
 
     def is_enabled(self):
         return self.module_enabled("giveaway", True)

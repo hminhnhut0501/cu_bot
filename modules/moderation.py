@@ -66,22 +66,22 @@ class ModerationModule(BotModule):
     URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
 
     def register(self):
-        self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.handle_service_message)
-        self.bot.message_handler(commands=["policy", "rules", "quydinh", "noiquy"])(self.handle_policy)
-        self.bot.message_handler(commands=["warn", "canhbao"])(self.admin_only(self.handle_warn_command))
-        self.bot.message_handler(commands=["ban", "cam"])(self.admin_only(self.handle_ban_command))
-        self.bot.message_handler(commands=["unban", "bocam"])(self.admin_only(self.handle_unban_command))
-        self.bot.message_handler(commands=["checkbio", "scanbio", "kiemtrabio"])(self.admin_only(self.handle_check_bio_command))
-        self.bot.message_handler(commands=["debuggroup", "groupdebug", "kiemtragroup"])(self.admin_only(self.handle_debug_group_command))
-        self.bot.message_handler(commands=["reload", "refresh"])(self.admin_only(self.handle_reload_command))
+        self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.active(self.handle_service_message))
+        self.bot.message_handler(commands=["policy", "rules", "quydinh", "noiquy"])(self.active(self.handle_policy))
+        self.bot.message_handler(commands=["warn", "canhbao"])(self.active(self.admin_only(self.handle_warn_command)))
+        self.bot.message_handler(commands=["ban", "cam"])(self.active(self.admin_only(self.handle_ban_command)))
+        self.bot.message_handler(commands=["unban", "bocam"])(self.active(self.admin_only(self.handle_unban_command)))
+        self.bot.message_handler(commands=["checkbio", "scanbio", "kiemtrabio"])(self.active(self.admin_only(self.handle_check_bio_command)))
+        self.bot.message_handler(commands=["debuggroup", "groupdebug", "kiemtragroup"])(self.active(self.admin_only(self.handle_debug_group_command)))
+        self.bot.message_handler(commands=["reload", "refresh"])(self.active(self.admin_only(self.handle_reload_command)))
         self.bot.message_handler(
             func=lambda message: normalize_text(getattr(message, "text", "")) in {"quy dinh", "noi quy"},
             content_types=["text"],
-        )(self.handle_policy_text)
+        )(self.active(self.handle_policy_text))
         self.bot.message_handler(
             func=lambda message: not self.is_command_message(message),
             content_types=MESSAGE_CONTENT_TYPES,
-        )(self.handle_group_message)
+        )(self.active(self.handle_group_message))
 
     def admin_only(self, handler):
         @wraps(handler)

@@ -12,7 +12,7 @@ class AutoReplyModule(BotModule):
         self.bot.message_handler(
             func=lambda message: bool(getattr(message, "text", None)) and not message.text.startswith("/"),
             content_types=["text"],
-        )(self.handle_text)
+        )(self.active(self.handle_text))
 
     def is_enabled(self):
         return self.module_enabled("auto_reply", True)

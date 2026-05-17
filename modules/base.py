@@ -1,3 +1,6 @@
+from functools import wraps
+
+
 class BotModule:
     name = "base"
     priority = 100
@@ -11,6 +14,18 @@ class BotModule:
 
     def is_enabled(self):
         return True
+
+    def bot_active(self):
+        return self.store.bot_active()
+
+    def active(self, handler):
+        @wraps(handler)
+        def wrapped(*args, **kwargs):
+            if not self.bot_active():
+                return None
+            return handler(*args, **kwargs)
+
+        return wrapped
 
     def register(self):
         pass

@@ -66,6 +66,14 @@ class SupabaseStore:
     def enabled_rows(self, name):
         return [row for row in self.rows(name) if as_bool(row.get("enabled"), True)]
 
+    def bot_active(self):
+        for row in self.rows("bots"):
+            if (row.get("bot_key") or "").strip() != self.bot_key:
+                continue
+            status = (row.get("status") or "active").strip().lower()
+            return as_bool(row.get("enabled"), True) and status == "active"
+        return True
+
     def value(self, key, default=None):
         key = key.strip().lower()
         for row in self.enabled_rows("config"):
