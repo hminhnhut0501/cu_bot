@@ -12,6 +12,18 @@ type BulkPayload = {
   rows?: Payload[];
 };
 
+type DynamicTable = {
+  select: (columns?: string) => DynamicTable;
+  order: (column: string, options?: { ascending?: boolean }) => DynamicTable;
+  or: (filters: string) => DynamicTable;
+  insert: (payload: Payload | Payload[]) => DynamicTable;
+  update: (payload: Payload) => DynamicTable;
+  delete: () => DynamicTable;
+  eq: (column: string, value: unknown) => DynamicTable;
+  single: () => DynamicTable;
+  then: Promise<unknown>["then"];
+};
+
 type Params = {
   params: {
     table: string;
@@ -20,6 +32,10 @@ type Params = {
 
 function tableConfig(table: string) {
   return TABLE_MAP[table as keyof typeof TABLE_MAP];
+}
+
+function dynamicTable(client: ReturnType<typeof getSupabaseAdmin>, table: string) {
+  return client.from(table) as unknown as DynamicTable;
 }
 
 function unauthorized() {
@@ -79,7 +95,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 
   const search = request.nextUrl.searchParams.get("search")?.trim();
   const supabaseAdmin = getSupabaseAdmin();
-  let query = supabaseAdmin.from(params.table).select("*").order("id", { ascending: true });
+  let query = dynamicTable(supabaseAdmin, params.table).select("*").order("id", { ascending: true });
   if (search) {
     const searchFields = config.fields.filter((field) => field.type === "text" || field.type === "textarea").slice(0, 5);
     const filter = searchFields.map((field) => `${field.key}.ilike.%${search}%`).join(",");
@@ -88,7 +104,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
   }
 
-  const { data, error } = await query;
+  const { data, error } = (await query) as { data: unknown[] | null; error: { message: string } | null };
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -111,7 +127,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       if (!rows.length) {
         return badRequest("No rows to insert.");
       }
-      const { data, error } = await supabaseAdmin.from(params.table).insert(rows).select("*");
+      const { data, error } = (await dynamicTable(supabaseAdmin, params.table).insert(rows).select("*")) as {
+        data: unknown[] | null;
+        error: { message: string } | null;
+      };
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
@@ -119,7 +138,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     const payload = cleanPayload(params.table, body);
-    const { data, error } = await supabaseAdmin.from(params.table).insert(payload).select("*").single();
+    const { data, error } = (await dynamicTable(supabaseAdmin, params.table).insert(payload).select("*").single()) as {
+      data: unknown;
+      error: { message: string } | null;
+    };
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -145,7 +167,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return badRequest("Missing id.");
     }
     const payload = cleanPayload(params.table, body.values || {});
-    const { data, error } = await supabaseAdmin.from(params.table).update(payload).eq("id", id).select("*").single();
+    const { data, error } = (await dynamicTable(supabaseAdmin, params.table).update(payload).eq("id", id).select("*").single()) as {
+      data: unknown;
+      error: { message: string } | null;
+    };
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -169,7 +194,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 
   const supabaseAdmin = getSupabaseAdmin();
-  const { error } = await supabaseAdmin.from(params.table).delete().eq("id", id);
+  const { error } = (await dynamicTable(supabaseAdmin, params.table).delete().eq("id", id)) as {
+    error: { message: string } | null;
+  };
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
