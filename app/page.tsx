@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  BarChart3,
   Check,
   Database,
   Edit3,
@@ -12,6 +14,8 @@ import {
   Save,
   Search,
   ShieldCheck,
+  TrendingUp,
+  Users,
   Sparkles,
   Trash2,
   X
@@ -113,6 +117,33 @@ function displayValue(value: unknown) {
     return "Chưa đặt";
   }
   return String(value);
+}
+
+function metricLabel(key: string) {
+  const labels: Record<string, string> = {
+    member_count: "Tổng thành viên",
+    active_members: "Thành viên hoạt động",
+    deleted_messages: "Tin đã xóa",
+    spam_events: "Sự kiện spam",
+    scam_reports: "Báo cáo scam",
+    verified_members: "Đã xác minh"
+  };
+  return labels[key] || key;
+}
+
+function metricPeriod(period: string) {
+  const labels: Record<string, string> = {
+    today: "Hôm nay",
+    week: "Tuần này",
+    month: "Tháng này",
+    all_time: "Tất cả"
+  };
+  return labels[period] || period || "Chưa đặt";
+}
+
+function metricValue(row: Row) {
+  const value = Number(row.metric_value || 0);
+  return Number.isFinite(value) ? value.toLocaleString("vi-VN") : displayValue(row.metric_value);
 }
 
 function previewText(row: Row, table: TableConfig) {
@@ -281,7 +312,7 @@ export default function HomePage() {
       .then((response) => response.json())
       .then((payload: Meta) => {
         setMeta(payload);
-        setActiveKey(payload.tables[0]?.key || "");
+        setActiveKey(payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "");
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -289,6 +320,16 @@ export default function HomePage() {
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
+  const dashboardRows = useMemo(() => rows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [rows, table?.key]);
+  const metricGroups = useMemo(() => {
+    const groups: Record<string, Row[]> = {};
+    for (const row of dashboardRows) {
+      const period = String(row.period || "today");
+      groups[period] = groups[period] || [];
+      groups[period].push(row);
+    }
+    return Object.entries(groups);
+  }, [dashboardRows]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -669,6 +710,58 @@ export default function HomePage() {
                   </span>
                 ))}
                 {parsedBulkRows.length > 5 ? <span>... và {parsedBulkRows.length - 5} mục khác</span> : null}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {table.key === "bot_metrics" ? (
+          <section className="metrics-dashboard">
+            <div className="metrics-head">
+              <div>
+                <BarChart3 size={22} />
+                <h3>Dashboard vận hành</h3>
+              </div>
+              <span>Dữ liệu lấy từ bảng bot_metrics trong Supabase</span>
+            </div>
+            <div className="metric-cards">
+              {dashboardRows.map((row, index) => {
+                const Icon = index % 3 === 0 ? Users : index % 3 === 1 ? Activity : TrendingUp;
+                return (
+                  <article className="metric-card" key={row.id || `${row.metric_key}-${row.period}`}>
+                    <div className="metric-icon">
+                      <Icon size={20} />
+                    </div>
+                    <span>{metricPeriod(String(row.period || ""))}</span>
+                    <strong>{metricValue(row)}</strong>
+                    <p>{metricLabel(String(row.metric_key || ""))}</p>
+                    {row.notes ? <small>{row.notes}</small> : null}
+                  </article>
+                );
+              })}
+              {!dashboardRows.length && !loading ? (
+                <div className="empty-state metrics-empty">
+                  <ShieldCheck size={28} />
+                  <strong>Chưa có dữ liệu thống kê</strong>
+                  <span>Bấm Thêm để tạo chỉ số đầu tiên.</span>
+                </div>
+              ) : null}
+            </div>
+            {metricGroups.length ? (
+              <div className="metric-groups">
+                {metricGroups.map(([period, items]) => (
+                  <section className="metric-group" key={period}>
+                    <h4>{metricPeriod(period)}</h4>
+                    <div>
+                      {items.map((row) => (
+                        <span key={row.id || row.metric_key}>
+                          <b>{metricLabel(String(row.metric_key || ""))}</b>
+                          {metricValue(row)}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             ) : null}
           </section>
