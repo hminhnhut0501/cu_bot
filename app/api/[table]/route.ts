@@ -24,6 +24,19 @@ type DynamicTable = {
   then: Promise<unknown>["then"];
 };
 
+type SeedSpec = {
+  table: string;
+  uniqueKeys?: string[];
+};
+
+const BOT_SEED_TABLES: SeedSpec[] = [
+  { table: "config", uniqueKeys: ["key"] },
+  { table: "module_settings", uniqueKeys: ["module_key"] },
+  { table: "captcha_questions", uniqueKeys: ["question"] },
+  { table: "reputation_rules", uniqueKeys: ["action_key"] },
+  { table: "bot_metrics", uniqueKeys: ["metric_key", "period"] }
+];
+
 type Params = {
   params: {
     table: string;
@@ -84,6 +97,54 @@ function cleanPayload(table: string, payload: Record<string, unknown>) {
   return cleaned;
 }
 
+function cloneSeedRow(row: Payload, botKey: string) {
+  const cloned: Payload = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (["id", "created_at", "updated_at"].includes(key)) {
+      continue;
+    }
+    cloned[key] = key === "bot_key" ? botKey : value;
+  }
+  cloned.bot_key = botKey;
+  return cloned;
+}
+
+function seedKey(row: Payload, keys: string[]) {
+  return keys.map((key) => String(row[key] ?? "")).join("::");
+}
+
+async function seedBotDefaults(supabaseAdmin: ReturnType<typeof getSupabaseAdmin>, botKey: unknown) {
+  const targetBotKey = String(botKey || "").trim();
+  if (!targetBotKey || targetBotKey === "main") {
+    return;
+  }
+
+  for (const spec of BOT_SEED_TABLES) {
+    const { data: sourceRows, error: sourceError } = (await dynamicTable(supabaseAdmin, spec.table)
+      .select("*")
+      .eq("bot_key", "main")) as { data: Payload[] | null; error: { message: string } | null };
+    if (sourceError || !sourceRows?.length) {
+      continue;
+    }
+
+    const { data: targetRows, error: targetError } = (await dynamicTable(supabaseAdmin, spec.table)
+      .select("*")
+      .eq("bot_key", targetBotKey)) as { data: Payload[] | null; error: { message: string } | null };
+    if (targetError) {
+      continue;
+    }
+
+    const targetKeys = new Set((targetRows || []).map((row) => seedKey(row, spec.uniqueKeys || [])));
+    const rowsToInsert = sourceRows
+      .filter((row) => !targetKeys.has(seedKey(row, spec.uniqueKeys || [])))
+      .map((row) => cloneSeedRow(row, targetBotKey));
+
+    if (rowsToInsert.length) {
+      await dynamicTable(supabaseAdmin, spec.table).insert(rowsToInsert);
+    }
+  }
+}
+
 export async function GET(request: NextRequest, { params }: Params) {
   if (!isAuthorized(request)) {
     return unauthorized();
@@ -134,6 +195,11 @@ export async function POST(request: NextRequest, { params }: Params) {
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
+      if (params.table === "bots") {
+        for (const row of (data || []) as Payload[]) {
+          await seedBotDefaults(supabaseAdmin, row.bot_key);
+        }
+      }
       return NextResponse.json({ rows: data || [] });
     }
 
@@ -144,6 +210,9 @@ export async function POST(request: NextRequest, { params }: Params) {
     };
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (params.table === "bots") {
+      await seedBotDefaults(supabaseAdmin, (data as Payload)?.bot_key ?? payload.bot_key);
     }
     return NextResponse.json({ row: data });
   } catch (error) {
@@ -173,6 +242,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     };
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (params.table === "bots") {
+      await seedBotDefaults(supabaseAdmin, (data as Payload)?.bot_key ?? payload.bot_key);
     }
     return NextResponse.json({ row: data });
   } catch (error) {
