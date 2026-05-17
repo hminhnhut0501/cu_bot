@@ -69,49 +69,94 @@ const NAV_GROUPS = [
 ];
 const SYSTEM_LAYERS = [
   {
-    key: "bot",
-    title: "Bot Layer",
-    shortTitle: "Bot",
-    desc: "Token, trạng thái, quyền chạy, profile và cấu hình webhook/polling của từng bot.",
-    icon: Bot,
+    key: "overview",
+    title: "Tổng quan",
+    shortTitle: "Tổng quan",
+    desc: "Xem nhanh bot nào đang chạy, module nào cần xử lý và hành động tiếp theo.",
+    icon: BarChart3,
     tone: "main",
-    tables: ["bots", "admins", "module_settings", "config"]
+    tables: ["bot_metrics", "audit_logs", "bots", "groups", "module_settings"]
+  },
+  {
+    key: "bot",
+    title: "Bot",
+    shortTitle: "Bot",
+    desc: "Token, trạng thái, quyền chạy, profile và kết nối của từng bot.",
+    icon: Bot,
+    tone: "content",
+    tables: ["bots", "admins", "module_settings"]
   },
   {
     key: "group",
-    title: "Group Layer",
-    shortTitle: "Group",
+    title: "Nhóm",
+    shortTitle: "Nhóm",
     desc: "Bot được phép hoạt động ở group/kênh nào, quyền admin, member và bot được phép.",
     icon: Users,
     tone: "security",
     tables: ["groups", "bot_allowlist", "admins", "member_roles"]
   },
   {
-    key: "module",
-    title: "Module Layer",
-    shortTitle: "Module",
-    desc: "Bật/tắt và cấu hình các chức năng lớn: bảo mật, auto post, thống kê, giải trí.",
+    key: "modules",
+    title: "Chức năng",
+    shortTitle: "Chức năng",
+    desc: "Bật/tắt và vận hành các service lớn như kiểm duyệt, auto reply, scam, giải trí.",
     icon: Sparkles,
     tone: "content",
-    tables: ["module_settings", "messages", "video_messages", "auto_replies", "scheduled_posts", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules", "config"]
+    tables: ["module_settings", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules"]
   },
   {
-    key: "rule",
-    title: "Rule Layer",
-    shortTitle: "Rule",
-    desc: "Điều kiện chạy: group nào, giờ nào, từ khóa/link nào, captcha nào và action xử lý.",
+    key: "automation",
+    title: "Tự động hóa",
+    shortTitle: "Tự động hóa",
+    desc: "Lịch đăng, gửi tin tự động, video, nhóm nội dung và điều kiện theo giờ/group.",
     icon: SlidersHorizontal,
     tone: "fun",
-    tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "scheduled_posts", "auto_replies"]
+    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"]
   },
   {
-    key: "monitor",
-    title: "Monitor Layer",
-    shortTitle: "Monitor",
-    desc: "Log, cảnh báo, thống kê, báo cáo scam và lỗi vận hành/quyền.",
+    key: "security",
+    title: "Bảo mật",
+    shortTitle: "Bảo mật",
+    desc: "Từ khóa cấm, link xấu, domain blacklist, captcha, verify và action xử lý.",
+    icon: SlidersHorizontal,
+    tone: "fun",
+    tables: ["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist", "groups"]
+  },
+  {
+    key: "members",
+    title: "Thành viên",
+    shortTitle: "Thành viên",
+    desc: "Phân quyền admin, role member, VIP, restricted và điểm tương tác.",
+    icon: Users,
+    tone: "security",
+    tables: ["admins", "member_roles", "reputation_rules", "giveaway_entries"]
+  },
+  {
+    key: "analytics",
+    title: "Thống kê",
+    shortTitle: "Thống kê",
+    desc: "Chỉ số vận hành, tăng trưởng, spam, verify, scam report và hiệu quả module.",
     icon: BarChart3,
     tone: "scam",
-    tables: ["bot_metrics", "audit_logs", "scam_reports", "giveaway_entries"]
+    tables: ["bot_metrics", "scam_reports", "audit_logs"]
+  },
+  {
+    key: "logs",
+    title: "Nhật ký",
+    shortTitle: "Nhật ký",
+    desc: "Ai ban member, ai xóa tin, ai sửa quyền và các sự kiện vận hành cần rà soát.",
+    icon: Activity,
+    tone: "main",
+    tables: ["audit_logs", "scam_reports"]
+  },
+  {
+    key: "settings",
+    title: "Cài đặt",
+    shortTitle: "Cài đặt",
+    desc: "Text, menu lệnh, nội quy, cảnh báo và cấu hình nâng cao chỉ mở khi cần.",
+    icon: SlidersHorizontal,
+    tone: "content",
+    tables: ["config"]
   }
 ];
 const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[] }> = {
@@ -857,8 +902,8 @@ export default function HomePage() {
   const [selectedBot, setSelectedBot] = useState("main");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [activeConfigTab, setActiveConfigTab] = useState(CONFIG_SECTIONS[0].title);
-  const [activeLayer, setActiveLayer] = useState("bot");
+  const [activeConfigTab, setActiveConfigTab] = useState("");
+  const [activeLayer, setActiveLayer] = useState("overview");
   const [activeModule, setActiveModule] = useState("moderation");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
 
@@ -870,7 +915,7 @@ export default function HomePage() {
       .then((response) => response.json())
       .then((payload: Meta) => {
         setMeta(payload);
-        setActiveKey(payload.tables.find((item) => item.key === "bots")?.key || payload.tables[0]?.key || "");
+        setActiveKey(payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "");
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -922,7 +967,7 @@ export default function HomePage() {
       }
     ];
   }, [visibleRows]);
-  const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab) || configTabs[0], [activeConfigTab, configTabs]);
+  const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab), [activeConfigTab, configTabs]);
   const ActiveConfigIcon = activeConfigSection?.icon;
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
@@ -956,6 +1001,26 @@ export default function HomePage() {
   const layerTables = useMemo(() => activeLayerHub.tables
     .map((key) => meta?.tables.find((tableItem) => tableItem.key === key))
     .filter((item): item is TableConfig => Boolean(item)), [activeLayerHub, meta?.tables]);
+  const healthSummary = useMemo(() => {
+    const activeBots = lookups.bots.filter((bot) => bot.enabled !== false && bot.status !== "paused").length;
+    const disabledBots = lookups.bots.filter((bot) => bot.enabled === false || bot.status === "paused").length;
+    const scopedGroups = lookups.groups.filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot);
+    const offModules = moduleRows.filter((row) => row.enabled === false).length;
+    const missingSetup = [
+      scopedGroups.length === 0,
+      lookups.messages.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot).length === 0,
+      moduleRows.length === 0
+    ].filter(Boolean).length;
+    return {
+      activeBots,
+      disabledBots,
+      groups: scopedGroups.length,
+      enabledModules: moduleRows.filter((row) => row.enabled !== false).length,
+      offModules,
+      missingSetup,
+      issues: disabledBots + offModules + missingSetup
+    };
+  }, [lookups.bots, lookups.groups, lookups.messages, moduleRows, selectedBot]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -1464,12 +1529,10 @@ export default function HomePage() {
       <section className="workspace">
         <section className="bot-context">
           <div className="bot-context-copy">
-            <span>Đang cấu hình</span>
-            <strong>{activeKey === "bots" ? "Toàn bộ bot" : currentBot?.name || selectedBot || "Chưa chọn bot"}</strong>
+            <span>Context đang điều khiển</span>
+            <strong>{currentBot?.name || selectedBot || "Tất cả bot"}</strong>
             <p>
-              {activeKey === "bots"
-                ? "Màn này dùng để thêm bot mới và nhập token từ BotFather."
-                : `Mọi thay đổi bên dưới chỉ áp dụng cho bot ${currentBot?.bot_key || selectedBot || "đang chọn"}.`}
+              Group: {selectedGroup || "Tất cả"} · Module: {activeModuleHub.title} · Màn hình: {table.label}
             </p>
           </div>
           <div className="bot-switcher">
@@ -1499,19 +1562,27 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className={`hero-panel ${hero.tone}`}>
-          <div className="hero-icon">
-            <HeroIcon size={28} />
-          </div>
-          <div>
-            <span>{table.label}</span>
-            <h2>{hero.title}</h2>
-            <p>{hero.desc}</p>
-          </div>
-          <div className="hero-stats">
-            <strong>{visibleRows.length}</strong>
-            <span>mục đang xem</span>
-          </div>
+        <section className="status-dashboard">
+          <article className={healthSummary.disabledBots ? "status-card warning" : "status-card ok"}>
+            <span>Bot online</span>
+            <strong>{healthSummary.activeBots}</strong>
+            <p>{healthSummary.disabledBots ? `${healthSummary.disabledBots} bot đang tắt` : "Các bot chính đang sẵn sàng"}</p>
+          </article>
+          <article className={healthSummary.offModules ? "status-card warning" : "status-card ok"}>
+            <span>Module đang chạy</span>
+            <strong>{healthSummary.enabledModules}</strong>
+            <p>{healthSummary.offModules ? `${healthSummary.offModules} module đang tắt` : "Không có module bị tắt"}</p>
+          </article>
+          <article className={healthSummary.groups ? "status-card ok" : "status-card warning"}>
+            <span>Group đã nối</span>
+            <strong>{healthSummary.groups}</strong>
+            <p>{healthSummary.groups ? "Bot có phạm vi hoạt động" : "Chưa có group cho bot này"}</p>
+          </article>
+          <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
+            <span>Cần xử lý</span>
+            <strong>{healthSummary.issues}</strong>
+            <p>{healthSummary.issues ? "Bấm Quick setup hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
+          </article>
         </section>
 
         <section className={`layer-workbench ${activeLayerHub.tone}`}>
@@ -1569,7 +1640,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {activeLayer === "module" ? (
+        {activeLayer === "modules" ? (
         <section className="module-workbench">
           <div className="module-tabs" role="tablist" aria-label="Module chức năng">
             {MODULE_HUBS.map((module) => {
@@ -1590,7 +1661,10 @@ export default function HomePage() {
                   }}
                 >
                   <ModuleIcon size={18} />
-                  <span>{module.title}</span>
+                  <div>
+                    <span>{module.title}</span>
+                    <p>{module.desc}</p>
+                  </div>
                   <b>{isOn ? "Bật" : "Tắt"}</b>
                 </button>
               );
@@ -1607,6 +1681,12 @@ export default function HomePage() {
               </div>
             </div>
             <div className="module-actions">
+              <button type="button" className="secondary" onClick={() => setActiveKey(activeModuleHub.tables[0])}>
+                Quick setup
+              </button>
+              <button type="button" className="ghost" onClick={() => setActiveKey("module_settings")}>
+                Chi tiết
+              </button>
               {(activeModuleHub.moduleKeys || [activeModuleHub.key]).map((moduleKey) => {
                 const row = moduleState.get(moduleKey);
                 const isOn = !row || row.enabled !== false;
@@ -1939,7 +2019,7 @@ export default function HomePage() {
                     type="button"
                     className={active ? "active" : ""}
                     onClick={() => {
-                      setActiveConfigTab(section.title);
+                      setActiveConfigTab(active ? "" : section.title);
                       setDraft({});
                       setSelected(null);
                     }}
@@ -1947,9 +2027,9 @@ export default function HomePage() {
                     <TabIcon size={17} />
                     <span>{section.title}</span>
                     <b>{section.rows.length}</b>
-                  </button>
-                );
-              })}
+                </button>
+              );
+            })}
             </div>
 
             {activeConfigSection ? (
@@ -2049,6 +2129,13 @@ export default function HomePage() {
                     </div>
                   ) : null}
                 </div>
+              </section>
+            ) : null}
+            {!activeConfigSection ? (
+              <section className="config-closed-state">
+                <SlidersHorizontal size={28} />
+                <strong>Advanced config đang được thu gọn</strong>
+                <span>Chọn một nhóm cài đặt phía trên khi cần sửa sâu. Mặc định CP chỉ hiển thị trạng thái và hành động chính.</span>
               </section>
             ) : null}
           </section>
