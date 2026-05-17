@@ -22,7 +22,6 @@ import {
   Users,
   Sparkles,
   Trash2,
-  WalletCards,
   X
 } from "lucide-react";
 
@@ -264,6 +263,76 @@ function heroFor(activeKey: string) {
   return { title: "Bảng điều khiển", desc: "Chọn bot, chọn group, rồi cấu hình từng module bằng thao tác thân thiện.", icon: BarChart3, tone: "main" };
 }
 
+function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
+  if (tableKey === "keywords") {
+    const actions = ["delete", "warn", "mute", "kick", "ban"].map((action) => ({
+      label: action,
+      count: rows.filter((row) => row.action === action).length
+    }));
+    return {
+      title: "Quy trình chặn nội dung xấu",
+      body: "Paste nhiều từ khóa một lần, chọn hành động mặc định, rồi bật/tắt hoặc xóa hàng loạt ngay trong danh sách.",
+      icon: ShieldCheck,
+      chips: [
+        { label: "Đang chọn", value: selectedCount },
+        { label: "Đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        ...actions.map((item) => ({ label: item.label, value: item.count }))
+      ]
+    };
+  }
+  if (tableKey === "messages") {
+    const pools = uniqueValues(rows, "pool");
+    return {
+      title: "Kho tin nhắn theo nhóm nội dung",
+      body: "Mỗi group chỉ cần chọn đúng Nhóm nội dung. Bot sẽ lấy ngẫu nhiên các tin đang bật trong nhóm đó.",
+      icon: Sparkles,
+      chips: [
+        { label: "Nhóm nội dung", value: pools.length },
+        { label: "Tin đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đang chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "auto_replies") {
+    return {
+      title: "Câu hỏi tự trả lời",
+      body: "Tạo cặp Câu kích hoạt -> Nội dung trả lời. Kiểu contains phù hợp cho các câu như giá, support, rule.",
+      icon: Activity,
+      chips: [
+        { label: "Câu trả lời", value: rows.length },
+        { label: "Regex", value: rows.filter((row) => row.match === "regex").length },
+        { label: "Đang bật", value: rows.filter((row) => row.enabled !== false).length }
+      ]
+    };
+  }
+  if (tableKey === "video_messages") {
+    const pools = uniqueValues(rows, "pool");
+    return {
+      title: "Kho video để bot copy",
+      body: "Lưu source chat ID và message ID. Group sẽ lấy video theo Nhóm video, tương tự như tin nhắn.",
+      icon: Archive,
+      chips: [
+        { label: "Nhóm video", value: pools.length },
+        { label: "Video đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đang chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "giveaway_campaigns") {
+    return {
+      title: "Giveaway và quay số",
+      body: "Tạo chiến dịch, đặt phần thưởng, số người thắng và trạng thái. Lượt tham gia nằm ở mục Lượt tham gia.",
+      icon: Gift,
+      chips: [
+        { label: "Đang mở", value: rows.filter((row) => row.status === "open").length },
+        { label: "Đã quay", value: rows.filter((row) => row.status === "drawn").length },
+        { label: "Đang chọn", value: selectedCount }
+      ]
+    };
+  }
+  return null;
+}
+
 function groupedFields(table: TableConfig) {
   const groups: Record<string, FieldConfig[]> = {};
   for (const field of table.fields) {
@@ -480,6 +549,8 @@ export default function HomePage() {
     return true;
   }), [rows, selectedBot, selectedGroup]);
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
+  const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
+  const WorkflowIcon = workflow?.icon;
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
@@ -965,6 +1036,28 @@ export default function HomePage() {
                 <li key={step}>{step}</li>
               ))}
             </ol>
+          </section>
+        ) : null}
+
+        {workflow ? (
+          <section className="workflow-panel">
+            <div className="workflow-copy">
+              <div className="workflow-icon">
+                {WorkflowIcon ? <WorkflowIcon size={22} /> : null}
+              </div>
+              <div>
+                <h3>{workflow.title}</h3>
+                <p>{workflow.body}</p>
+              </div>
+            </div>
+            <div className="workflow-chips">
+              {workflow.chips.map((chip) => (
+                <span key={chip.label}>
+                  <b>{chip.value}</b>
+                  {chip.label}
+                </span>
+              ))}
+            </div>
           </section>
         ) : null}
 

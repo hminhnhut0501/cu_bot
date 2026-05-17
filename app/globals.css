@@ -507,6 +507,74 @@ button.primary:hover,
   margin-top: 5px;
 }
 
+.workflow-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #bfded9;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffffff, #f0fdfa);
+  box-shadow: var(--shadow);
+}
+
+.workflow-copy {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.workflow-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--accent-dark);
+  background: #ccfbf1;
+  flex: 0 0 auto;
+}
+
+.workflow-copy h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.workflow-copy p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.workflow-chips {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workflow-chips span {
+  min-width: 92px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.workflow-chips b {
+  display: block;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
 .dashboard-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1182,12 +1250,17 @@ textarea:focus {
   .hero-panel,
   .module-overview,
   .scope-bar,
+  .workflow-panel,
   .usage-guide {
     grid-template-columns: 1fr;
   }
 
   .hero-stats {
     text-align: left;
+  }
+
+  .workflow-chips {
+    justify-content: flex-start;
   }
 
   .metric-cards,
