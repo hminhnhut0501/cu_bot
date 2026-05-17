@@ -97,6 +97,9 @@ export const TABLES: TableConfig[] = [
       { key: "video_window_start", label: "Video bắt đầu", type: "text", section: "Video" },
       { key: "video_window_end", label: "Video kết thúc", type: "text", section: "Video" },
       { key: "video_pool", label: "Nhóm video", type: "text", section: "Video" },
+      { key: "show_policy_button", label: "Hiện nút Quy định", type: "boolean", section: "Menu bot" },
+      { key: "policy_button_text", label: "Text nút Quy định", type: "text", section: "Menu bot" },
+      { key: "help_menu_commands", label: "Lệnh hiện trong /help", type: "textarea", section: "Menu bot", helper: "Ví dụ: start,policy,reload,warn,ban. Để trống sẽ dùng cài đặt chung." },
       { key: "policy_text", label: "Nội quy riêng", type: "textarea", section: "Nội dung" },
       notes
     ]

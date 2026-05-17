@@ -67,6 +67,9 @@ create table groups (
   video_window_start text default '21:00',
   video_window_end text default '23:00',
   video_pool text default 'default',
+  show_policy_button boolean default false,
+  policy_button_text text default 'Quy định',
+  help_menu_commands text default 'start,policy,reload,checkbio,debuggroup,warn,ban,unban',
   policy_text text,
   notes text
 );
@@ -392,6 +395,10 @@ insert into config (bot_key, key, value, enabled, notes) values
   ('main', 'spam_notice_delete_seconds', '20', true, 'Xóa notice spam sau X giây.'),
   ('main', 'violation_delete_retry_seconds', '2', true, 'Retry xóa tin vi phạm sau X giây nếu lần đầu lỗi.'),
   ('main', 'captcha_text', '{mention} vui lòng xác minh trong {seconds}s: {question}', true, 'Tin captcha đơn giản.'),
+  ('main', 'show_policy_button', 'false', true, 'Bật/tắt nút Quy định dưới tin /start và /help.'),
+  ('main', 'policy_button_text', 'Quy định', true, 'Nội dung nút Quy định.'),
+  ('main', 'bot_menu_commands', 'start,help,policy', true, 'Các lệnh hiện trong menu Telegram, cách nhau bằng dấu phẩy.'),
+  ('main', 'help_menu_commands', 'start,policy,reload,checkbio,debuggroup,warn,ban,unban', true, 'Các lệnh hiện trong /help, cách nhau bằng dấu phẩy.'),
   ('main', 'send_on_boot', 'false', true, 'Không gửi tin khi bot khởi động.'),
   ('main', 'send_if_silent', 'false', true, 'Chỉ gửi tin nếu nhóm có hoạt động.');
 

@@ -707,9 +707,12 @@ class ModerationModule(BotModule):
             "Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam/quảng cáo.\n3. Không gửi nội dung cấm.",
         )
         try:
-            self.bot.send_message(chat_id, text, reply_to_message_id=reply_to_message_id)
+            self.bot.send_message(chat_id, self.clean_text(text), reply_to_message_id=reply_to_message_id)
         except Exception as exc:
             LOGGER.warning("Cannot send policy to %s: %s", chat_id, exc)
+
+    def clean_text(self, text):
+        return str(text or "").replace("\\r\\n", "\n").replace("\\n", "\n")
 
     def group_enabled(self, chat_id):
         rows = self.store.enabled_rows("groups")
