@@ -633,6 +633,54 @@ function statusText(row: Row) {
   return labels[String(row.status || "")] || "Bật";
 }
 
+function healthState(row: Row) {
+  if (row.enabled === false || row.status === "paused" || row.status === "closed" || row.status === "rejected") {
+    return { className: "disabled", label: "Disabled" };
+  }
+  if (row.status === "pending" || row.status === "draft" || row.status === "watch") {
+    return { className: "setup", label: "Need setup" };
+  }
+  if (row.status === "error" || row.status === "danger") {
+    return { className: "error", label: "Error" };
+  }
+  return { className: "healthy", label: "Healthy" };
+}
+
+function actionBadge(row: Row, table: TableConfig) {
+  const action = row.action || row.risk_level || row.status || row.role || row.captcha_type || row.period || "";
+  if (action) {
+    return String(action).replaceAll("_", " ").toUpperCase();
+  }
+  if (table.key === "messages" || table.key === "video_messages") {
+    return String(row.pool || "default").toUpperCase();
+  }
+  if (table.key === "bots") {
+    return row.enabled === false ? "OFFLINE" : "ONLINE";
+  }
+  return statusText(row).toUpperCase();
+}
+
+function detailRows(row: Row, table: TableConfig) {
+  const keys = Array.from(new Set([...table.summaryFields, "bot_key", "group_id", "chat_id", "match", "action", "reason", "status", "enabled"]));
+  return keys
+    .filter((key) => row[key] !== undefined && row[key] !== null && row[key] !== "")
+    .slice(0, 10)
+    .map((key) => ({ key, label: fieldByKey(table, key)?.label || key.replaceAll("_", " "), value: displayValue(row[key]) }));
+}
+
+function rowMatchesQuickFilter(row: Row, filter: string) {
+  if (!filter) {
+    return true;
+  }
+  if (filter === "active") {
+    return row.enabled !== false && row.status !== "paused" && row.status !== "closed";
+  }
+  if (filter === "disabled") {
+    return row.enabled === false || row.status === "paused" || row.status === "closed";
+  }
+  return [row.action, row.match, row.status, row.role, row.risk_level].map((value) => String(value || "").toLowerCase()).includes(filter);
+}
+
 function heroFor(activeKey: string) {
   if (["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist"].includes(activeKey)) {
     return { title: "Trung tâm bảo mật", desc: "Chặn spam, link xấu, captcha và quyền bot bằng các lựa chọn rõ ràng.", icon: ShieldCheck, tone: "security" };
@@ -905,6 +953,8 @@ export default function HomePage() {
   const [activeConfigTab, setActiveConfigTab] = useState("");
   const [activeLayer, setActiveLayer] = useState("overview");
   const [activeModule, setActiveModule] = useState("moderation");
+  const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
+  const [quickFilter, setQuickFilter] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
 
   useEffect(() => {
@@ -942,8 +992,11 @@ export default function HomePage() {
         return false;
       }
     }
+    if (!rowMatchesQuickFilter(row, quickFilter)) {
+      return false;
+    }
     return true;
-  }), [rows, selectedBot, selectedGroup, table?.key]);
+  }), [rows, selectedBot, selectedGroup, table?.key, quickFilter]);
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
@@ -1021,6 +1074,29 @@ export default function HomePage() {
       issues: disabledBots + offModules + missingSetup
     };
   }, [lookups.bots, lookups.groups, lookups.messages, moduleRows, selectedBot]);
+  const activeModuleStats = useMemo(() => {
+    const ruleTables = ["keywords", "domain_blacklist", "link_shorteners", "auto_replies"];
+    const rules = ruleTables.reduce((total, key) => {
+      if (key === "keywords") {
+        return total + rows.filter((row) => table?.key === key && row.enabled !== false).length;
+      }
+      return total;
+    }, 0);
+    return {
+      groups: lookups.groups.filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot).length,
+      rules: activeModuleHub.tables.includes(table?.key || "") ? visibleRows.filter((row) => row.enabled !== false).length || rules : rules,
+      issues: moduleEnabled ? 0 : 1
+    };
+  }, [activeModuleHub.tables, lookups.groups, moduleEnabled, rows, selectedBot, table?.key, visibleRows]);
+  const quickFilters = useMemo(() => {
+    const base = [
+      { key: "", label: "Tất cả" },
+      { key: "active", label: "Active" },
+      { key: "disabled", label: "Disabled" }
+    ];
+    const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
+    return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
+  }, [rows]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -1085,6 +1161,7 @@ export default function HomePage() {
     if (table && (!meta?.passwordRequired || savedPassword)) {
       void loadRows("");
       setSearch("");
+      setQuickFilter("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, savedPassword, table?.key]);
@@ -1196,6 +1273,19 @@ export default function HomePage() {
     setSelected(row);
     setDraft(draftFromRow(row));
     setNotice("");
+  }
+
+  function inspectRow(row: Row) {
+    setSelected(row);
+    setDraft({});
+    setNotice("");
+  }
+
+  async function toggleSelectedRowEnabled() {
+    if (!selected || !table || !table.fields.some((field) => field.key === "enabled")) {
+      return;
+    }
+    await saveRowValues(selected, { ...selected, enabled: selected.enabled === false });
   }
 
   async function save(event: FormEvent) {
@@ -1678,6 +1768,13 @@ export default function HomePage() {
               <div>
                 <h3>{activeModuleHub.title}</h3>
                 <p>{activeModuleHub.desc}</p>
+                <div className="module-live-stats">
+                  <span className={moduleEnabled ? "live-dot on" : "live-dot off"} />
+                  <b>{moduleEnabled ? "Active" : "Disabled"}</b>
+                  <span>Đang bảo vệ {activeModuleStats.groups} group</span>
+                  <span>{activeModuleStats.rules} mục đang chạy</span>
+                  {activeModuleStats.issues ? <span>{activeModuleStats.issues} cảnh báo</span> : null}
+                </div>
               </div>
             </div>
             <div className="module-actions">
@@ -1747,6 +1844,12 @@ export default function HomePage() {
             <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
+            <button type="button" className={scanMode === "scan" ? "secondary" : "ghost"} onClick={() => setScanMode("scan")}>
+              Scan
+            </button>
+            <button type="button" className={scanMode === "detail" ? "secondary" : "ghost"} onClick={() => setScanMode("detail")}>
+              Detail
+            </button>
             {table.key !== "config" ? (
               <>
                 <button type="button" className="primary" onClick={startCreate}>
@@ -1781,6 +1884,21 @@ export default function HomePage() {
 
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
+
+        {table.key !== "config" ? (
+          <section className="quick-filter-bar">
+            {quickFilters.map((filter) => (
+              <button
+                key={filter.key || "all"}
+                type="button"
+                className={quickFilter === filter.key ? "active" : ""}
+                onClick={() => setQuickFilter(filter.key)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </section>
+        ) : null}
 
         {activeGuide ? (
           <section className="usage-guide">
@@ -2140,17 +2258,17 @@ export default function HomePage() {
             ) : null}
           </section>
         ) : (
-        <div className="content-grid">
+        <div className={`content-grid ${selected ? "focus-mode" : ""}`}>
           <section className="list-panel">
             <div className="list-header">
               <div>
                 <strong>{visibleRows.length}</strong>
                 <span> mục</span>
               </div>
-              <span>{visibleRows.length !== rows.length ? `${visibleRows.length} mục theo bộ lọc` : "Chọn một mục để chỉnh sửa"}</span>
+              <span>{scanMode === "scan" ? "Scan mode: chỉ hiện trạng thái chính" : "Detail mode: hiện thêm ngữ cảnh"}</span>
             </div>
 
-            <div className="card-list">
+            <div className={`card-list ${scanMode}`}>
               {visibleRows.map((row) => (
                 <article className={`data-card ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
                   <label className="select-card" title="Chọn mục này">
@@ -2161,17 +2279,18 @@ export default function HomePage() {
                     />
                     <span />
                   </label>
-                  <button className="card-main" type="button" onClick={() => startEdit(row)}>
+                  <button className="card-main" type="button" onClick={() => inspectRow(row)}>
                     <div className="card-title-row">
                       <h3>{titleFor(row, table)}</h3>
-                      <span className={`status ${statusClass(row)}`}>
-                        <Power size={13} />
-                        {statusText(row)}
-                      </span>
+                      <div className="card-state">
+                        <span className={`health ${healthState(row).className}`}>{healthState(row).label}</span>
+                        <span className="action-badge">{actionBadge(row, table)}</span>
+                      </div>
                     </div>
                     <p>{previewText(row, table) || "Chưa có nội dung mô tả."}</p>
-                    <div className="meta-grid">
-                      {table.summaryFields.map((key) => {
+                    {scanMode === "detail" ? (
+                      <div className="meta-grid">
+                      {table.summaryFields.slice(0, 2).map((key) => {
                         const field = fieldByKey(table, key);
                         return (
                           <span className="meta-pill" key={key}>
@@ -2180,7 +2299,8 @@ export default function HomePage() {
                           </span>
                         );
                       })}
-                    </div>
+                      </div>
+                    ) : null}
                   </button>
                   <div className="card-actions">
                     <button type="button" title="Sửa" onClick={() => startEdit(row)}>
@@ -2314,10 +2434,62 @@ export default function HomePage() {
                   Lưu
                 </button>
               </form>
+            ) : selected ? (
+              <div className="inspector-shell">
+                <div className="inspector-head">
+                  <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
+                  <button type="button" className="icon-button" onClick={() => setSelected(null)}>
+                    <X size={17} />
+                  </button>
+                </div>
+                <h3>{titleFor(selected, table)}</h3>
+                <p>{previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
+                <div className="inspector-actions">
+                  <button type="button" className="primary" onClick={() => startEdit(selected)}>
+                    <Edit3 size={16} />
+                    Sửa nhanh
+                  </button>
+                  {table.fields.some((field) => field.key === "enabled") ? (
+                    <button type="button" className="secondary" disabled={saving} onClick={toggleSelectedRowEnabled}>
+                      <Power size={16} />
+                      {selected.enabled === false ? "Bật lại" : "Tắt"}
+                    </button>
+                  ) : null}
+                  <button type="button" className="ghost" onClick={() => remove(selected)}>
+                    <Trash2 size={16} />
+                    Xóa
+                  </button>
+                </div>
+                <section className="inspector-section">
+                  <h4>Chi tiết vận hành</h4>
+                  <div className="inspector-grid">
+                    {detailRows(selected, table).map((item) => (
+                      <span key={item.key}>
+                        <b>{item.label}</b>
+                        {item.value}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+                <section className="inspector-section">
+                  <h4>Activity gần đây</h4>
+                  <div className="activity-stream">
+                    <span><i />Đã tải dữ liệu từ Supabase</span>
+                    <span><i />Sẵn sàng chỉnh sửa hoặc tắt/bật nhanh</span>
+                    <span><i />Log chi tiết sẽ nối vào audit_logs khi module ghi sự kiện</span>
+                  </div>
+                </section>
+                <section className="inspector-section">
+                  <h4>Test tool</h4>
+                  <button type="button" className="ghost" onClick={() => setNotice("Test tool UI đã sẵn sàng. Phần runtime test sẽ nối ở bước backend tiếp theo.")}>
+                    Test mục này
+                  </button>
+                </section>
+              </div>
             ) : (
               <div className="placeholder">
                 <Edit3 size={24} />
-                Chọn một mục để sửa hoặc bấm Thêm.
+                Chọn một mục để inspect, hoặc bấm Thêm để tạo mới.
               </div>
             )}
           </section>
