@@ -82,7 +82,23 @@ domain_blacklist: domain | delete/warn/ban | note
 auto_replies: trigger | reply | contains/exact/regex
 ```
 
-For multiple bots, create rows in `bots` and run each Render bot service with its own `BOT_KEY`.
+For multiple bots, you can choose one of two modes:
+
+```bash
+# One Render service per bot
+BOT_KEY=bot_a
+BOT_TOKEN=123456:telegram-token
+```
+
+Or run all active bots with tokens from the `bots` table in one Render service:
+
+```bash
+MULTI_BOT_ENABLED=true
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+```
+
+In multi-bot mode, add each bot in the CP menu `Bot`, fill `Mã bot`, `Tên bot`, `Username`, and `Token bot`. Each running bot uses its own `bot_key`, so groups, config, messages, keywords, and modules stay separated by bot.
 
 Core modules included in the current platform build:
 

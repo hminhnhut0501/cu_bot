@@ -69,12 +69,12 @@ class Settings:
     timezone: str = "Asia/Ho_Chi_Minh"
 
 
-def load_settings():
+def load_settings(require_bot_token=True):
     bot_key = os.environ.get("BOT_KEY", "main")
     bot_token = os.environ.get("BOT_TOKEN")
-    if not bot_token:
+    if not bot_token and require_bot_token:
         bot_token = _bot_token_from_supabase(bot_key)
-    if not bot_token:
+    if require_bot_token and not bot_token:
         raise RuntimeError("Missing BOT_TOKEN environment variable or bots.bot_token for BOT_KEY.")
 
     enabled_modules = set(_csv_env("ENABLED_MODULES"))
