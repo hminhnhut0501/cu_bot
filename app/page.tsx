@@ -766,7 +766,7 @@ export default function HomePage() {
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
   const visibleRows = useMemo(() => rows.filter((row) => {
-    if (selectedBot && row.bot_key && row.bot_key !== selectedBot) {
+    if (table?.key !== "bots" && selectedBot && row.bot_key && row.bot_key !== selectedBot) {
       return false;
     }
     if (selectedGroup) {
@@ -776,7 +776,7 @@ export default function HomePage() {
       }
     }
     return true;
-  }), [rows, selectedBot, selectedGroup]);
+  }), [rows, selectedBot, selectedGroup, table?.key]);
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
@@ -961,6 +961,9 @@ export default function HomePage() {
       }
       setNotice("Đã lưu thay đổi.");
       await loadRows(search);
+      if (table.key === "bots") {
+        await loadLookups();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot save.");
     } finally {
@@ -1002,6 +1005,9 @@ export default function HomePage() {
     try {
       await api(`/api/${table.key}?id=${row.id}`, { method: "DELETE" });
       await loadRows(search);
+      if (table.key === "bots") {
+        await loadLookups();
+      }
       setNotice("Đã xóa.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot delete.");
@@ -1020,6 +1026,9 @@ export default function HomePage() {
       }
       setSelectedIds(new Set());
       await loadRows(search);
+      if (table.key === "bots") {
+        await loadLookups();
+      }
       setNotice(`Đã xóa ${selectedVisibleRows.length} mục.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Cannot delete selected rows.");
