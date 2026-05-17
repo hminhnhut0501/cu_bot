@@ -120,6 +120,11 @@ const CONFIG_LABELS: Record<string, string> = {
   forward_warning_delete_seconds: "Tự xóa cảnh báo forward",
   spam_notice_delete_seconds: "Tự xóa thông báo spam",
   violation_delete_retry_seconds: "Thử xóa lại tin vi phạm",
+  duplicate_message_enabled: "Chặn tin/sticker lặp lại",
+  duplicate_message_max_count: "Số lần lặp tối đa",
+  duplicate_message_window_seconds: "Thời gian kiểm tra lặp",
+  duplicate_message_action: "Xử lý khi bị lặp",
+  duplicate_message_reason: "Lý do cảnh báo lặp",
   send_on_boot: "Gửi tin khi bot khởi động",
   send_if_silent: "Chỉ gửi khi nhóm im lặng",
   admin_only_text: "Tin báo chỉ admin dùng được",
@@ -166,7 +171,7 @@ const CONFIG_SECTIONS = [
     desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
     icon: SlidersHorizontal,
     tone: "security",
-    keys: ["spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds"]
+    keys: ["spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason"]
   },
   {
     title: "Bio, link & cảnh báo",
@@ -225,6 +230,11 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   forward_warning_delete_seconds: "Sau bao lâu bot tự xóa cảnh báo khi user gửi tin forward.",
   spam_notice_delete_seconds: "Sau bao lâu bot tự xóa thông báo spam.",
   violation_delete_retry_seconds: "Nếu xóa tin vi phạm lần đầu lỗi, bot chờ số giây này rồi thử xóa lại.",
+  duplicate_message_enabled: "Bật để bot phát hiện user gửi cùng một tin nhắn hoặc cùng một sticker nhiều lần.",
+  duplicate_message_max_count: "Số lần trùng nội dung/sticker được phép trong khung thời gian trước khi xử lý.",
+  duplicate_message_window_seconds: "Khung thời gian tính lặp. Ví dụ 600 giây là 10 phút.",
+  duplicate_message_action: "Hành động khi user lặp nội dung quá mức. Nên dùng warn để cảnh báo và tự xóa tin vi phạm.",
+  duplicate_message_reason: "Nội dung lý do bot dùng trong tin cảnh báo khi user gửi trùng.",
   scan_bio_links: "Quét bio của người gửi để phát hiện link spam.",
   bio_link_delete_message: "Xóa tin nhắn của user nếu bio có link xấu.",
   bio_link_restrict_seconds: "Thời gian mute/restrict khi phát hiện bio có link.",

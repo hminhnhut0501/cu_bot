@@ -226,6 +226,8 @@ class ModerationModule(BotModule):
             if self.setting_bool(message.chat.id, "bio_link_delete_message", True):
                 self.delete_violation_message(message, "bio_link")
             return
+        if self.detect_duplicate_message(message):
+            return
         if self.detect_spam(message):
             return
         if self.detect_content_spam(message):
@@ -264,6 +266,44 @@ class ModerationModule(BotModule):
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
+
+    def detect_duplicate_message(self, message):
+        if not self.setting_bool(message.chat.id, "duplicate_message_enabled", True):
+            return False
+
+        fingerprint = self.duplicate_fingerprint(message)
+        if not fingerprint:
+            return False
+
+        limit = self.setting_int(message.chat.id, "duplicate_message_max_count", 3)
+        window = self.setting_int(message.chat.id, "duplicate_message_window_seconds", 600)
+        if limit <= 0 or window <= 0:
+            return False
+
+        count = self.state.add_user_duplicate_message(message.chat.id, message.from_user.id, fingerprint, window)
+        if count < limit:
+            return False
+
+        self.delete_violation_message(message, "duplicate_message")
+        action = self.setting(message.chat.id, "duplicate_message_action", "warn")
+        reason = self.setting(
+            message.chat.id,
+            "duplicate_message_reason",
+            "Gửi nội dung hoặc sticker giống nhau nhiều lần.",
+        )
+        self.apply_action(message, action, reason)
+        return True
+
+    def duplicate_fingerprint(self, message):
+        content_type = getattr(message, "content_type", "")
+        if content_type == "text":
+            text = normalize_text(getattr(message, "text", "") or "")
+            return f"text:{text}" if text else ""
+        if content_type == "sticker":
+            sticker = getattr(message, "sticker", None)
+            unique_id = getattr(sticker, "file_unique_id", None) or getattr(sticker, "file_id", None)
+            return f"sticker:{unique_id}" if unique_id else ""
+        return ""
 
     def detect_content_spam(self, message):
         content_type = getattr(message, "content_type", "")
