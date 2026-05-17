@@ -67,6 +67,53 @@ const NAV_GROUPS = [
   { label: "Scam", keys: ["scam_entities", "scam_reports"] },
   { label: "Giải trí", keys: ["entertainment_events", "giveaway_campaigns", "giveaway_entries", "reputation_rules"] }
 ];
+const SYSTEM_LAYERS = [
+  {
+    key: "bot",
+    title: "Bot Layer",
+    shortTitle: "Bot",
+    desc: "Token, trạng thái, quyền chạy, profile và cấu hình webhook/polling của từng bot.",
+    icon: Bot,
+    tone: "main",
+    tables: ["bots", "admins", "module_settings", "config"]
+  },
+  {
+    key: "group",
+    title: "Group Layer",
+    shortTitle: "Group",
+    desc: "Bot được phép hoạt động ở group/kênh nào, quyền admin, member và bot được phép.",
+    icon: Users,
+    tone: "security",
+    tables: ["groups", "bot_allowlist", "admins", "member_roles"]
+  },
+  {
+    key: "module",
+    title: "Module Layer",
+    shortTitle: "Module",
+    desc: "Bật/tắt và cấu hình các chức năng lớn: bảo mật, auto post, thống kê, giải trí.",
+    icon: Sparkles,
+    tone: "content",
+    tables: ["module_settings", "messages", "video_messages", "auto_replies", "scheduled_posts", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules", "config"]
+  },
+  {
+    key: "rule",
+    title: "Rule Layer",
+    shortTitle: "Rule",
+    desc: "Điều kiện chạy: group nào, giờ nào, từ khóa/link nào, captcha nào và action xử lý.",
+    icon: SlidersHorizontal,
+    tone: "fun",
+    tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "scheduled_posts", "auto_replies"]
+  },
+  {
+    key: "monitor",
+    title: "Monitor Layer",
+    shortTitle: "Monitor",
+    desc: "Log, cảnh báo, thống kê, báo cáo scam và lỗi vận hành/quyền.",
+    icon: BarChart3,
+    tone: "scam",
+    tables: ["bot_metrics", "audit_logs", "scam_reports", "giveaway_entries"]
+  }
+];
 const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[] }> = {
   groups: {
     title: "Luồng cần nhớ",
@@ -787,6 +834,10 @@ function uniqueValues(rows: Row[], key: string) {
   return Array.from(new Set(rows.map((row) => String(row[key] || "").trim()).filter(Boolean))).sort();
 }
 
+function layerContainsTable(layer: (typeof SYSTEM_LAYERS)[number], tableKey: string) {
+  return layer.tables.includes(tableKey);
+}
+
 export default function HomePage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState("");
@@ -807,6 +858,7 @@ export default function HomePage() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConfigTab, setActiveConfigTab] = useState(CONFIG_SECTIONS[0].title);
+  const [activeLayer, setActiveLayer] = useState("bot");
   const [activeModule, setActiveModule] = useState("moderation");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
 
@@ -818,7 +870,7 @@ export default function HomePage() {
       .then((response) => response.json())
       .then((payload: Meta) => {
         setMeta(payload);
-        setActiveKey(payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "");
+        setActiveKey(payload.tables.find((item) => item.key === "bots")?.key || payload.tables[0]?.key || "");
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -826,7 +878,6 @@ export default function HomePage() {
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
-  const navGroups = useMemo(() => groupedNav(meta?.tables || []), [meta?.tables]);
   const activeGuide = table ? TABLE_GUIDES[table.key] : undefined;
   const messagePools = useMemo(() => uniqueValues(lookups.messages, "pool"), [lookups.messages]);
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
@@ -900,6 +951,11 @@ export default function HomePage() {
     }
     return states.some((row) => row?.enabled !== false);
   }, [activeModuleHub, moduleState]);
+  const activeLayerHub = useMemo(() => SYSTEM_LAYERS.find((layer) => layer.key === activeLayer) || SYSTEM_LAYERS[0], [activeLayer]);
+  const ActiveLayerIcon = activeLayerHub.icon;
+  const layerTables = useMemo(() => activeLayerHub.tables
+    .map((key) => meta?.tables.find((tableItem) => tableItem.key === key))
+    .filter((item): item is TableConfig => Boolean(item)), [activeLayerHub, meta?.tables]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -996,6 +1052,31 @@ export default function HomePage() {
       setActiveModule(matchingModule.key);
     }
   }, [activeKey, activeModule]);
+
+  useEffect(() => {
+    const currentLayer = SYSTEM_LAYERS.find((layer) => layer.key === activeLayer);
+    if (currentLayer && layerContainsTable(currentLayer, activeKey)) {
+      return;
+    }
+    const matchingLayer = SYSTEM_LAYERS.find((layer) => layerContainsTable(layer, activeKey));
+    if (matchingLayer) {
+      setActiveLayer(matchingLayer.key);
+    }
+  }, [activeKey, activeLayer]);
+
+  function selectLayer(layerKey: string) {
+    const layer = SYSTEM_LAYERS.find((item) => item.key === layerKey);
+    if (!layer) {
+      return;
+    }
+    setActiveLayer(layer.key);
+    if (!layerContainsTable(layer, activeKey)) {
+      setActiveKey(layer.tables[0]);
+    }
+    setSelected(null);
+    setDraft({});
+    setSelectedIds(new Set());
+  }
 
   function startCreate() {
     if (!table) {
@@ -1359,22 +1440,24 @@ export default function HomePage() {
             <span>Điều khiển bot Telegram</span>
           </div>
         </div>
-        <nav>
-          {navGroups.map((group) => (
-            <section className="nav-group" key={group.label}>
-              <h2>{group.label}</h2>
-              {group.items.map((item) => (
+        <nav className="layer-nav">
+          <section className="nav-group">
+            <h2>System Layers</h2>
+            {SYSTEM_LAYERS.map((layer) => {
+              const LayerIcon = layer.icon;
+              return (
                 <button
-                  key={item.key}
-                  className={item.key === activeKey ? "active" : ""}
-                  onClick={() => setActiveKey(item.key)}
+                  key={layer.key}
+                  className={layer.key === activeLayer ? "active" : ""}
+                  onClick={() => selectLayer(layer.key)}
                   type="button"
                 >
-                  {item.label}
+                  <LayerIcon size={17} />
+                  <span>{layer.shortTitle}</span>
                 </button>
-              ))}
-            </section>
-          ))}
+              );
+            })}
+          </section>
         </nav>
       </aside>
 
@@ -1431,6 +1514,26 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className={`layer-workbench ${activeLayerHub.tone}`}>
+          <div className="layer-copy">
+            <div className="layer-icon">
+              <ActiveLayerIcon size={24} />
+            </div>
+            <div>
+              <span>Kiến trúc vận hành</span>
+              <h3>{activeLayerHub.title}</h3>
+              <p>{activeLayerHub.desc}</p>
+            </div>
+          </div>
+          <div className="layer-links">
+            {layerTables.map((item) => (
+              <button key={item.key} type="button" className={activeKey === item.key ? "active" : ""} onClick={() => setActiveKey(item.key)}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="scope-bar">
           <label>
             <span>{activeKey === "bots" ? "Hiển thị bot" : "Bot đang cấu hình"}</span>
@@ -1466,6 +1569,7 @@ export default function HomePage() {
           </div>
         </section>
 
+        {activeLayer === "module" ? (
         <section className="module-workbench">
           <div className="module-tabs" role="tablist" aria-label="Module chức năng">
             {MODULE_HUBS.map((module) => {
@@ -1542,6 +1646,7 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        ) : null}
 
         <header className="topbar">
           <div>
