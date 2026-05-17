@@ -20,17 +20,53 @@ export type TableConfig = {
   summaryFields: string[];
 };
 
+const botKey: FieldConfig = { key: "bot_key", label: "Bot", type: "text", section: "Phạm vi", placeholder: "main" };
+const enabled: FieldConfig = { key: "enabled", label: "Trạng thái", type: "boolean", section: "Phạm vi" };
+const notes: FieldConfig = { key: "notes", label: "Ghi chú", type: "textarea", section: "Ghi chú" };
+
 export const TABLES: TableConfig[] = [
+  {
+    key: "bots",
+    label: "Bot",
+    description: "Quản lý nhiều bot trong cùng một control panel.",
+    titleField: "name",
+    summaryFields: ["bot_key", "username", "status"],
+    fields: [
+      { key: "bot_key", label: "Mã bot", type: "text", required: true, section: "Thông tin bot" },
+      { key: "name", label: "Tên bot", type: "text", required: true, section: "Thông tin bot" },
+      { key: "username", label: "Username", type: "text", section: "Thông tin bot" },
+      { key: "status", label: "Trạng thái vận hành", type: "select", options: ["active", "paused", "archived"], section: "Thông tin bot" },
+      { key: "owner_note", label: "Ghi chú chủ sở hữu", type: "textarea", section: "Thông tin bot" },
+      enabled
+    ]
+  },
+  {
+    key: "module_settings",
+    label: "Module",
+    description: "Bật/tắt và cấu hình các module quản trị, bảo mật, tương tác, vận hành.",
+    titleField: "module_name",
+    summaryFields: ["bot_key", "category", "module_key", "enabled"],
+    fields: [
+      botKey,
+      { key: "module_key", label: "Mã module", type: "text", required: true, section: "Module" },
+      { key: "module_name", label: "Tên module", type: "text", required: true, section: "Module" },
+      { key: "category", label: "Nhóm chức năng", type: "select", options: ["Quản trị", "Bảo mật", "Tăng tương tác", "Vận hành"], section: "Module" },
+      { key: "settings", label: "Cấu hình JSON", type: "textarea", section: "Module", helper: "Có thể để {} nếu chưa cần cấu hình nâng cao." },
+      enabled,
+      notes
+    ]
+  },
   {
     key: "groups",
     label: "Nhóm",
     description: "Quản lý group Telegram, chống spam và lịch gửi nội dung.",
     titleField: "group_name",
-    summaryFields: ["group_id", "daily_enabled", "video_enabled", "spam_action"],
+    summaryFields: ["bot_key", "group_id", "daily_enabled", "spam_action"],
     fields: [
+      botKey,
       { key: "group_id", label: "Group ID", type: "text", required: true, placeholder: "-100...", section: "Thông tin nhóm" },
       { key: "group_name", label: "Tên nhóm", type: "text", section: "Thông tin nhóm" },
-      { key: "enabled", label: "Bật nhóm", type: "boolean", section: "Thông tin nhóm" },
+      enabled,
       { key: "delete_system_messages", label: "Xóa tin hệ thống", type: "boolean", section: "Kiểm duyệt" },
       { key: "delete_forwarded_messages", label: "Chặn tin forward", type: "boolean", section: "Kiểm duyệt" },
       { key: "delete_inline_keyboard_messages", label: "Chặn bài có nút bấm", type: "boolean", section: "Kiểm duyệt" },
@@ -54,20 +90,157 @@ export const TABLES: TableConfig[] = [
       { key: "video_window_end", label: "Video kết thúc", type: "text", section: "Video" },
       { key: "video_pool", label: "Nhóm video", type: "text", section: "Video" },
       { key: "policy_text", label: "Nội quy riêng", type: "textarea", section: "Nội dung" },
-      { key: "notes", label: "Ghi chú", type: "textarea", section: "Nội dung" }
+      notes
     ]
   },
   {
-    key: "config",
-    label: "Cài đặt",
-    description: "Các thiết lập mặc định dùng chung cho bot.",
-    titleField: "key",
-    summaryFields: ["value", "enabled"],
+    key: "admins",
+    label: "Quản trị viên",
+    description: "Phân quyền Owner, Mod, VIP, Member, Restricted cho từng bot/group.",
+    titleField: "user_id",
+    summaryFields: ["bot_key", "role", "chat_id", "enabled"],
     fields: [
-      { key: "key", label: "Mã cài đặt", type: "text", required: true },
-      { key: "value", label: "Giá trị", type: "textarea" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
+      botKey,
+      { key: "user_id", label: "User ID", type: "text", required: true, section: "Người dùng" },
+      { key: "chat_id", label: "Chat ID", type: "text", section: "Người dùng" },
+      { key: "role", label: "Role", type: "select", options: ["owner", "mod", "vip", "member", "restricted"], section: "Người dùng" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "member_roles",
+    label: "Member",
+    description: "Quản lý role, điểm reputation và trạng thái hạn chế của member.",
+    titleField: "username",
+    summaryFields: ["bot_key", "role", "reputation", "enabled"],
+    fields: [
+      botKey,
+      { key: "user_id", label: "User ID", type: "text", required: true, section: "Member" },
+      { key: "username", label: "Username", type: "text", section: "Member" },
+      { key: "chat_id", label: "Chat ID", type: "text", section: "Member" },
+      { key: "role", label: "Role", type: "select", options: ["owner", "mod", "vip", "member", "restricted"], section: "Member" },
+      { key: "reputation", label: "Điểm", type: "number", section: "Reputation" },
+      { key: "restricted_until", label: "Hạn chế đến", type: "text", section: "Reputation", helper: "ISO timestamp, có thể để trống." },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "scam_entities",
+    label: "Dữ liệu scam",
+    description: "UID, username, số tài khoản, số điện thoại đã xác nhận là lừa đảo/scam.",
+    titleField: "username",
+    summaryFields: ["bot_key", "uid", "bank_account", "risk_level"],
+    fields: [
+      botKey,
+      { key: "uid", label: "UID", type: "text", section: "Đối tượng" },
+      { key: "username", label: "Username", type: "text", section: "Đối tượng" },
+      { key: "bank_account", label: "Số tài khoản", type: "text", section: "Đối tượng" },
+      { key: "phone", label: "Số điện thoại", type: "text", section: "Đối tượng" },
+      { key: "name", label: "Tên", type: "text", section: "Đối tượng" },
+      { key: "risk_level", label: "Mức rủi ro", type: "select", options: ["watch", "suspicious", "scam", "danger"], section: "Kết luận" },
+      { key: "reason", label: "Lý do", type: "textarea", section: "Kết luận" },
+      { key: "evidence", label: "Bằng chứng", type: "textarea", section: "Kết luận" },
+      { key: "source", label: "Nguồn", type: "text", section: "Kết luận" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["pending", "confirmed", "rejected"], section: "Kết luận" },
+      enabled
+    ]
+  },
+  {
+    key: "scam_reports",
+    label: "Báo cáo scam",
+    description: "Tin báo từ thành viên gửi riêng cho bot, chờ admin xác nhận.",
+    titleField: "target_username",
+    summaryFields: ["bot_key", "reporter_user_id", "bank_account", "status"],
+    fields: [
+      botKey,
+      { key: "reporter_user_id", label: "Người báo cáo", type: "text", section: "Báo cáo" },
+      { key: "reporter_username", label: "Username người báo cáo", type: "text", section: "Báo cáo" },
+      { key: "target_uid", label: "UID bị báo cáo", type: "text", section: "Đối tượng" },
+      { key: "target_username", label: "Username bị báo cáo", type: "text", section: "Đối tượng" },
+      { key: "bank_account", label: "Số tài khoản", type: "text", section: "Đối tượng" },
+      { key: "phone", label: "Số điện thoại", type: "text", section: "Đối tượng" },
+      { key: "evidence", label: "Bằng chứng", type: "textarea", section: "Bằng chứng" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["pending", "confirmed", "rejected"], section: "Xử lý" },
+      { key: "admin_note", label: "Ghi chú admin", type: "textarea", section: "Xử lý" }
+    ]
+  },
+  {
+    key: "keywords",
+    label: "Từ khóa cấm",
+    description: "Ban theo keyword, chống keyword cấm, NSFW/porn hoặc scam.",
+    titleField: "keyword",
+    summaryFields: ["bot_key", "match", "action", "reason"],
+    fields: [
+      botKey,
+      { key: "keyword", label: "Từ khóa", type: "text", required: true, section: "Rule" },
+      { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex"], section: "Rule" },
+      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "mute", "kick", "ban"], section: "Rule" },
+      { key: "reason", label: "Lý do", type: "text", section: "Rule" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "domain_blacklist",
+    label: "Domain blacklist",
+    description: "Chống phishing, link scam, telegram clone và domain độc hại.",
+    titleField: "domain",
+    summaryFields: ["bot_key", "risk", "action", "enabled"],
+    fields: [
+      botKey,
+      { key: "domain", label: "Domain", type: "text", required: true, section: "Domain" },
+      { key: "risk", label: "Rủi ro", type: "select", options: ["phishing", "scam", "telegram_clone", "nsfw"], section: "Domain" },
+      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "ban"], section: "Domain" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "link_shorteners",
+    label: "Link rút gọn",
+    description: "Danh sách domain rút gọn cần cảnh báo hoặc chặn.",
+    titleField: "domain",
+    summaryFields: ["bot_key", "action", "enabled"],
+    fields: [
+      botKey,
+      { key: "domain", label: "Domain", type: "text", required: true, section: "Domain" },
+      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "ban"], section: "Domain" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "verification_settings",
+    label: "Verify",
+    description: "Join captcha, math captcha, delay join và auto kick member không verify.",
+    titleField: "chat_id",
+    summaryFields: ["bot_key", "captcha_type", "verify_timeout_seconds", "enabled"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", section: "Verify" },
+      { key: "captcha_type", label: "Loại captcha", type: "select", options: ["math", "image", "button"], section: "Verify" },
+      { key: "verify_timeout_seconds", label: "Thời gian verify", type: "number", section: "Verify" },
+      { key: "kick_unverified", label: "Kick nếu không verify", type: "boolean", section: "Verify" },
+      { key: "delay_join_seconds", label: "Delay join chat", type: "number", section: "Verify" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "auto_replies",
+    label: "Auto reply",
+    description: "Tự động trả lời các câu như giá, support, rule.",
+    titleField: "trigger",
+    summaryFields: ["bot_key", "match", "enabled"],
+    fields: [
+      botKey,
+      { key: "trigger", label: "Câu kích hoạt", type: "text", required: true, section: "Auto reply" },
+      { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex", "exact"], section: "Auto reply" },
+      { key: "reply", label: "Nội dung trả lời", type: "textarea", required: true, section: "Auto reply" },
+      enabled,
+      notes
     ]
   },
   {
@@ -75,55 +248,23 @@ export const TABLES: TableConfig[] = [
     label: "Tin nhắn",
     description: "Nội dung bot gửi khi /start hoặc theo lịch.",
     titleField: "message",
-    summaryFields: ["pool", "weight", "enabled"],
-    fields: [
-      { key: "message", label: "Nội dung", type: "textarea", required: true },
-      { key: "pool", label: "Nhóm nội dung", type: "text" },
-      { key: "weight", label: "Độ ưu tiên", type: "number" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
-    ]
+    summaryFields: ["bot_key", "pool", "weight", "enabled"],
+    fields: [botKey, { key: "message", label: "Nội dung", type: "textarea", required: true }, { key: "pool", label: "Nhóm nội dung", type: "text" }, { key: "weight", label: "Độ ưu tiên", type: "number" }, enabled, notes]
   },
   {
-    key: "keywords",
-    label: "Từ khóa cấm",
-    description: "Từ khóa cần xóa, cảnh báo hoặc ban.",
-    titleField: "keyword",
-    summaryFields: ["match", "action", "reason"],
+    key: "scheduled_posts",
+    label: "Lịch đăng",
+    description: "Đăng bài định kỳ, thông báo event, countdown.",
+    titleField: "title",
+    summaryFields: ["bot_key", "chat_id", "schedule_text", "enabled"],
     fields: [
-      { key: "keyword", label: "Từ khóa", type: "text", required: true },
-      { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex"] },
-      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "ban"] },
-      { key: "reason", label: "Lý do", type: "text" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
-    ]
-  },
-  {
-    key: "admins",
-    label: "Quản trị viên",
-    description: "User được phép dùng lệnh quản trị bot.",
-    titleField: "user_id",
-    summaryFields: ["chat_id", "enabled", "notes"],
-    fields: [
-      { key: "user_id", label: "User ID", type: "text", required: true },
-      { key: "chat_id", label: "Chat ID", type: "text" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
-    ]
-  },
-  {
-    key: "bot_allowlist",
-    label: "Bot được phép",
-    description: "Danh sách bot được phép tồn tại hoặc gửi tin.",
-    titleField: "username",
-    summaryFields: ["bot_id", "chat_id", "enabled"],
-    fields: [
-      { key: "bot_id", label: "Bot ID", type: "text" },
-      { key: "username", label: "Username", type: "text" },
-      { key: "chat_id", label: "Chat ID", type: "text" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Lịch" },
+      { key: "title", label: "Tiêu đề", type: "text", section: "Lịch" },
+      { key: "content", label: "Nội dung", type: "textarea", required: true, section: "Lịch" },
+      { key: "schedule_text", label: "Lịch", type: "text", section: "Lịch", helper: "Ví dụ: daily 20:00, every monday 09:00." },
+      enabled,
+      notes
     ]
   },
   {
@@ -131,17 +272,25 @@ export const TABLES: TableConfig[] = [
     label: "Video",
     description: "Nguồn message video để bot copy ẩn danh.",
     titleField: "message_id",
-    summaryFields: ["from_chat_id", "pool", "enabled"],
-    fields: [
-      { key: "from_chat_id", label: "Source chat ID", type: "text", required: true },
-      { key: "message_id", label: "Message ID", type: "text", required: true },
-      { key: "caption", label: "Caption", type: "textarea" },
-      { key: "pool", label: "Nhóm video", type: "text" },
-      { key: "weight", label: "Độ ưu tiên", type: "number" },
-      { key: "enabled", label: "Trạng thái", type: "boolean" },
-      { key: "notes", label: "Ghi chú", type: "textarea" }
-    ]
+    summaryFields: ["bot_key", "from_chat_id", "pool", "enabled"],
+    fields: [botKey, { key: "from_chat_id", label: "Source chat ID", type: "text", required: true }, { key: "message_id", label: "Message ID", type: "text", required: true }, { key: "caption", label: "Caption", type: "textarea" }, { key: "pool", label: "Nhóm video", type: "text" }, { key: "weight", label: "Độ ưu tiên", type: "number" }, enabled, notes]
+  },
+  {
+    key: "reputation_rules",
+    label: "Điểm tương tác",
+    description: "Quy tắc cộng điểm, rank và auto unlock quyền.",
+    titleField: "action_key",
+    summaryFields: ["bot_key", "points", "daily_limit", "enabled"],
+    fields: [botKey, { key: "action_key", label: "Hành động", type: "text", required: true }, { key: "points", label: "Điểm", type: "number" }, { key: "daily_limit", label: "Giới hạn/ngày", type: "number" }, enabled, notes]
+  },
+  {
+    key: "audit_logs",
+    label: "Nhật ký",
+    description: "Ai xóa tin, ai ban member, ai sửa quyền, các hành động vận hành.",
+    titleField: "action",
+    summaryFields: ["bot_key", "actor_user_id", "target_user_id", "created_at"],
+    fields: [botKey, { key: "chat_id", label: "Chat ID", type: "text" }, { key: "actor_user_id", label: "Người thực hiện", type: "text" }, { key: "action", label: "Hành động", type: "text", required: true }, { key: "target_user_id", label: "Đối tượng", type: "text" }, { key: "details", label: "Chi tiết", type: "textarea" }]
   }
 ];
 
-export const TABLE_MAP = Object.fromEntries(TABLES.map((table) => [table.key, table]));
+export const TABLE_MAP: Record<string, TableConfig> = Object.fromEntries(TABLES.map((table) => [table.key, table]));

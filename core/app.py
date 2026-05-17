@@ -29,6 +29,7 @@ class BotApplication:
             self.settings.supabase_url,
             self.settings.supabase_service_role_key,
             self.settings.data_refresh_seconds,
+            bot_key=self.settings.bot_key,
         )
 
     def start(self):

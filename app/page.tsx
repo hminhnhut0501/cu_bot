@@ -28,22 +28,44 @@ type Meta = {
 };
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
-const bulkTables = new Set(["messages", "keywords", "video_messages"]);
+const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
 
 function emptyValues(table: TableConfig) {
   const values: Row = {};
   for (const field of table.fields) {
     if (field.type === "boolean") {
       values[field.key] = field.key === "enabled" || defaultBoolean.has(field.key);
+    } else if (field.key === "bot_key") {
+      values[field.key] = "main";
     } else if (field.key === "pool" || field.key.endsWith("_pool")) {
       values[field.key] = "default";
     } else if (field.key === "weight") {
       values[field.key] = 1;
+    } else if (field.key === "settings") {
+      values[field.key] = "{}";
+    } else if (field.key === "status") {
+      values[field.key] = "active";
+    } else if (field.key === "role") {
+      values[field.key] = "member";
+    } else if (field.key === "action") {
+      values[field.key] = "delete";
+    } else if (field.key === "match") {
+      values[field.key] = "contains";
     } else {
       values[field.key] = "";
     }
   }
   return values;
+}
+
+function draftFromRow(row: Row) {
+  const draft = { ...row };
+  for (const [key, value] of Object.entries(draft)) {
+    if (value && typeof value === "object") {
+      draft[key] = JSON.stringify(value, null, 2);
+    }
+  }
+  return draft;
 }
 
 function titleFor(row: Row, table: TableConfig) {
@@ -139,6 +161,44 @@ function parseBulkRows(tableKey: string, text: string): BulkRow[] {
     }).filter((row) => row.from_chat_id && row.message_id);
   }
 
+  if (tableKey === "scam_entities") {
+    return lines.map((line): BulkRow => {
+      const parts = parseDelimited(line);
+      const raw = parts.join(" ");
+      const username = raw.match(/@([a-zA-Z0-9_]{5,})/)?.[1] || "";
+      const numbers = raw.match(/\b\d{6,}\b/g) || [];
+      return {
+        uid: parts[0]?.match(/^\d{6,}$/) ? parts[0] : numbers[0] || "",
+        username,
+        bank_account: parts[1] && /^\d{6,}$/.test(parts[1]) ? parts[1] : numbers[1] || "",
+        phone: numbers.find((item) => [9, 10, 11].includes(item.length)) || "",
+        name: "",
+        risk_level: "scam",
+        reason: parts[2] || "Dữ liệu scam",
+        evidence: line,
+        source: "cp_bulk",
+        status: "confirmed",
+        enabled: true
+      };
+    });
+  }
+
+  if (tableKey === "domain_blacklist" || tableKey === "link_shorteners") {
+    return lines.map((line): BulkRow => {
+      const [domain, action = "delete", notes = ""] = parseDelimited(line);
+      return tableKey === "domain_blacklist"
+        ? { domain, risk: "scam", action, enabled: true, notes }
+        : { domain, action, enabled: true, notes };
+    });
+  }
+
+  if (tableKey === "auto_replies") {
+    return lines.map((line): BulkRow => {
+      const [trigger, reply = "", match = "contains"] = parseDelimited(line);
+      return { trigger, reply, match, enabled: true };
+    }).filter((row) => row.trigger && row.reply);
+  }
+
   return [];
 }
 
@@ -151,6 +211,18 @@ function bulkHint(tableKey: string) {
   }
   if (tableKey === "video_messages") {
     return "Mỗi dòng gồm source chat ID và message ID. Ví dụ: -1001234567890 | 456 | caption.";
+  }
+  if (tableKey === "scam_entities") {
+    return "Mỗi dòng là một đối tượng scam. Có thể paste: uid | @username | số tài khoản | lý do.";
+  }
+  if (tableKey === "domain_blacklist") {
+    return "Mỗi dòng là một domain scam/phishing. Có thể dùng: domain | delete/warn/ban | ghi chú.";
+  }
+  if (tableKey === "link_shorteners") {
+    return "Mỗi dòng là một domain rút gọn. Có thể dùng: domain | delete/warn | ghi chú.";
+  }
+  if (tableKey === "auto_replies") {
+    return "Mỗi dòng: câu hỏi | nội dung trả lời | contains/exact/regex.";
   }
   return "";
 }
@@ -272,7 +344,7 @@ export default function HomePage() {
 
   function startEdit(row: Row) {
     setSelected(row);
-    setDraft({ ...row });
+    setDraft(draftFromRow(row));
     setNotice("");
   }
 

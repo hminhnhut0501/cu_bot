@@ -24,6 +24,7 @@ def _csv_env(name):
 @dataclass(frozen=True)
 class Settings:
     bot_token: str
+    bot_key: str = "main"
     owner_ids: set[int] = field(default_factory=set)
     parse_mode: str | None = None
     polling_retry_seconds: int = 45
@@ -48,6 +49,7 @@ def load_settings():
 
     return Settings(
         bot_token=bot_token,
+        bot_key=os.environ.get("BOT_KEY", "main"),
         owner_ids=owner_ids,
         parse_mode=os.environ.get("PARSE_MODE") or "HTML",
         polling_retry_seconds=_int_env("POLLING_RETRY_SECONDS", 45),

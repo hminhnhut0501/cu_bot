@@ -48,6 +48,10 @@ function cleanPayload(table: string, payload: Record<string, unknown>) {
       cleaned[key] = value === null || value === undefined ? null : Number(value);
       continue;
     }
+    if (key === "settings" && typeof value === "string") {
+      cleaned[key] = value.trim() ? JSON.parse(value) : {};
+      continue;
+    }
     if (field.type === "boolean") {
       cleaned[key] = Boolean(value);
       continue;

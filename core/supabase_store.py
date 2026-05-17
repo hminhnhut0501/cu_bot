@@ -9,8 +9,32 @@ from core.utils import as_bool
 LOGGER = logging.getLogger(__name__)
 
 
+BOT_SCOPED_TABLES = {
+    "admins",
+    "audit_logs",
+    "auto_replies",
+    "bot_allowlist",
+    "captcha_questions",
+    "config",
+    "domain_blacklist",
+    "groups",
+    "keywords",
+    "link_shorteners",
+    "member_roles",
+    "messages",
+    "module_settings",
+    "reputation_events",
+    "reputation_rules",
+    "scheduled_posts",
+    "scam_entities",
+    "scam_reports",
+    "verification_settings",
+    "video_messages",
+}
+
+
 class SupabaseStore:
-    def __init__(self, supabase_url, service_role_key, refresh_seconds=120):
+    def __init__(self, supabase_url, service_role_key, refresh_seconds=120, bot_key="main"):
         if not supabase_url:
             raise RuntimeError("Missing SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL environment variable.")
         if not service_role_key:
@@ -18,6 +42,7 @@ class SupabaseStore:
         self.supabase_url = supabase_url.rstrip("/")
         self.service_role_key = service_role_key
         self.refresh_seconds = refresh_seconds
+        self.bot_key = bot_key
         self._cache = {}
 
     def rows(self, name):
@@ -53,9 +78,28 @@ class SupabaseStore:
             "accept": "application/json",
         }
         params = {"select": "*", "order": "id.asc"}
+        if table in BOT_SCOPED_TABLES:
+            params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key})"
         response = requests.get(url, headers=headers, params=params, timeout=15)
         response.raise_for_status()
         return [self._clean_row(row) for row in response.json()]
+
+    def insert(self, table, payload):
+        url = f"{self.supabase_url}/rest/v1/{table}"
+        headers = {
+            "apikey": self.service_role_key,
+            "authorization": f"Bearer {self.service_role_key}",
+            "content-type": "application/json",
+            "prefer": "return=representation",
+        }
+        data = dict(payload)
+        if table in BOT_SCOPED_TABLES and not data.get("bot_key"):
+            data["bot_key"] = self.bot_key
+        response = requests.post(url, headers=headers, json=data, timeout=15)
+        response.raise_for_status()
+        self._cache.pop(table.lower(), None)
+        rows = response.json()
+        return rows[0] if rows else {}
 
     def _clean_row(self, row):
         cleaned = {}

@@ -25,13 +25,14 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 Create the database tables and essential seed data with:
 
 ```text
-docs/supabase/import_essential.sql
+docs/supabase/platform_schema.sql
 ```
 
 Then configure the bot runtime:
 
 ```bash
 BOT_TOKEN=123456:telegram-token
+BOT_KEY=main
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 DATA_REFRESH_SECONDS=120
@@ -76,7 +77,12 @@ The control panel supports quick paste for `messages`, `keywords`, and `video_me
 messages: one message per line, or message | pool | weight
 keywords: keyword | delete/warn/ban | reason
 video_messages: from_chat_id | message_id | caption
+scam_entities: uid | @username | bank_account | reason
+domain_blacklist: domain | delete/warn/ban | note
+auto_replies: trigger | reply | contains/exact/regex
 ```
+
+For multiple bots, create rows in `bots` and run each Render bot service with its own `BOT_KEY`.
 
 Optional bot owner env:
 

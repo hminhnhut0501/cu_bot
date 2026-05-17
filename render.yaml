@@ -8,5 +8,7 @@ services:
     envVars:
       - key: KEEP_ALIVE_ENABLED
         value: "true"
+      - key: BOT_KEY
+        value: "main"
       - key: DATA_REFRESH_SECONDS
         value: "120"
