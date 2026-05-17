@@ -330,10 +330,6 @@ function configLabel(key: string) {
   return CONFIG_LABELS[key] || key.replaceAll("_", " ");
 }
 
-function configSectionFor(key: string) {
-  return CONFIG_SECTIONS.find((section) => section.keys.includes(key));
-}
-
 function configDescription(row: Row) {
   const key = String(row.key || "");
   return CONFIG_DESCRIPTIONS[key] || String(row.notes || "Cài đặt nâng cao dùng cho vận hành bot.");
@@ -734,6 +730,7 @@ export default function HomePage() {
   const [selectedBot, setSelectedBot] = useState("main");
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [activeConfigTab, setActiveConfigTab] = useState(CONFIG_SECTIONS[0].title);
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [] });
 
   useEffect(() => {
@@ -774,6 +771,27 @@ export default function HomePage() {
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
+  const configTabs = useMemo(() => {
+    const usedKeys = new Set(CONFIG_SECTIONS.flatMap((section) => section.keys));
+    const baseTabs = CONFIG_SECTIONS.map((section) => ({
+      ...section,
+      rows: visibleRows.filter((row) => section.keys.includes(String(row.key || "")))
+    }));
+    const otherRows = visibleRows.filter((row) => !usedKeys.has(String(row.key || "")));
+    return [
+      ...baseTabs,
+      {
+        title: "Cài đặt khác",
+        desc: "Các cài đặt nâng cao chưa thuộc nhóm chính.",
+        icon: SlidersHorizontal,
+        tone: "main",
+        keys: [],
+        rows: otherRows
+      }
+    ];
+  }, [visibleRows]);
+  const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab) || configTabs[0], [activeConfigTab, configTabs]);
+  const ActiveConfigIcon = activeConfigSection?.icon;
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
     for (const row of dashboardRows) {
@@ -1494,191 +1512,128 @@ export default function HomePage() {
 
         {table.key === "config" ? (
           <section className="config-center">
-            <div className="config-center-head">
-              <div>
-                <h3>Trung tâm cài đặt</h3>
-                <p>Không cần nhớ mã cấu hình. Chọn nhóm bên dưới, bật/tắt nhanh hoặc sửa nội dung ngay trong card.</p>
-              </div>
-              <div className="config-summary">
-                <span>{visibleRows.filter((row) => row.enabled !== false).length}</span>
-                đang bật
-              </div>
+            <div className="config-tabs" role="tablist" aria-label="Nhóm cài đặt">
+              {configTabs.map((section) => {
+                const TabIcon = section.icon;
+                const active = activeConfigSection?.title === section.title;
+                return (
+                  <button
+                    key={section.title}
+                    type="button"
+                    className={active ? "active" : ""}
+                    onClick={() => {
+                      setActiveConfigTab(section.title);
+                      setDraft({});
+                      setSelected(null);
+                    }}
+                  >
+                    <TabIcon size={17} />
+                    <span>{section.title}</span>
+                    <b>{section.rows.length}</b>
+                  </button>
+                );
+              })}
             </div>
-            {CONFIG_SECTIONS.map((section) => {
-              const SectionIcon = section.icon;
-              const sectionRows = visibleRows.filter((row) => section.keys.includes(String(row.key || "")));
-              if (!sectionRows.length) {
-                return null;
-              }
-              return (
-                <section className={`config-section ${section.tone}`} key={section.title}>
-                  <div className="config-section-title">
-                    <div className="config-section-icon">
-                      <SectionIcon size={22} />
-                    </div>
-                    <div>
-                      <h4>{section.title}</h4>
-                      <p>{section.desc}</p>
-                    </div>
-                  </div>
-                  <div className="settings-grid">
-                    {sectionRows.map((row) => {
-                      const editing = selected?.id === row.id && Object.keys(draft).length > 0;
-                      const booleanValue = isConfigBoolean(row);
-                      const active = row.enabled !== false;
-                      return (
-                        <article className={`setting-tile ${editing ? "editing" : ""}`} key={row.id || row.key}>
-                          <div className="setting-top">
-                            <div>
-                              <h5>{configLabel(String(row.key || ""))}</h5>
-                              <p><b>Tác dụng:</b> {configDescription(row)}</p>
-                              <small className="setting-code">Mã hệ thống: {String(row.key || "")}</small>
-                            </div>
-                            <span className={`status ${active ? "on" : "off"}`}>
-                              <Power size={13} />
-                              {active ? "Bật" : "Tắt"}
-                            </span>
-                          </div>
 
-                          {editing ? (
-                            <form className="setting-edit" onSubmit={save}>
-                              {booleanValue ? (
-                                <label className="switch-field">
-                                  <span>Giá trị</span>
-                                  <span className={`switch-control ${String(draft.value).toLowerCase() === "true" ? "checked" : ""}`}>
-                                    <input
-                                      type="checkbox"
-                                      checked={String(draft.value).toLowerCase() === "true"}
-                                      onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
-                                    />
-                                    <b />
-                                    <em>{String(draft.value).toLowerCase() === "true" ? "Bật" : "Tắt"}</em>
-                                  </span>
-                                </label>
-                              ) : (
-                                <label>
-                                  <span>Nội dung</span>
-                                  <textarea
-                                    value={draft.value ?? ""}
-                                    onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                                    rows={String(draft.value || "").length > 120 ? 7 : 3}
-                                  />
-                                </label>
-                              )}
-                              <label className="switch-field">
-                                <span>Cho phép sử dụng</span>
-                                <span className={`switch-control ${Boolean(draft.enabled) ? "checked" : ""}`}>
-                                  <input
-                                    type="checkbox"
-                                    checked={Boolean(draft.enabled)}
-                                    onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
-                                  />
-                                  <b />
-                                  <em>{Boolean(draft.enabled) ? "Bật" : "Tắt"}</em>
-                                </span>
-                              </label>
-                              <div className="setting-edit-actions">
-                                <button type="button" className="ghost" onClick={() => setDraft({})}>
-                                  Hủy
-                                </button>
-                                <button type="submit" className="primary" disabled={saving}>
-                                  {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                                  Lưu
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <>
-                              <div className="setting-value">
-                                <span>{configValueCaption(row)}</span>
-                                <strong>{configDisplayValue(row)}</strong>
-                              </div>
-                              <div className="setting-actions">
-                                {booleanValue ? (
-                                  <button type="button" className="secondary" disabled={saving} onClick={() => toggleConfigValue(row)}>
-                                    <Power size={16} />
-                                    {String(row.value).toLowerCase() === "true" ? "Tắt giá trị" : "Bật giá trị"}
-                                  </button>
-                                ) : null}
-                                <button type="button" className="primary" onClick={() => startEdit(row)}>
-                                  <Edit3 size={16} />
-                                  Sửa nội dung
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </article>
-                      );
-                    })}
+            {activeConfigSection ? (
+              <section className={`config-section ${activeConfigSection.tone}`}>
+                <div className="config-section-title">
+                  <div className="config-section-icon">
+                    {ActiveConfigIcon ? <ActiveConfigIcon size={22} /> : null}
                   </div>
-                </section>
-              );
-            })}
-            <section className="config-section other">
-              <div className="config-section-title">
-                <div className="config-section-icon">
-                  <SlidersHorizontal size={22} />
+                  <div>
+                    <h4>{activeConfigSection.title}</h4>
+                    <p>{activeConfigSection.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4>Cài đặt khác</h4>
-                  <p>Các key chưa được gom nhóm vẫn có thể chỉnh tại đây.</p>
-                </div>
-              </div>
-              <div className="settings-grid compact">
-                {visibleRows.filter((row) => !configSectionFor(String(row.key || ""))).map((row) => {
-                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
-                  return (
-                    <article className={`setting-tile ${editing ? "editing" : ""}`} key={row.id || row.key}>
-                      <div className="setting-top">
-                        <div>
-                          <h5>{configLabel(String(row.key || ""))}</h5>
-                          <p><b>Tác dụng:</b> {configDescription(row)}</p>
-                          <small className="setting-code">Mã hệ thống: {String(row.key || "")}</small>
-                        </div>
-                        <span className={`status ${statusClass(row)}`}>
-                          <Power size={13} />
-                          {statusText(row)}
-                        </span>
-                      </div>
-                      {editing ? (
-                        <form className="setting-edit" onSubmit={save}>
-                          <label>
-                            <span>Nội dung</span>
-                            <textarea
-                              value={draft.value ?? ""}
-                              onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                              rows={4}
-                            />
-                          </label>
-                          <div className="setting-edit-actions">
-                            <button type="button" className="ghost" onClick={() => setDraft({})}>
-                              Hủy
-                            </button>
-                            <button type="submit" className="primary" disabled={saving}>
-                              {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                              Lưu
+                <div className="settings-grid">
+                  {activeConfigSection.rows.map((row) => {
+                    const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                    const booleanValue = isConfigBoolean(row);
+                    const valueOn = String(row.value).toLowerCase() === "true";
+                    return (
+                      <article className={`setting-tile ${editing ? "editing" : ""} ${row.enabled === false ? "disabled" : ""}`} key={row.id || row.key}>
+                        <div className="setting-top">
+                          <div>
+                            <h5>{configLabel(String(row.key || ""))}</h5>
+                            <p>{configDescription(row)}</p>
+                          </div>
+                          <div className="setting-icon-actions">
+                            {booleanValue ? (
+                              <button
+                                type="button"
+                                className={`setting-toggle ${valueOn ? "on" : "off"}`}
+                                disabled={saving}
+                                onClick={() => toggleConfigValue(row)}
+                                title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                              >
+                                <Power size={16} />
+                              </button>
+                            ) : null}
+                            <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
+                              <Edit3 size={16} />
                             </button>
                           </div>
-                        </form>
-                      ) : (
-                        <>
-                          <div className="setting-value">
+                        </div>
+
+                        {editing ? (
+                          <form className="setting-edit" onSubmit={save}>
+                            {booleanValue ? (
+                              <label className="checkbox-field">
+                                <span>Bật chức năng này</span>
+                                <input
+                                  type="checkbox"
+                                  checked={String(draft.value).toLowerCase() === "true"}
+                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
+                                />
+                              </label>
+                            ) : (
+                              <label>
+                                <span>Nội dung / giá trị</span>
+                                <textarea
+                                  value={draft.value ?? ""}
+                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                                  rows={String(draft.value || "").length > 120 ? 6 : 3}
+                                />
+                              </label>
+                            )}
+                            <label className="checkbox-field">
+                              <span>Kích hoạt cài đặt này</span>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(draft.enabled)}
+                                onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
+                              />
+                            </label>
+                            <div className="setting-edit-actions">
+                              <button type="button" className="ghost" onClick={() => setDraft({})}>
+                                Hủy
+                              </button>
+                              <button type="submit" className="primary" disabled={saving}>
+                                {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                                Lưu
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div className="setting-value compact-value">
                             <span>{configValueCaption(row)}</span>
                             <strong>{configDisplayValue(row)}</strong>
                           </div>
-                          <div className="setting-actions">
-                            <button type="button" className="primary" onClick={() => startEdit(row)}>
-                              <Edit3 size={16} />
-                              Sửa
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+                        )}
+                      </article>
+                    );
+                  })}
+                  {!activeConfigSection.rows.length ? (
+                    <div className="empty-state config-empty">
+                      <SlidersHorizontal size={26} />
+                      <strong>Chưa có cài đặt trong nhóm này</strong>
+                      <span>Nhóm này vẫn được giữ để khi có key mới sẽ hiển thị tại đây.</span>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
           </section>
         ) : (
         <div className="content-grid">
