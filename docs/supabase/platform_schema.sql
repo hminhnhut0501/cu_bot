@@ -417,9 +417,6 @@ insert into admins (bot_key, user_id, chat_id, role, enabled, notes) values
   ('main', '7344961485', null, 'mod', true, 'Mod toàn hệ thống'),
   ('main', '5080922525', null, 'mod', true, 'Mod toàn hệ thống');
 
-insert into messages (bot_key, message, pool, weight, enabled, notes) values
-  ('main', 'Bot đang hoạt động. Admin có thể sửa nội dung này trong control panel.', 'default', 1, true, 'Tin nhắn mặc định.');
-
 insert into keywords (bot_key, keyword, match, action, reason, enabled, notes) values
   ('main', 'casino', 'contains', 'warn', 'Từ khóa cấm.', true, 'Spam/cờ bạc'),
   ('main', 'cá cược', 'contains', 'warn', 'Từ khóa cấm.', true, 'Spam/cờ bạc'),
