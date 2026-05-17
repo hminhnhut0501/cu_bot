@@ -111,7 +111,40 @@ const CONFIG_LABELS: Record<string, string> = {
   policy_button_text: "Tên nút Quy định",
   bot_menu_commands: "Menu lệnh Telegram",
   help_menu_commands: "Menu trong /help",
-  start_fallback_text: "Tin /start khi chưa có nội dung"
+  help_menu_title: "Tiêu đề menu /help",
+  start_fallback_text: "Tin /start khi chưa có nội dung",
+  spam_action: "Cách xử lý spam",
+  spam_restrict_seconds: "Thời gian mute khi spam",
+  ban_seconds: "Thời gian ban",
+  warning_notice_delete_seconds: "Tự xóa tin cảnh báo",
+  forward_warning_delete_seconds: "Tự xóa cảnh báo forward",
+  spam_notice_delete_seconds: "Tự xóa thông báo spam",
+  violation_delete_retry_seconds: "Thử xóa lại tin vi phạm",
+  send_on_boot: "Gửi tin khi bot khởi động",
+  send_if_silent: "Chỉ gửi khi nhóm im lặng",
+  admin_only_text: "Tin báo chỉ admin dùng được",
+  check_usage_text: "Hướng dẫn lệnh /check",
+  check_not_found_text: "Tin khi không thấy dữ liệu scam",
+  check_result_title: "Tiêu đề kết quả /check",
+  report_usage_text: "Hướng dẫn lệnh /report",
+  report_received_text: "Tin xác nhận nhận report",
+  addscam_usage_text: "Hướng dẫn lệnh /addscam",
+  addscam_success_text: "Tin thêm scam thành công",
+  scam_review_channel_text: "Mẫu tin gửi channel duyệt scam",
+  giveaway_created_text: "Tin tạo giveaway",
+  giveaway_empty_text: "Tin khi không có giveaway",
+  giveaway_list_title: "Tiêu đề danh sách giveaway",
+  giveaway_join_usage_text: "Hướng dẫn tham gia giveaway",
+  giveaway_not_found_open_text: "Tin không thấy giveaway đang mở",
+  giveaway_keyword_required_text: "Tin yêu cầu từ khóa giveaway",
+  giveaway_joined_text: "Tin tham gia giveaway thành công",
+  giveaway_join_duplicate_text: "Tin báo đã tham gia giveaway",
+  giveaway_draw_usage_text: "Hướng dẫn quay giveaway",
+  giveaway_not_found_text: "Tin không tìm thấy giveaway",
+  giveaway_no_entries_text: "Tin giveaway chưa có người tham gia",
+  giveaway_result_text: "Mẫu kết quả giveaway",
+  giveaway_close_usage_text: "Hướng dẫn đóng giveaway",
+  giveaway_closed_text: "Tin đóng giveaway thành công"
 };
 const CONFIG_SECTIONS = [
   {
@@ -127,6 +160,13 @@ const CONFIG_SECTIONS = [
     icon: ShieldCheck,
     tone: "security",
     keys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+  },
+  {
+    title: "Spam, cảnh báo & ban",
+    desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
+    icon: SlidersHorizontal,
+    tone: "security",
+    keys: ["spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds"]
   },
   {
     title: "Bio, link & cảnh báo",
@@ -147,7 +187,21 @@ const CONFIG_SECTIONS = [
     desc: "Channel duyệt báo cáo và nội dung phản hồi khi tra cứu scam.",
     icon: Activity,
     tone: "fun",
-    keys: ["scam_review_channel_id", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+    keys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+  },
+  {
+    title: "Gửi tin tự động",
+    desc: "Cách bot gửi nội dung khi khởi động hoặc khi nhóm im lặng.",
+    icon: Sparkles,
+    tone: "content",
+    keys: ["send_on_boot", "send_if_silent"]
+  },
+  {
+    title: "Giveaway",
+    desc: "Toàn bộ mẫu tin cho module quay số may mắn và quản lý lượt tham gia.",
+    icon: Gift,
+    tone: "fun",
+    keys: ["giveaway_created_text", "giveaway_empty_text", "giveaway_list_title", "giveaway_join_usage_text", "giveaway_not_found_open_text", "giveaway_keyword_required_text", "giveaway_joined_text", "giveaway_join_duplicate_text", "giveaway_draw_usage_text", "giveaway_not_found_text", "giveaway_no_entries_text", "giveaway_result_text", "giveaway_close_usage_text", "giveaway_closed_text"]
   }
 ];
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
@@ -156,6 +210,7 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   policy_button_text: "Tên hiển thị của nút Quy định trong Telegram.",
   bot_menu_commands: "Các lệnh chính bot đăng ký cho menu Telegram.",
   help_menu_commands: "Các lệnh hiển thị trong nội dung /help.",
+  help_menu_title: "Dòng tiêu đề nằm phía trên danh sách lệnh khi user gọi /help.",
   start_fallback_text: "Tin nhắn dự phòng khi /start không có nội dung riêng.",
   delete_system_messages: "Tự xóa tin join/leave/pin và các tin hệ thống.",
   delete_forwarded_messages: "Chặn tin nhắn forward từ nơi khác.",
@@ -163,6 +218,13 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
   exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
+  spam_action: "Hành động mặc định khi user spam: warn để cảnh báo, mute để khóa chat tạm, ban để chặn khỏi nhóm.",
+  spam_restrict_seconds: "Số giây mute/restrict user khi spam. Ví dụ 300 là 5 phút.",
+  ban_seconds: "Số giây ban user. Đặt 0 nghĩa là ban vĩnh viễn.",
+  warning_notice_delete_seconds: "Sau bao lâu bot tự xóa tin cảnh báo chung để group đỡ rác.",
+  forward_warning_delete_seconds: "Sau bao lâu bot tự xóa cảnh báo khi user gửi tin forward.",
+  spam_notice_delete_seconds: "Sau bao lâu bot tự xóa thông báo spam.",
+  violation_delete_retry_seconds: "Nếu xóa tin vi phạm lần đầu lỗi, bot chờ số giây này rồi thử xóa lại.",
   scan_bio_links: "Quét bio của người gửi để phát hiện link spam.",
   bio_link_delete_message: "Xóa tin nhắn của user nếu bio có link xấu.",
   bio_link_restrict_seconds: "Thời gian mute/restrict khi phát hiện bio có link.",
@@ -175,10 +237,35 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   captcha_message_delete_seconds: "Sau bao lâu tự xóa tin captcha.",
   verify_success_delete_seconds: "Sau bao lâu tự xóa tin xác minh thành công.",
   scam_review_channel_id: "Channel/group nơi admin nhận báo cáo scam chờ duyệt.",
+  admin_only_text: "Bot gửi câu này khi người không phải admin dùng lệnh quản trị.",
+  check_usage_text: "Hướng dẫn user tra cứu scam bằng UID, username, số tài khoản hoặc số điện thoại.",
+  check_not_found_text: "Tin trả về khi /check không tìm thấy dữ liệu scam.",
+  check_result_title: "Tiêu đề đầu kết quả khi /check tìm thấy dữ liệu.",
+  report_usage_text: "Hướng dẫn user gửi báo cáo scam qua /report.",
+  report_received_text: "Tin xác nhận bot đã nhận report và lưu vào database.",
+  addscam_usage_text: "Hướng dẫn admin thêm dữ liệu scam bằng /addscam.",
+  addscam_success_text: "Tin xác nhận đã thêm một đối tượng scam vào database.",
+  scam_review_channel_text: "Mẫu nội dung bot gửi sang channel duyệt scam để admin kiểm tra.",
   scam_report_pending_text: "Tin nhắn báo đã nhận report và chờ duyệt.",
   scam_report_confirmed_text: "Tin nhắn khi report đã được xác nhận.",
   scam_check_safe_text: "Kết quả trả về khi không tìm thấy dữ liệu scam.",
-  scam_check_found_text: "Kết quả trả về khi tìm thấy đối tượng scam."
+  scam_check_found_text: "Kết quả trả về khi tìm thấy đối tượng scam.",
+  send_on_boot: "Bật nếu muốn bot gửi tin ngay khi service Render khởi động lại.",
+  send_if_silent: "Bật nếu chỉ muốn bot gửi tin khi group có hoạt động hoặc im lặng theo logic lịch gửi.",
+  giveaway_created_text: "Tin bot trả về sau khi admin tạo giveaway mới.",
+  giveaway_empty_text: "Tin bot gửi khi user xem danh sách nhưng chưa có giveaway đang mở.",
+  giveaway_list_title: "Tiêu đề trước danh sách giveaway đang mở.",
+  giveaway_join_usage_text: "Hướng dẫn cú pháp /join để member tham gia giveaway.",
+  giveaway_not_found_open_text: "Tin báo không tìm thấy giveaway đang mở theo ID đã nhập.",
+  giveaway_keyword_required_text: "Tin nhắc member nhập đúng từ khóa bắt buộc khi tham gia.",
+  giveaway_joined_text: "Tin xác nhận member đã tham gia giveaway thành công.",
+  giveaway_join_duplicate_text: "Tin báo member đã tham gia giveaway này rồi.",
+  giveaway_draw_usage_text: "Hướng dẫn admin dùng /draw để quay người thắng.",
+  giveaway_not_found_text: "Tin báo không tìm thấy giveaway theo ID.",
+  giveaway_no_entries_text: "Tin báo giveaway chưa có người tham gia nên chưa quay được.",
+  giveaway_result_text: "Mẫu tin công bố kết quả quay giveaway.",
+  giveaway_close_usage_text: "Hướng dẫn admin đóng giveaway.",
+  giveaway_closed_text: "Tin xác nhận giveaway đã được đóng."
 };
 const defaultBulkDefaults: BulkDefaults = {
   bot_key: "main",
@@ -247,9 +334,62 @@ function configSectionFor(key: string) {
   return CONFIG_SECTIONS.find((section) => section.keys.includes(key));
 }
 
+function configDescription(row: Row) {
+  const key = String(row.key || "");
+  return CONFIG_DESCRIPTIONS[key] || String(row.notes || "Cài đặt nâng cao dùng cho vận hành bot.");
+}
+
 function isConfigBoolean(row: Row) {
   const value = String(row.value ?? "").trim().toLowerCase();
   return ["true", "false"].includes(value);
+}
+
+function configDisplayValue(row: Row) {
+  const key = String(row.key || "");
+  const value = String(row.value ?? "");
+  const lower = value.trim().toLowerCase();
+  const actions: Record<string, string> = {
+    delete: "Xóa tin",
+    warn: "Cảnh báo",
+    mute: "Mute tạm",
+    kick: "Kick khỏi nhóm",
+    ban: "Ban khỏi nhóm",
+    restrict: "Hạn chế chat"
+  };
+  if (lower === "true") {
+    return "Bật";
+  }
+  if (lower === "false") {
+    return "Tắt";
+  }
+  if (key.endsWith("_seconds") && value !== "") {
+    const seconds = Number(value);
+    if (seconds === 0) {
+      return key === "ban_seconds" ? "Vĩnh viễn" : "Không giới hạn / không tự xóa";
+    }
+    if (Number.isFinite(seconds)) {
+      const minutes = seconds / 60;
+      return minutes >= 1 ? `${seconds} giây (${minutes.toLocaleString("vi-VN")} phút)` : `${seconds} giây`;
+    }
+  }
+  return actions[lower] || displayValue(row.value);
+}
+
+function configValueCaption(row: Row) {
+  const key = String(row.key || "");
+  if (key.endsWith("_seconds")) {
+    return "Thời gian đang áp dụng";
+  }
+  if (key.endsWith("_text") || key.includes("text")) {
+    return "Nội dung bot sẽ gửi";
+  }
+  if (key.includes("command")) {
+    return "Danh sách lệnh đang bật";
+  }
+  if (isConfigBoolean(row)) {
+    return "Trạng thái giá trị";
+  }
+  return "Giá trị hiện tại";
 }
 
 function fieldByKey(table: TableConfig, key: string) {
@@ -1391,7 +1531,8 @@ export default function HomePage() {
                           <div className="setting-top">
                             <div>
                               <h5>{configLabel(String(row.key || ""))}</h5>
-                              <p>{CONFIG_DESCRIPTIONS[String(row.key || "")] || "Cài đặt vận hành của bot."}</p>
+                              <p><b>Tác dụng:</b> {configDescription(row)}</p>
+                              <small className="setting-code">Mã hệ thống: {String(row.key || "")}</small>
                             </div>
                             <span className={`status ${active ? "on" : "off"}`}>
                               <Power size={13} />
@@ -1449,8 +1590,8 @@ export default function HomePage() {
                           ) : (
                             <>
                               <div className="setting-value">
-                                <span>Đang set</span>
-                                <strong>{booleanValue ? displayValue(String(row.value).toLowerCase() === "true") : displayValue(row.value)}</strong>
+                                <span>{configValueCaption(row)}</span>
+                                <strong>{configDisplayValue(row)}</strong>
                               </div>
                               <div className="setting-actions">
                                 {booleanValue ? (
@@ -1491,7 +1632,8 @@ export default function HomePage() {
                       <div className="setting-top">
                         <div>
                           <h5>{configLabel(String(row.key || ""))}</h5>
-                          <p>{String(row.key || "")}</p>
+                          <p><b>Tác dụng:</b> {configDescription(row)}</p>
+                          <small className="setting-code">Mã hệ thống: {String(row.key || "")}</small>
                         </div>
                         <span className={`status ${statusClass(row)}`}>
                           <Power size={13} />
@@ -1521,8 +1663,8 @@ export default function HomePage() {
                       ) : (
                         <>
                           <div className="setting-value">
-                            <span>Đang set</span>
-                            <strong>{displayValue(row.value)}</strong>
+                            <span>{configValueCaption(row)}</span>
+                            <strong>{configDisplayValue(row)}</strong>
                           </div>
                           <div className="setting-actions">
                             <button type="button" className="primary" onClick={() => startEdit(row)}>

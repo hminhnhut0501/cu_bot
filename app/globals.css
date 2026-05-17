@@ -718,6 +718,22 @@ button.primary:hover,
   line-height: 1.45;
 }
 
+.setting-top p b {
+  color: #344054;
+}
+
+.setting-code {
+  display: inline-flex;
+  margin-top: 8px;
+  border: 1px solid #e7edf3;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #667085;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .setting-value {
   border: 1px solid #e7edf3;
   border-radius: 8px;
