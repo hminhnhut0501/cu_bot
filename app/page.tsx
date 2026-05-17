@@ -177,11 +177,19 @@ function parseDelimited(line: string) {
   return line.split(delimiter).map((part) => part.trim());
 }
 
+function parseSheetOrPipe(line: string) {
+  const delimiter = line.includes("\t") ? "\t" : line.includes("|") ? "|" : "";
+  if (!delimiter) {
+    return [line.trim()];
+  }
+  return line.split(delimiter).map((part) => part.trim());
+}
+
 function parseBulkRows(tableKey: string, text: string, defaults: BulkDefaults): BulkRow[] {
   const lines = splitBulkLines(text);
   if (tableKey === "messages") {
     return lines.map((line): BulkRow => {
-      const [message, pool = defaults.pool, weight = String(defaults.weight)] = parseDelimited(line);
+      const [message, pool = defaults.pool, weight = String(defaults.weight)] = parseSheetOrPipe(line);
       return { bot_key: defaults.bot_key, message, pool: pool || defaults.pool, weight: Number(weight) || defaults.weight, enabled: defaults.enabled };
     }).filter((row) => Boolean(row.message));
   }
@@ -203,7 +211,7 @@ function parseBulkRows(tableKey: string, text: string, defaults: BulkDefaults): 
 
   if (tableKey === "video_messages") {
     return lines.map((line): BulkRow => {
-      const parts = parseDelimited(line);
+      const parts = parseSheetOrPipe(line);
       const numbers = line.match(/-?\d{5,}/g) || [];
       const fromChatId = parts[0]?.startsWith("-100") ? parts[0] : numbers[0] || "";
       const messageId = parts[1] && /^\d+$/.test(parts[1]) ? parts[1] : numbers[1] || "";
@@ -264,13 +272,13 @@ function parseBulkRows(tableKey: string, text: string, defaults: BulkDefaults): 
 
 function bulkHint(tableKey: string) {
   if (tableKey === "messages") {
-    return "Mỗi dòng là một tin nhắn. Có thể dùng: nội dung | nhóm nội dung | độ ưu tiên.";
+    return "Mỗi dòng là một tin nhắn. Nếu cần cột riêng hãy dùng tab từ Sheet hoặc dấu |: nội dung | nhóm nội dung | độ ưu tiên. Dấu phẩy trong nội dung sẽ được giữ nguyên.";
   }
   if (tableKey === "keywords") {
     return "Mỗi dòng là một từ khóa. Có thể dùng: từ khóa | delete/warn/ban | lý do.";
   }
   if (tableKey === "video_messages") {
-    return "Mỗi dòng gồm source chat ID và message ID. Ví dụ: -1001234567890 | 456 | caption.";
+    return "Mỗi dòng gồm source chat ID và message ID. Dùng tab từ Sheet hoặc dấu |. Ví dụ: -1001234567890 | 456 | caption.";
   }
   if (tableKey === "scam_entities") {
     return "Mỗi dòng là một đối tượng scam. Có thể paste: uid | @username | số tài khoản | lý do.";
