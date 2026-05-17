@@ -33,6 +33,7 @@ create table bots (
   bot_key text not null unique,
   name text not null,
   username text,
+  bot_token text,
   status text not null default 'active',
   owner_note text,
   enabled boolean not null default true,

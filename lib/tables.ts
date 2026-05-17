@@ -35,6 +35,7 @@ export const TABLES: TableConfig[] = [
       { key: "bot_key", label: "Mã bot", type: "text", required: true, section: "Thông tin bot" },
       { key: "name", label: "Tên bot", type: "text", required: true, section: "Thông tin bot" },
       { key: "username", label: "Username", type: "text", section: "Thông tin bot" },
+      { key: "bot_token", label: "Token bot", type: "text", section: "Kết nối", helper: "Token lấy từ BotFather. Nếu Render không set BOT_TOKEN, service sẽ lấy token theo BOT_KEY từ đây." },
       { key: "status", label: "Trạng thái vận hành", type: "select", options: ["active", "paused", "archived"], section: "Thông tin bot" },
       { key: "owner_note", label: "Ghi chú chủ sở hữu", type: "textarea", section: "Thông tin bot" },
       enabled
