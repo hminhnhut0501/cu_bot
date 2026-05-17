@@ -26,15 +26,15 @@ class AntiScamModule(BotModule):
             return
         query = self.command_text(message)
         if not query:
-            self.reply(message, "Gửi: /check uid, username, số tài khoản hoặc số điện thoại cần tra cứu.")
+            self.reply(message, self.text("check_usage_text", "Gửi: /check uid, username, số tài khoản hoặc số điện thoại cần tra cứu."))
             return
 
         matches = self.find_scam_entities(query)
         if not matches:
-            self.reply(message, f"Chưa thấy dữ liệu scam cho: {query}")
+            self.reply(message, self.text("check_not_found_text", "Chưa thấy dữ liệu scam cho: {query}", query=query))
             return
 
-        lines = ["Kết quả tra cứu:"]
+        lines = [self.text("check_result_title", "Kết quả tra cứu:")]
         for row in matches[:5]:
             lines.extend([
                 "",
@@ -52,7 +52,7 @@ class AntiScamModule(BotModule):
             return
         text = self.command_text(message)
         if not text:
-            self.reply(message, "Gửi: /report nội dung báo cáo, UID/username/số tài khoản và bằng chứng.")
+            self.reply(message, self.text("report_usage_text", "Gửi: /report nội dung báo cáo, UID/username/số tài khoản và bằng chứng."))
             return
 
         parsed = self.parse_report_text(text)
@@ -67,16 +67,16 @@ class AntiScamModule(BotModule):
             "evidence": text,
             "status": "pending",
         })
-        self.reply(message, f"Đã ghi nhận báo cáo #{row.get('id', '-')}. Admin sẽ kiểm tra và xác nhận.")
+        self.reply(message, self.text("report_received_text", "Đã ghi nhận báo cáo #{id}. Admin sẽ kiểm tra và xác nhận.", id=row.get("id", "-")))
         self.notify_review_channel(row, text)
 
     def handle_add_scam(self, message):
         if not self.is_admin(message.chat.id, message.from_user.id):
-            self.reply(message, "Lệnh này chỉ dành cho admin.")
+            self.reply(message, self.text("admin_only_text", "Lệnh này chỉ dành cho admin."))
             return
         text = self.command_text(message)
         if not text:
-            self.reply(message, "Gửi: /addscam uid | username | số tài khoản | lý do")
+            self.reply(message, self.text("addscam_usage_text", "Gửi: /addscam uid | username | số tài khoản | lý do"))
             return
         parts = [part.strip() for part in re.split(r"[|,\n]", text) if part.strip()]
         row = self.store.insert("scam_entities", {
@@ -89,7 +89,7 @@ class AntiScamModule(BotModule):
             "source": f"admin:{message.from_user.id}",
             "enabled": True,
         })
-        self.reply(message, f"Đã thêm dữ liệu scam #{row.get('id', '-')}.")
+        self.reply(message, self.text("addscam_success_text", "Đã thêm dữ liệu scam #{id}.", id=row.get("id", "-")))
 
     def find_scam_entities(self, query):
         normalized = query.strip().lower().lstrip("@")
@@ -123,7 +123,7 @@ class AntiScamModule(BotModule):
         if not channel_id:
             return
         try:
-            self.bot.send_message(channel_id, f"Báo cáo scam mới #{row.get('id', '-')}:\n{text}")
+            self.bot.send_message(channel_id, self.text("scam_review_channel_text", "Báo cáo scam mới #{id}:\n{text}", id=row.get("id", "-"), text=text))
         except Exception:
             return
 
@@ -146,3 +146,10 @@ class AntiScamModule(BotModule):
             self.bot.reply_to(message, text)
         except Exception:
             pass
+
+    def text(self, key, default, **values):
+        template = self.store.value(key, default)
+        try:
+            return str(template).format(**values)
+        except Exception:
+            return str(template)

@@ -26,7 +26,7 @@ class GiveawayModule(BotModule):
 
     def handle_create(self, message):
         if not self.is_admin(message.chat.id, message.from_user.id):
-            self.reply(message, "Lệnh này chỉ dành cho admin.")
+            self.reply(message, self.text("admin_only_text", "Lệnh này chỉ dành cho admin."))
             return
         parts = self.command_text(message).split("|")
         title = parts[0].strip() if parts and parts[0].strip() else "Giveaway"
@@ -43,10 +43,13 @@ class GiveawayModule(BotModule):
         })
         self.reply(
             message,
-            f"Đã tạo giveaway #{row.get('id')}.\n"
-            f"Tên: {title}\n"
-            f"Phần thưởng: {prize or '-'}\n"
-            f"Tham gia bằng: /join {row.get('id')}",
+            self.text(
+                "giveaway_created_text",
+                "Đã tạo giveaway #{id}.\nTên: {title}\nPhần thưởng: {prize}\nTham gia bằng: /join {id}",
+                id=row.get("id"),
+                title=title,
+                prize=prize or "-",
+            ),
         )
 
     def handle_list(self, message):
@@ -55,27 +58,27 @@ class GiveawayModule(BotModule):
             if str(row.get("chat_id")) == str(message.chat.id) and row.get("status") == "open"
         ]
         if not rows:
-            self.reply(message, "Hiện chưa có giveaway đang mở.")
+            self.reply(message, self.text("giveaway_empty_text", "Hiện chưa có giveaway đang mở."))
             return
         lines = [
             f"#{row.get('id')} - {row.get('title')} | Quà: {row.get('prize') or '-'} | /join {row.get('id')}"
             for row in rows[:10]
         ]
-        self.reply(message, "Giveaway đang mở:\n" + "\n".join(lines))
+        self.reply(message, self.text("giveaway_list_title", "Giveaway đang mở:") + "\n" + "\n".join(lines))
 
     def handle_join(self, message):
         text = self.command_text(message).strip()
         giveaway_id, join_note = self.split_join_text(text)
         if not giveaway_id:
-            self.reply(message, "Gửi: /join <giveaway_id>")
+            self.reply(message, self.text("giveaway_join_usage_text", "Gửi: /join <giveaway_id>"))
             return
         campaign = self.find_campaign(giveaway_id, message.chat.id)
         if not campaign:
-            self.reply(message, "Không tìm thấy giveaway đang mở.")
+            self.reply(message, self.text("giveaway_not_found_open_text", "Không tìm thấy giveaway đang mở."))
             return
         required = (campaign.get("require_keyword") or "").strip().lower()
         if required and required not in join_note.lower():
-            self.reply(message, f"Giveaway này yêu cầu nhập từ khóa: /join {giveaway_id} {required}")
+            self.reply(message, self.text("giveaway_keyword_required_text", "Giveaway này yêu cầu nhập từ khóa: /join {id} {keyword}", id=giveaway_id, keyword=required))
             return
         user = message.from_user
         try:
@@ -87,28 +90,28 @@ class GiveawayModule(BotModule):
                 "display_name": self.display_name(user),
                 "entry_note": join_note,
             })
-            self.reply(message, f"Đã ghi nhận tham gia giveaway #{giveaway_id}. Mã lượt: {row.get('id')}")
+            self.reply(message, self.text("giveaway_joined_text", "Đã ghi nhận tham gia giveaway #{id}. Mã lượt: {entry_id}", id=giveaway_id, entry_id=row.get("id")))
         except Exception:
-            self.reply(message, "Bạn đã tham gia giveaway này rồi hoặc dữ liệu chưa hợp lệ.")
+            self.reply(message, self.text("giveaway_join_duplicate_text", "Bạn đã tham gia giveaway này rồi hoặc dữ liệu chưa hợp lệ."))
 
     def handle_draw(self, message):
         if not self.is_admin(message.chat.id, message.from_user.id):
-            self.reply(message, "Lệnh này chỉ dành cho admin.")
+            self.reply(message, self.text("admin_only_text", "Lệnh này chỉ dành cho admin."))
             return
         giveaway_id = self.command_text(message).strip()
         if not giveaway_id:
-            self.reply(message, "Gửi: /draw <giveaway_id>")
+            self.reply(message, self.text("giveaway_draw_usage_text", "Gửi: /draw <giveaway_id>"))
             return
         campaign = self.find_campaign(giveaway_id, message.chat.id, allow_closed=True)
         if not campaign:
-            self.reply(message, "Không tìm thấy giveaway.")
+            self.reply(message, self.text("giveaway_not_found_text", "Không tìm thấy giveaway."))
             return
         entries = [
             row for row in self.store.enabled_rows("giveaway_entries")
             if str(row.get("giveaway_id")) == str(giveaway_id) and str(row.get("chat_id")) == str(message.chat.id)
         ]
         if not entries:
-            self.reply(message, "Giveaway chưa có người tham gia.")
+            self.reply(message, self.text("giveaway_no_entries_text", "Giveaway chưa có người tham gia."))
             return
         winner_count = min(as_int(campaign.get("winner_count"), 1), len(entries))
         winners = random.sample(entries, winner_count)
@@ -120,22 +123,22 @@ class GiveawayModule(BotModule):
             "status": "drawn",
             "winners": winner_text,
         })
-        self.reply(message, f"Kết quả giveaway #{giveaway_id}:\n{winner_text}")
+        self.reply(message, self.text("giveaway_result_text", "Kết quả giveaway #{id}:\n{winners}", id=giveaway_id, winners=winner_text))
 
     def handle_close(self, message):
         if not self.is_admin(message.chat.id, message.from_user.id):
-            self.reply(message, "Lệnh này chỉ dành cho admin.")
+            self.reply(message, self.text("admin_only_text", "Lệnh này chỉ dành cho admin."))
             return
         giveaway_id = self.command_text(message).strip()
         if not giveaway_id:
-            self.reply(message, "Gửi: /closegiveaway <giveaway_id>")
+            self.reply(message, self.text("giveaway_close_usage_text", "Gửi: /closegiveaway <giveaway_id>"))
             return
         campaign = self.find_campaign(giveaway_id, message.chat.id, allow_closed=True)
         if not campaign:
-            self.reply(message, "Không tìm thấy giveaway.")
+            self.reply(message, self.text("giveaway_not_found_text", "Không tìm thấy giveaway."))
             return
         self.store.update("giveaway_campaigns", giveaway_id, {"status": "closed"})
-        self.reply(message, f"Đã đóng giveaway #{giveaway_id}.")
+        self.reply(message, self.text("giveaway_closed_text", "Đã đóng giveaway #{id}.", id=giveaway_id))
 
     def find_campaign(self, giveaway_id, chat_id, allow_closed=False):
         for row in self.store.enabled_rows("giveaway_campaigns"):
@@ -182,3 +185,10 @@ class GiveawayModule(BotModule):
             self.bot.reply_to(message, text)
         except Exception:
             pass
+
+    def text(self, key, default, **values):
+        template = self.store.value(key, default)
+        try:
+            return str(template).format(**values)
+        except Exception:
+            return str(template)

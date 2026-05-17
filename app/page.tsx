@@ -7,6 +7,7 @@ import {
   Check,
   Database,
   Edit3,
+  Gift,
   Loader2,
   Plus,
   Power,
@@ -14,6 +15,7 @@ import {
   Save,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   TrendingUp,
   Users,
   Sparkles,
@@ -46,6 +48,41 @@ type Meta = {
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
+const NAV_GROUPS = [
+  { label: "Tổng quan", keys: ["bot_metrics", "audit_logs"] },
+  { label: "Bot & nhóm", keys: ["bots", "groups", "module_settings", "config", "admins", "member_roles"] },
+  { label: "Bảo mật", keys: ["verification_settings", "captcha_questions", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist"] },
+  { label: "Nội dung", keys: ["messages", "video_messages", "auto_replies", "scheduled_posts"] },
+  { label: "Scam", keys: ["scam_entities", "scam_reports"] },
+  { label: "Giải trí", keys: ["entertainment_events", "giveaway_campaigns", "giveaway_entries", "reputation_rules"] }
+];
+const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[] }> = {
+  groups: {
+    title: "Luồng cần nhớ",
+    body: "Group là nơi nối cấu hình với bot: bật kiểm duyệt, chọn pool tin nhắn, đặt lịch gửi, nội quy và menu.",
+    steps: ["Set đúng Group ID", "Chọn Nhóm nội dung trùng với Tin nhắn", "Bật/tắt nút Quy định và lệnh /help tại Menu bot"]
+  },
+  messages: {
+    title: "Cách dùng Tin nhắn",
+    body: "Tin trong cùng một Nhóm nội dung sẽ được bot chọn ngẫu nhiên theo Độ ưu tiên.",
+    steps: ["Paste mỗi dòng một tin", "Đặt Nhóm nội dung mặc định khi nhập nhanh", "Vào Nhóm và set message_pool trùng tên"]
+  },
+  keywords: {
+    title: "Rule kiểm duyệt",
+    body: "Mỗi từ khóa có kiểu khớp và hành động riêng. Bot luôn xóa tin vi phạm trước rồi mới warn/mute/kick/ban nếu cần.",
+    steps: ["contains cho từ khóa thường", "regex cho mẫu nâng cao", "action = warn nếu muốn cộng cảnh báo trước khi ban"]
+  },
+  bot_metrics: {
+    title: "Dashboard",
+    body: "Màn hình này gom các chỉ số vận hành để nhìn nhanh tình trạng bot/group.",
+    steps: ["Sửa chỉ số thủ công ở danh sách bên dưới", "Dùng period today/week/month/all_time", "Các module sau sẽ tự ghi thêm metric"]
+  },
+  config: {
+    title: "Cài đặt chung",
+    body: "Các text, menu, thời gian xóa tin, cảnh báo và fallback nên đặt ở đây thay vì sửa code.",
+    steps: ["key là mã cấu hình", "value là nội dung", "Tắt enabled nếu muốn bỏ qua"]
+  }
+};
 const defaultBulkDefaults: BulkDefaults = {
   bot_key: "main",
   pool: "default",
@@ -295,6 +332,19 @@ function bulkHint(tableKey: string) {
   return "";
 }
 
+function groupedNav(tables: TableConfig[]) {
+  const used = new Set<string>();
+  const groups = NAV_GROUPS.map((group) => {
+    const items = group.keys
+      .map((key) => tables.find((table) => table.key === key))
+      .filter((table): table is TableConfig => Boolean(table));
+    items.forEach((item) => used.add(item.key));
+    return { ...group, items };
+  }).filter((group) => group.items.length);
+  const other = tables.filter((table) => !used.has(table.key));
+  return other.length ? [...groups, { label: "Khác", keys: [], items: other }] : groups;
+}
+
 export default function HomePage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState("");
@@ -328,6 +378,8 @@ export default function HomePage() {
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
+  const navGroups = useMemo(() => groupedNav(meta?.tables || []), [meta?.tables]);
+  const activeGuide = table ? TABLE_GUIDES[table.key] : undefined;
   const dashboardRows = useMemo(() => rows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [rows, table?.key]);
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
@@ -533,24 +585,60 @@ export default function HomePage() {
           <Database size={24} />
           <div>
             <h1>Cu Bot CP</h1>
-            <span>Quản trị Supabase</span>
+            <span>Điều khiển bot Telegram</span>
           </div>
         </div>
         <nav>
-          {meta.tables.map((item) => (
-            <button
-              key={item.key}
-              className={item.key === activeKey ? "active" : ""}
-              onClick={() => setActiveKey(item.key)}
-              type="button"
-            >
-              {item.label}
-            </button>
+          {navGroups.map((group) => (
+            <section className="nav-group" key={group.label}>
+              <h2>{group.label}</h2>
+              {group.items.map((item) => (
+                <button
+                  key={item.key}
+                  className={item.key === activeKey ? "active" : ""}
+                  onClick={() => setActiveKey(item.key)}
+                  type="button"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </section>
           ))}
         </nav>
       </aside>
 
       <section className="workspace">
+        <section className="module-overview">
+          <article>
+            <BarChart3 size={20} />
+            <div>
+              <span>Tổng quan</span>
+              <strong>Thống kê, log, sức khỏe vận hành</strong>
+            </div>
+          </article>
+          <article>
+            <ShieldCheck size={20} />
+            <div>
+              <span>Bảo mật</span>
+              <strong>Captcha, spam, scam, keyword, link</strong>
+            </div>
+          </article>
+          <article>
+            <Sparkles size={20} />
+            <div>
+              <span>Nội dung</span>
+              <strong>Tin nhắn, video, auto reply, lịch đăng</strong>
+            </div>
+          </article>
+          <article>
+            <Gift size={20} />
+            <div>
+              <span>Tương tác</span>
+              <strong>Giveaway, điểm, event, giải trí</strong>
+            </div>
+          </article>
+        </section>
+
         <section className="dashboard-strip">
           <div>
             <span>Tổng mục</span>
@@ -600,6 +688,23 @@ export default function HomePage() {
 
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
+
+        {activeGuide ? (
+          <section className="usage-guide">
+            <div>
+              <SlidersHorizontal size={19} />
+              <div>
+                <h3>{activeGuide.title}</h3>
+                <p>{activeGuide.body}</p>
+              </div>
+            </div>
+            <ol>
+              {activeGuide.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
 
         {bulkOpen && bulkTables.has(table.key) ? (
           <section className="bulk-panel">

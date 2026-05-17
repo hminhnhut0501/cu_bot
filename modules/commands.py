@@ -53,13 +53,13 @@ class CommandsModule(BotModule):
         text = (
             selected.get("message") or selected.get("text")
             if selected
-            else "Bot đang hoạt động. Hãy cấu hình tab messages để thay đổi nội dung."
+            else self.store.value("start_fallback_text", "Bot đang hoạt động. Hãy cấu hình tab Tin nhắn để thay đổi nội dung.")
         )
         self.bot.reply_to(message, self.clean_text(text), reply_markup=self.policy_markup(message.chat.id))
 
     def handle_help(self, message):
         command_keys = as_list(self.setting(message.chat.id, "help_menu_commands", "start,policy,reload,checkbio,debuggroup,warn,ban,unban"))
-        lines = ["Menu chức năng:"]
+        lines = [self.setting(message.chat.id, "help_menu_title", "Menu chức năng:")]
         for key in command_keys:
             if key in COMMAND_CATALOG:
                 command, description = COMMAND_CATALOG[key]
