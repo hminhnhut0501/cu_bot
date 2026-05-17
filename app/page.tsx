@@ -681,6 +681,27 @@ function rowMatchesQuickFilter(row: Row, filter: string) {
   return [row.action, row.match, row.status, row.role, row.risk_level].map((value) => String(value || "").toLowerCase()).includes(filter);
 }
 
+function cockpitMetrics(row: Row, table: TableConfig) {
+  const action = actionBadge(row, table);
+  const health = healthState(row).label;
+  const scope = row.group_id || row.chat_id || row.bot_key || "Global";
+  return [
+    { label: "Health", value: health },
+    { label: "Action", value: action },
+    { label: "Scope", value: String(scope) }
+  ];
+}
+
+function cockpitActivity(row: Row, table: TableConfig) {
+  const title = titleFor(row, table);
+  const action = actionBadge(row, table).toLowerCase();
+  return [
+    `${title} loaded from Supabase`,
+    `${action} policy is ready for runtime sync`,
+    `Scope check completed for ${row.group_id || row.chat_id || row.bot_key || "global"}`
+  ];
+}
+
 function heroFor(activeKey: string) {
   if (["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist"].includes(activeKey)) {
     return { title: "Trung tâm bảo mật", desc: "Chặn spam, link xấu, captcha và quyền bot bằng các lựa chọn rõ ràng.", icon: ShieldCheck, tone: "security" };
@@ -1074,6 +1095,65 @@ export default function HomePage() {
       issues: disabledBots + offModules + missingSetup
     };
   }, [lookups.bots, lookups.groups, lookups.messages, moduleRows, selectedBot]);
+  const commandInsights = useMemo(() => {
+    const insights = [];
+    if (healthSummary.disabledBots) {
+      insights.push({
+        tone: "danger",
+        title: `${healthSummary.disabledBots} bot đang offline`,
+        body: "Một số bot đang tắt hoặc paused. Kiểm tra token, trạng thái và Render service.",
+        action: "Review bots",
+        targetLayer: "bot",
+        targetTable: "bots"
+      });
+    }
+    if (healthSummary.offModules) {
+      insights.push({
+        tone: "warning",
+        title: `${healthSummary.offModules} module đang tắt`,
+        body: "Các service bảo vệ/tự động hóa đang bị disable nên group có thể không được vận hành đầy đủ.",
+        action: "Review modules",
+        targetLayer: "modules",
+        targetTable: "module_settings"
+      });
+    }
+    if (!healthSummary.groups) {
+      insights.push({
+        tone: "warning",
+        title: "Chưa có group hoạt động",
+        body: "Bot cần được nối group/kênh và có quyền admin trước khi module vận hành.",
+        action: "Connect group",
+        targetLayer: "group",
+        targetTable: "groups"
+      });
+    }
+    if (healthSummary.missingSetup) {
+      insights.push({
+        tone: "info",
+        title: `${healthSummary.missingSetup} bước setup còn thiếu`,
+        body: "Hoàn tất group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
+        action: "Quick setup",
+        targetLayer: "automation",
+        targetTable: "messages"
+      });
+    }
+    if (!insights.length) {
+      insights.push({
+        tone: "ok",
+        title: "System steady",
+        body: "Bot, group và module chính đang ở trạng thái ổn định. Theo dõi activity stream để phát hiện bất thường.",
+        action: "View activity",
+        targetLayer: "logs",
+        targetTable: "audit_logs"
+      });
+    }
+    return insights.slice(0, 3);
+  }, [healthSummary]);
+  const liveActivity = useMemo(() => [
+    `${healthSummary.enabledModules} module active across ${healthSummary.groups} group`,
+    `${visibleRows.length} ${table?.label || "item"} visible in current scope`,
+    healthSummary.issues ? `${healthSummary.issues} operational issue needs review` : "No critical issue detected"
+  ], [healthSummary, table?.label, visibleRows.length]);
   const activeModuleStats = useMemo(() => {
     const ruleTables = ["keywords", "domain_blacklist", "link_shorteners", "auto_replies"];
     const rules = ruleTables.reduce((total, key) => {
@@ -1218,6 +1298,11 @@ export default function HomePage() {
     setSelected(null);
     setDraft({});
     setSelectedIds(new Set());
+  }
+
+  function goToInsight(insight: { targetLayer: string; targetTable: string }) {
+    selectLayer(insight.targetLayer);
+    setActiveKey(insight.targetTable);
   }
 
   function startCreate() {
@@ -1591,13 +1676,13 @@ export default function HomePage() {
         <div className="brand">
           <Database size={24} />
           <div>
-            <h1>Cu Bot CP</h1>
-            <span>Điều khiển bot Telegram</span>
+            <h1>Cu Bot OS</h1>
+            <span>Telegram operations center</span>
           </div>
         </div>
         <nav className="layer-nav">
           <section className="nav-group">
-            <h2>System Layers</h2>
+            <h2>Control Center</h2>
             {SYSTEM_LAYERS.map((layer) => {
               const LayerIcon = layer.icon;
               return (
@@ -1652,24 +1737,48 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="command-center">
+          <div className="command-copy">
+            <span className="eyebrow">Live command center</span>
+            <h2>{commandInsights[0]?.title}</h2>
+            <p>{commandInsights[0]?.body}</p>
+            <div className="command-actions">
+              {commandInsights.map((insight) => (
+                <button key={insight.title} type="button" className={insight.tone === "ok" ? "secondary" : "primary"} onClick={() => goToInsight(insight)}>
+                  {insight.action}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="live-feed">
+            <div className="live-feed-head">
+              <span className="live-dot on" />
+              <strong>Live activity</strong>
+            </div>
+            {liveActivity.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </div>
+        </section>
+
         <section className="status-dashboard">
           <article className={healthSummary.disabledBots ? "status-card warning" : "status-card ok"}>
-            <span>Bot online</span>
+            <span>Bot fleet online</span>
             <strong>{healthSummary.activeBots}</strong>
             <p>{healthSummary.disabledBots ? `${healthSummary.disabledBots} bot đang tắt` : "Các bot chính đang sẵn sàng"}</p>
           </article>
           <article className={healthSummary.offModules ? "status-card warning" : "status-card ok"}>
-            <span>Module đang chạy</span>
+            <span>Protection active</span>
             <strong>{healthSummary.enabledModules}</strong>
             <p>{healthSummary.offModules ? `${healthSummary.offModules} module đang tắt` : "Không có module bị tắt"}</p>
           </article>
           <article className={healthSummary.groups ? "status-card ok" : "status-card warning"}>
-            <span>Group đã nối</span>
+            <span>Groups under control</span>
             <strong>{healthSummary.groups}</strong>
             <p>{healthSummary.groups ? "Bot có phạm vi hoạt động" : "Chưa có group cho bot này"}</p>
           </article>
           <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
-            <span>Cần xử lý</span>
+            <span>Action queue</span>
             <strong>{healthSummary.issues}</strong>
             <p>{healthSummary.issues ? "Bấm Quick setup hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
           </article>
@@ -1767,7 +1876,7 @@ export default function HomePage() {
               </div>
               <div>
                 <h3>{activeModuleHub.title}</h3>
-                <p>{activeModuleHub.desc}</p>
+                <p>{moduleEnabled ? `Protecting ${activeModuleStats.groups} group with ${activeModuleStats.rules} active control item.` : "Module is offline. Turn it on to resume protection and automation."}</p>
                 <div className="module-live-stats">
                   <span className={moduleEnabled ? "live-dot on" : "live-dot off"} />
                   <b>{moduleEnabled ? "Active" : "Disabled"}</b>
@@ -2315,8 +2424,12 @@ export default function HomePage() {
               {!visibleRows.length && !loading ? (
                 <div className="empty-state">
                   <ShieldCheck size={28} />
-                  <strong>Chưa có dữ liệu</strong>
-                  <span>Bấm Thêm để tạo mục đầu tiên.</span>
+                  <strong>No operations configured yet</strong>
+                  <span>Start with a recommended preset or create the first control item for this scope.</span>
+                  <button type="button" className="primary" onClick={startCreate}>
+                    <Plus size={16} />
+                    Create first item
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -2437,13 +2550,24 @@ export default function HomePage() {
             ) : selected ? (
               <div className="inspector-shell">
                 <div className="inspector-head">
-                  <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
+                  <div>
+                    <span className="eyebrow">Operational cockpit</span>
+                    <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
+                  </div>
                   <button type="button" className="icon-button" onClick={() => setSelected(null)}>
                     <X size={17} />
                   </button>
                 </div>
                 <h3>{titleFor(selected, table)}</h3>
                 <p>{previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
+                <div className="cockpit-metrics">
+                  {cockpitMetrics(selected, table).map((metric) => (
+                    <span key={metric.label}>
+                      <b>{metric.value}</b>
+                      {metric.label}
+                    </span>
+                  ))}
+                </div>
                 <div className="inspector-actions">
                   <button type="button" className="primary" onClick={() => startEdit(selected)}>
                     <Edit3 size={16} />
@@ -2474,10 +2598,14 @@ export default function HomePage() {
                 <section className="inspector-section">
                   <h4>Activity gần đây</h4>
                   <div className="activity-stream">
-                    <span><i />Đã tải dữ liệu từ Supabase</span>
-                    <span><i />Sẵn sàng chỉnh sửa hoặc tắt/bật nhanh</span>
-                    <span><i />Log chi tiết sẽ nối vào audit_logs khi module ghi sự kiện</span>
+                    {cockpitActivity(selected, table).map((item) => (
+                      <span key={item}><i />{item}</span>
+                    ))}
                   </div>
+                </section>
+                <section className="inspector-section suggestion-box">
+                  <h4>Suggested next action</h4>
+                  <p>{selected.enabled === false ? "Enable this item if it should participate in runtime protection." : "Run a quick test or review recent logs before changing advanced fields."}</p>
                 </section>
                 <section className="inspector-section">
                   <h4>Test tool</h4>
