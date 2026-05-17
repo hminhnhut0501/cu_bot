@@ -54,6 +54,7 @@ type Lookups = {
   groups: Row[];
   messages: Row[];
   videos: Row[];
+  moduleSettings: Row[];
 };
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
@@ -207,6 +208,71 @@ const CONFIG_SECTIONS = [
     icon: Gift,
     tone: "fun",
     keys: ["giveaway_created_text", "giveaway_empty_text", "giveaway_list_title", "giveaway_join_usage_text", "giveaway_not_found_open_text", "giveaway_keyword_required_text", "giveaway_joined_text", "giveaway_join_duplicate_text", "giveaway_draw_usage_text", "giveaway_not_found_text", "giveaway_no_entries_text", "giveaway_result_text", "giveaway_close_usage_text", "giveaway_closed_text"]
+  }
+];
+const MODULE_HUBS = [
+  {
+    key: "moderation",
+    moduleKeys: ["moderation"],
+    title: "Kiểm duyệt",
+    desc: "Spam, tin forward, nút bấm, bot lạ, từ khóa cấm và link xấu.",
+    icon: ShieldCheck,
+    tone: "security",
+    tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"]
+  },
+  {
+    key: "verification",
+    moduleKeys: ["verification"],
+    title: "Verify",
+    desc: "Captcha, chào thành viên mới, tự kick member chưa xác minh.",
+    icon: Bot,
+    tone: "main",
+    tables: ["verification_settings", "captcha_questions", "config"]
+  },
+  {
+    key: "content",
+    moduleKeys: ["scheduled_posts"],
+    title: "Nội dung",
+    desc: "Tin nhắn, video, lịch đăng và nhóm nội dung dùng chung.",
+    icon: Sparkles,
+    tone: "content",
+    tables: ["messages", "video_messages", "scheduled_posts", "groups", "config"]
+  },
+  {
+    key: "auto_reply",
+    moduleKeys: ["auto_reply"],
+    title: "Auto reply",
+    desc: "Câu kích hoạt, nội dung trả lời tự động và kiểu khớp.",
+    icon: MessageSquare,
+    tone: "fun",
+    tables: ["auto_replies", "config"]
+  },
+  {
+    key: "anti_scam",
+    moduleKeys: ["anti_scam"],
+    title: "Chống scam",
+    desc: "Dữ liệu scam, báo cáo riêng, channel duyệt và tra cứu /check.",
+    icon: Archive,
+    tone: "scam",
+    tables: ["scam_entities", "scam_reports", "config"]
+  },
+  {
+    key: "entertainment",
+    moduleKeys: ["entertainment", "giveaway"],
+    title: "Giải trí",
+    desc: "Giveaway, quay số, event, điểm tương tác và bảng xếp hạng.",
+    icon: Gift,
+    tone: "fun",
+    tables: ["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules", "config"]
+  },
+  {
+    key: "analytics",
+    moduleKeys: ["analytics"],
+    title: "Thống kê",
+    desc: "Dashboard, nhật ký hoạt động và sức khỏe vận hành.",
+    icon: BarChart3,
+    tone: "main",
+    tables: ["bot_metrics", "audit_logs"]
   }
 ];
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
@@ -741,7 +807,8 @@ export default function HomePage() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConfigTab, setActiveConfigTab] = useState(CONFIG_SECTIONS[0].title);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [] });
+  const [activeModule, setActiveModule] = useState("moderation");
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -767,6 +834,9 @@ export default function HomePage() {
   const HeroIcon = hero.icon;
   const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
   const visibleRows = useMemo(() => rows.filter((row) => {
+    if (table?.key === "bots" && selectedBot && row.bot_key !== selectedBot) {
+      return false;
+    }
     if (table?.key !== "bots" && selectedBot && row.bot_key && row.bot_key !== selectedBot) {
       return false;
     }
@@ -812,6 +882,24 @@ export default function HomePage() {
     }
     return Object.entries(groups);
   }, [dashboardRows]);
+  const activeModuleHub = useMemo(() => MODULE_HUBS.find((module) => module.key === activeModule) || MODULE_HUBS[0], [activeModule]);
+  const ActiveModuleIcon = activeModuleHub.icon;
+  const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
+  const moduleState = useMemo(() => {
+    const map = new Map<string, Row>();
+    for (const row of moduleRows) {
+      map.set(String(row.module_key || ""), row);
+    }
+    return map;
+  }, [moduleRows]);
+  const moduleEnabled = useMemo(() => {
+    const keys = activeModuleHub.moduleKeys || [activeModuleHub.key];
+    const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
+    if (!states.length) {
+      return true;
+    }
+    return states.some((row) => row?.enabled !== false);
+  }, [activeModuleHub, moduleState]);
 
   async function api(path: string, init: RequestInit = {}) {
     const headers = new Headers(init.headers);
@@ -833,20 +921,22 @@ export default function HomePage() {
 
   async function loadLookups() {
     try {
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload] = await Promise.all([
         api("/api/bots"),
         api("/api/groups"),
         api("/api/messages"),
-        api("/api/video_messages")
+        api("/api/video_messages"),
+        api("/api/module_settings")
       ]);
       setLookups({
         bots: botsPayload.rows || [],
         groups: groupsPayload.rows || [],
         messages: messagesPayload.rows || [],
-        videos: videosPayload.rows || []
+        videos: videosPayload.rows || [],
+        moduleSettings: modulePayload.rows || []
       });
     } catch {
-      setLookups({ bots: [], groups: [], messages: [], videos: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
     }
   }
 
@@ -893,6 +983,19 @@ export default function HomePage() {
       setSelectedBot(String(lookups.bots[0].bot_key || "main"));
     }
   }, [activeKey, lookups.bots, selectedBot]);
+
+  useEffect(() => {
+    if (selectedBot) {
+      setBulkDefaults((current) => ({ ...current, bot_key: selectedBot }));
+    }
+  }, [selectedBot]);
+
+  useEffect(() => {
+    const matchingModule = MODULE_HUBS.find((module) => module.tables.includes(activeKey));
+    if (matchingModule && matchingModule.key !== activeModule) {
+      setActiveModule(matchingModule.key);
+    }
+  }, [activeKey, activeModule]);
 
   function startCreate() {
     if (!table) {
@@ -1000,6 +1103,69 @@ export default function HomePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveTableRowValues(tableKey: string, row: Row, values: Row) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/${tableKey}`, {
+        method: "PATCH",
+        body: JSON.stringify({ id: row.id, values })
+      });
+      setNotice("Đã lưu thay đổi.");
+      if (tableKey === table?.key) {
+        await loadRows(search);
+      }
+      await loadLookups();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cannot save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function selectBot(botKey: string) {
+    setSelectedBot(botKey);
+    setSelectedGroup("");
+    setSelected(null);
+    setDraft({});
+    setSelectedIds(new Set());
+  }
+
+  async function toggleModule(moduleKey: string) {
+    const row = moduleState.get(moduleKey);
+    if (!row) {
+      const moduleInfo = MODULE_HUBS.find((module) => module.key === moduleKey);
+      setSaving(true);
+      setError("");
+      setNotice("");
+      try {
+        await api("/api/module_settings", {
+          method: "POST",
+          body: JSON.stringify({
+            bot_key: selectedBot || "main",
+            module_key: moduleKey,
+            module_name: moduleInfo?.title || moduleKey,
+            category: moduleInfo?.title === "Giải trí" ? "Giải trí" : "Bảo mật",
+            settings: "{}",
+            enabled: true
+          })
+        });
+        setNotice("Đã tạo và bật module.");
+        await loadLookups();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Cannot create module.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+    await saveTableRowValues("module_settings", row, {
+      ...row,
+      enabled: row.enabled === false
+    });
   }
 
   async function toggleConfigValue(row: Row) {
@@ -1112,6 +1278,28 @@ export default function HomePage() {
     return undefined;
   }
 
+  function lookupOptionsForField(field: FieldConfig) {
+    if (field.key === "bot_key") {
+      return lookups.bots.map((bot) => ({ value: String(bot.bot_key || ""), label: String(bot.name || bot.bot_key || "") })).filter((item) => item.value);
+    }
+    if (field.key === "group_id" || field.key === "chat_id") {
+      return lookups.groups
+        .filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot)
+        .map((group) => {
+          const value = String(group.group_id || group.chat_id || "");
+          return { value, label: String(group.group_name || value) };
+        })
+        .filter((item) => item.value);
+    }
+    if (field.key === "pool" || field.key === "message_pool") {
+      return messagePools.map((pool) => ({ value: pool, label: pool }));
+    }
+    if (field.key === "video_pool") {
+      return videoPools.map((pool) => ({ value: pool, label: pool }));
+    }
+    return [];
+  }
+
   function commandField(field: FieldConfig) {
     return field.key === "help_menu_commands" || (field.key === "value" && ["bot_menu_commands", "help_menu_commands"].includes(String(draft.key || "")));
   }
@@ -1203,7 +1391,7 @@ export default function HomePage() {
           </div>
           <div className="bot-switcher">
             {activeKey === "bots" ? (
-              <button type="button" className="active" onClick={() => setSelectedBot("")}>
+              <button type="button" className={!selectedBot ? "active" : ""} onClick={() => selectBot("")}>
                 <Bot size={16} />
                 Tất cả
               </button>
@@ -1212,11 +1400,8 @@ export default function HomePage() {
               <button
                 key={bot.bot_key || bot.id}
                 type="button"
-                className={bot.bot_key === selectedBot && activeKey !== "bots" ? "active" : ""}
-                onClick={() => {
-                  setSelectedBot(String(bot.bot_key || ""));
-                  setSelectedGroup("");
-                }}
+                className={bot.bot_key === selectedBot ? "active" : ""}
+                onClick={() => selectBot(String(bot.bot_key || ""))}
               >
                 <Bot size={16} />
                 {bot.name || bot.bot_key}
@@ -1249,7 +1434,7 @@ export default function HomePage() {
         <section className="scope-bar">
           <label>
             <span>{activeKey === "bots" ? "Hiển thị bot" : "Bot đang cấu hình"}</span>
-            <select value={selectedBot} onChange={(event) => setSelectedBot(event.target.value)}>
+            <select value={selectedBot} onChange={(event) => selectBot(event.target.value)}>
               {activeKey === "bots" ? <option value="">Tất cả bot</option> : null}
               {lookups.bots.map((bot) => (
                 <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
@@ -1281,35 +1466,81 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="module-overview">
-          <button type="button" onClick={() => setActiveKey("bot_metrics")}>
-            <BarChart3 size={20} />
-            <div>
-              <span>Tổng quan</span>
-              <strong>Thống kê, log, sức khỏe vận hành</strong>
+        <section className="module-workbench">
+          <div className="module-tabs" role="tablist" aria-label="Module chức năng">
+            {MODULE_HUBS.map((module) => {
+              const ModuleIcon = module.icon;
+              const keys = module.moduleKeys || [module.key];
+              const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
+              const isOn = states.length ? states.some((row) => row?.enabled !== false) : true;
+              return (
+                <button
+                  key={module.key}
+                  type="button"
+                  className={`${module.key === activeModule ? "active" : ""} ${isOn ? "" : "off"}`}
+                  onClick={() => {
+                    setActiveModule(module.key);
+                    if (!module.tables.includes(activeKey)) {
+                      setActiveKey(module.tables[0]);
+                    }
+                  }}
+                >
+                  <ModuleIcon size={18} />
+                  <span>{module.title}</span>
+                  <b>{isOn ? "Bật" : "Tắt"}</b>
+                </button>
+              );
+            })}
+          </div>
+          <div className={`module-panel ${activeModuleHub.tone}`}>
+            <div className="module-copy">
+              <div className="module-icon">
+                <ActiveModuleIcon size={22} />
+              </div>
+              <div>
+                <h3>{activeModuleHub.title}</h3>
+                <p>{activeModuleHub.desc}</p>
+              </div>
             </div>
-          </button>
-          <button type="button" onClick={() => setActiveKey("verification_settings")}>
-            <ShieldCheck size={20} />
-            <div>
-              <span>Bảo mật</span>
-              <strong>Captcha, spam, scam, keyword, link</strong>
+            <div className="module-actions">
+              {(activeModuleHub.moduleKeys || [activeModuleHub.key]).map((moduleKey) => {
+                const row = moduleState.get(moduleKey);
+                const isOn = !row || row.enabled !== false;
+                return (
+                  <button
+                    key={moduleKey}
+                    type="button"
+                    className={`module-toggle ${isOn ? "on" : "off"}`}
+                    disabled={saving}
+                    onClick={() => toggleModule(moduleKey)}
+                    title={isOn ? "Bấm để tắt module" : "Bấm để bật module"}
+                  >
+                    <Power size={15} />
+                    {isOn ? "Bật" : "Tắt"}
+                  </button>
+                );
+              })}
             </div>
-          </button>
-          <button type="button" onClick={() => setActiveKey("messages")}>
-            <Sparkles size={20} />
-            <div>
-              <span>Nội dung</span>
-              <strong>Tin nhắn, video, auto reply, lịch đăng</strong>
+            <div className="module-links">
+              {moduleEnabled ? (
+                activeModuleHub.tables.map((key) => {
+                  const item = meta.tables.find((tableItem) => tableItem.key === key);
+                  if (!item) {
+                    return null;
+                  }
+                  return (
+                    <button key={key} type="button" className={activeKey === key ? "active" : ""} onClick={() => setActiveKey(key)}>
+                      {item.label}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="module-off-note">
+                  Module đang tắt nên các chức năng con được ẩn. Bật lại module để cấu hình chi tiết.
+                </div>
+              )}
             </div>
-          </button>
-          <button type="button" onClick={() => setActiveKey("giveaway_campaigns")}>
-            <Gift size={20} />
-            <div>
-              <span>Tương tác</span>
-              <strong>Giveaway, điểm, event, giải trí</strong>
-            </div>
-          </button>
+          </div>
         </section>
 
         <header className="topbar">
@@ -1417,13 +1648,25 @@ export default function HomePage() {
             <div className="bulk-defaults">
               <label>
                 <span>Bot</span>
-                <input value={bulkDefaults.bot_key} onChange={(event) => updateBulkDefault("bot_key", event.target.value)} />
+                <select value={bulkDefaults.bot_key} onChange={(event) => updateBulkDefault("bot_key", event.target.value)}>
+                  {lookups.bots.map((bot) => (
+                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
+                      {bot.name || bot.bot_key}
+                    </option>
+                  ))}
+                  {!lookups.bots.length ? <option value="main">main</option> : null}
+                </select>
               </label>
               {["messages", "video_messages"].includes(table.key) ? (
                 <>
                   <label>
                     <span>Nhóm nội dung</span>
-                    <input value={bulkDefaults.pool} onChange={(event) => updateBulkDefault("pool", event.target.value)} />
+                    <input
+                      value={bulkDefaults.pool}
+                      onChange={(event) => updateBulkDefault("pool", event.target.value)}
+                      list={table.key === "video_messages" ? "video-pool-options" : "message-pool-options"}
+                      placeholder="Ví dụ: default, promo, rule"
+                    />
                   </label>
                   <label>
                     <span>Độ ưu tiên</span>
@@ -1780,7 +2023,9 @@ export default function HomePage() {
                   {groupedFields(table).map(([section, fields]) => (
                     <section className="field-section" key={section}>
                       <h4>{section}</h4>
-                      {fields.map((field) => (
+                      {fields.map((field) => {
+                        const lookupOptions = lookupOptionsForField(field);
+                        return (
                         <label key={field.key} className={field.type === "boolean" ? "switch-field" : ""}>
                           <span>{field.label}</span>
                           {field.type === "textarea" ? (
@@ -1820,12 +2065,12 @@ export default function HomePage() {
                               <b />
                               <em>{Boolean(draft[field.key]) ? "Bật" : "Tắt"}</em>
                             </span>
-                          ) : field.type === "select" ? (
+                          ) : field.type === "select" || lookupOptions.length ? (
                             <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
                               <option value="">Mặc định</option>
-                              {field.options?.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
+                              {(lookupOptions.length ? lookupOptions : field.options?.map((option) => ({ value: option, label: option })) || []).map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
                                 </option>
                               ))}
                             </select>
@@ -1840,7 +2085,8 @@ export default function HomePage() {
                           )}
                           {field.helper ? <small>{field.helper}</small> : null}
                         </label>
-                      ))}
+                        );
+                      })}
                     </section>
                   ))}
                 </div>
