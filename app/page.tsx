@@ -45,6 +45,12 @@ type Meta = {
   tables: TableConfig[];
   passwordRequired: boolean;
 };
+type Lookups = {
+  bots: Row[];
+  groups: Row[];
+  messages: Row[];
+  videos: Row[];
+};
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
@@ -83,6 +89,7 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
     steps: ["key là mã cấu hình", "value là nội dung", "Tắt enabled nếu muốn bỏ qua"]
   }
 };
+const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "check", "report"];
 const defaultBulkDefaults: BulkDefaults = {
   bot_key: "main",
   pool: "default",
@@ -345,6 +352,10 @@ function groupedNav(tables: TableConfig[]) {
   return other.length ? [...groups, { label: "Khác", keys: [], items: other }] : groups;
 }
 
+function uniqueValues(rows: Row[], key: string) {
+  return Array.from(new Set(rows.map((row) => String(row[key] || "").trim()).filter(Boolean))).sort();
+}
+
 export default function HomePage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState("");
@@ -361,6 +372,9 @@ export default function HomePage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
+  const [selectedBot, setSelectedBot] = useState("main");
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [] });
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -380,7 +394,21 @@ export default function HomePage() {
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
   const navGroups = useMemo(() => groupedNav(meta?.tables || []), [meta?.tables]);
   const activeGuide = table ? TABLE_GUIDES[table.key] : undefined;
-  const dashboardRows = useMemo(() => rows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [rows, table?.key]);
+  const messagePools = useMemo(() => uniqueValues(lookups.messages, "pool"), [lookups.messages]);
+  const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
+  const visibleRows = useMemo(() => rows.filter((row) => {
+    if (selectedBot && row.bot_key && row.bot_key !== selectedBot) {
+      return false;
+    }
+    if (selectedGroup) {
+      const rowGroup = String(row.group_id || row.chat_id || "");
+      if (rowGroup && rowGroup !== selectedGroup) {
+        return false;
+      }
+    }
+    return true;
+  }), [rows, selectedBot, selectedGroup]);
+  const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
     for (const row of dashboardRows) {
@@ -407,6 +435,25 @@ export default function HomePage() {
       throw new Error(payload.error || "Request failed.");
     }
     return payload;
+  }
+
+  async function loadLookups() {
+    try {
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload] = await Promise.all([
+        api("/api/bots"),
+        api("/api/groups"),
+        api("/api/messages"),
+        api("/api/video_messages")
+      ]);
+      setLookups({
+        bots: botsPayload.rows || [],
+        groups: groupsPayload.rows || [],
+        messages: messagesPayload.rows || [],
+        videos: videosPayload.rows || []
+      });
+    } catch {
+      setLookups({ bots: [], groups: [], messages: [], videos: [] });
+    }
   }
 
   async function loadRows(nextSearch = search) {
@@ -436,12 +483,31 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, savedPassword, table?.key]);
 
+  useEffect(() => {
+    if (meta && (!meta.passwordRequired || savedPassword)) {
+      void loadLookups();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta?.passwordRequired, savedPassword]);
+
   function startCreate() {
     if (!table) {
       return;
     }
     setSelected(null);
-    setDraft(emptyValues(table));
+    const nextDraft = emptyValues(table);
+    if (selectedBot && table.fields.some((field) => field.key === "bot_key")) {
+      nextDraft.bot_key = selectedBot;
+    }
+    if (selectedGroup) {
+      if (table.fields.some((field) => field.key === "group_id")) {
+        nextDraft.group_id = selectedGroup;
+      }
+      if (table.fields.some((field) => field.key === "chat_id")) {
+        nextDraft.chat_id = selectedGroup;
+      }
+    }
+    setDraft(nextDraft);
     setNotice("");
   }
 
@@ -542,6 +608,35 @@ export default function HomePage() {
     }));
   }
 
+  function dataListForField(field: FieldConfig) {
+    if (field.key === "bot_key") {
+      return "bot-options";
+    }
+    if (field.key === "group_id" || field.key === "chat_id") {
+      return "group-options";
+    }
+    if (field.key === "pool" || field.key === "message_pool") {
+      return "message-pool-options";
+    }
+    if (field.key === "video_pool") {
+      return "video-pool-options";
+    }
+    return undefined;
+  }
+
+  function commandField(field: FieldConfig) {
+    return field.key === "help_menu_commands" || (field.key === "value" && ["bot_menu_commands", "help_menu_commands"].includes(String(draft.key || "")));
+  }
+
+  function toggleCommand(field: FieldConfig, command: string) {
+    const current = String(draft[field.key] || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const next = current.includes(command) ? current.filter((item) => item !== command) : [...current, command];
+    updateField(field, next.join(","));
+  }
+
   if (loading && !meta) {
     return (
       <main className="loading">
@@ -608,45 +703,80 @@ export default function HomePage() {
       </aside>
 
       <section className="workspace">
+        <section className="scope-bar">
+          <label>
+            <span>Bot đang quản lý</span>
+            <select value={selectedBot} onChange={(event) => setSelectedBot(event.target.value)}>
+              <option value="">Tất cả bot</option>
+              {lookups.bots.map((bot) => (
+                <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
+                  {bot.name || bot.bot_key}
+                </option>
+              ))}
+              {!lookups.bots.some((bot) => bot.bot_key === "main") ? <option value="main">main</option> : null}
+            </select>
+          </label>
+          <label>
+            <span>Group/Kênh</span>
+            <select value={selectedGroup} onChange={(event) => setSelectedGroup(event.target.value)}>
+              <option value="">Tất cả group/kênh</option>
+              {lookups.groups
+                .filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot)
+                .map((group) => {
+                  const groupId = group.group_id || group.chat_id || "";
+                  return (
+                    <option key={groupId || group.id} value={groupId}>
+                      {group.group_name || groupId}
+                    </option>
+                  );
+                })}
+            </select>
+          </label>
+          <div className="scope-summary">
+            <span>Đang xem</span>
+            <strong>{visibleRows.length} mục phù hợp</strong>
+          </div>
+        </section>
+
         <section className="module-overview">
-          <article>
+          <button type="button" onClick={() => setActiveKey("bot_metrics")}>
             <BarChart3 size={20} />
             <div>
               <span>Tổng quan</span>
               <strong>Thống kê, log, sức khỏe vận hành</strong>
             </div>
-          </article>
-          <article>
+          </button>
+          <button type="button" onClick={() => setActiveKey("verification_settings")}>
             <ShieldCheck size={20} />
             <div>
               <span>Bảo mật</span>
               <strong>Captcha, spam, scam, keyword, link</strong>
             </div>
-          </article>
-          <article>
+          </button>
+          <button type="button" onClick={() => setActiveKey("messages")}>
             <Sparkles size={20} />
             <div>
               <span>Nội dung</span>
               <strong>Tin nhắn, video, auto reply, lịch đăng</strong>
             </div>
-          </article>
-          <article>
+          </button>
+          <button type="button" onClick={() => setActiveKey("giveaway_campaigns")}>
             <Gift size={20} />
             <div>
               <span>Tương tác</span>
               <strong>Giveaway, điểm, event, giải trí</strong>
             </div>
-          </article>
+          </button>
         </section>
 
         <section className="dashboard-strip">
           <div>
             <span>Tổng mục</span>
-            <strong>{rows.length}</strong>
+            <strong>{visibleRows.length}</strong>
           </div>
           <div>
             <span>Đang bật</span>
-            <strong>{rows.filter((row) => row.enabled !== false).length}</strong>
+            <strong>{visibleRows.filter((row) => row.enabled !== false).length}</strong>
           </div>
           <div>
             <span>Màn hình</span>
@@ -884,14 +1014,14 @@ export default function HomePage() {
           <section className="list-panel">
             <div className="list-header">
               <div>
-                <strong>{rows.length}</strong>
+                <strong>{visibleRows.length}</strong>
                 <span> mục</span>
               </div>
-              <span>Chọn một mục để chỉnh sửa</span>
+              <span>{visibleRows.length !== rows.length ? `${visibleRows.length} mục theo bộ lọc` : "Chọn một mục để chỉnh sửa"}</span>
             </div>
 
             <div className="card-list">
-              {rows.map((row) => (
+              {visibleRows.map((row) => (
                 <article className={`data-card ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
                   <button className="card-main" type="button" onClick={() => startEdit(row)}>
                     <div className="card-title-row">
@@ -924,7 +1054,7 @@ export default function HomePage() {
                   </div>
                 </article>
               ))}
-              {!rows.length && !loading ? (
+              {!visibleRows.length && !loading ? (
                 <div className="empty-state">
                   <ShieldCheck size={28} />
                   <strong>Chưa có dữ liệu</strong>
@@ -935,7 +1065,7 @@ export default function HomePage() {
           </section>
 
           <section className="editor-panel">
-            {Object.keys(draft).length ? (
+              {Object.keys(draft).length ? (
               <form onSubmit={save}>
                 <div className="editor-title">
                   <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
@@ -948,21 +1078,45 @@ export default function HomePage() {
                     <section className="field-section" key={section}>
                       <h4>{section}</h4>
                       {fields.map((field) => (
-                        <label key={field.key} className={field.type === "boolean" ? "checkbox-field" : ""}>
+                        <label key={field.key} className={field.type === "boolean" ? "switch-field" : ""}>
                           <span>{field.label}</span>
                           {field.type === "textarea" ? (
-                            <textarea
-                              value={draft[field.key] ?? ""}
-                              onChange={(event) => updateField(field, event.target.value)}
-                              placeholder={field.placeholder}
-                              rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
-                            />
+                            <>
+                              <textarea
+                                value={draft[field.key] ?? ""}
+                                onChange={(event) => updateField(field, event.target.value)}
+                                placeholder={field.placeholder}
+                                rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
+                              />
+                              {commandField(field) ? (
+                                <div className="command-picks">
+                                  {COMMAND_OPTIONS.map((command) => {
+                                    const selectedCommand = String(draft[field.key] || "").split(",").map((item) => item.trim()).includes(command);
+                                    return (
+                                      <button
+                                        key={command}
+                                        type="button"
+                                        className={selectedCommand ? "picked" : ""}
+                                        onClick={() => toggleCommand(field, command)}
+                                      >
+                                        {selectedCommand ? <Check size={13} /> : null}
+                                        /{command}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ) : null}
+                            </>
                           ) : field.type === "boolean" ? (
-                            <input
-                              type="checkbox"
-                              checked={Boolean(draft[field.key])}
-                              onChange={(event) => updateField(field, event.target.checked)}
-                            />
+                            <span className={`switch-control ${Boolean(draft[field.key]) ? "checked" : ""}`}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(draft[field.key])}
+                                onChange={(event) => updateField(field, event.target.checked)}
+                              />
+                              <b />
+                              <em>{Boolean(draft[field.key]) ? "Bật" : "Tắt"}</em>
+                            </span>
                           ) : field.type === "select" ? (
                             <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
                               <option value="">Mặc định</option>
@@ -978,6 +1132,7 @@ export default function HomePage() {
                               value={draft[field.key] ?? ""}
                               onChange={(event) => updateField(field, event.target.value)}
                               placeholder={field.placeholder}
+                              list={dataListForField(field)}
                             />
                           )}
                           {field.helper ? <small>{field.helper}</small> : null}
@@ -986,6 +1141,33 @@ export default function HomePage() {
                     </section>
                   ))}
                 </div>
+                <datalist id="bot-options">
+                  {lookups.bots.map((bot) => (
+                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
+                      {bot.name || bot.bot_key}
+                    </option>
+                  ))}
+                </datalist>
+                <datalist id="group-options">
+                  {lookups.groups.map((group) => {
+                    const groupId = group.group_id || group.chat_id || "";
+                    return (
+                      <option key={groupId || group.id} value={groupId}>
+                        {group.group_name || groupId}
+                      </option>
+                    );
+                  })}
+                </datalist>
+                <datalist id="message-pool-options">
+                  {messagePools.map((pool) => (
+                    <option key={pool} value={pool} />
+                  ))}
+                </datalist>
+                <datalist id="video-pool-options">
+                  {videoPools.map((pool) => (
+                    <option key={pool} value={pool} />
+                  ))}
+                </datalist>
                 <button className="primary save" disabled={saving} type="submit">
                   {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
                   Lưu
