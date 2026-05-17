@@ -5,6 +5,7 @@ import {
   Activity,
   Archive,
   BarChart3,
+  Bot,
   Check,
   CheckSquare,
   Database,
@@ -18,6 +19,7 @@ import {
   Search,
   ShieldCheck,
   SlidersHorizontal,
+  MessageSquare,
   TrendingUp,
   Users,
   Sparkles,
@@ -111,6 +113,73 @@ const CONFIG_LABELS: Record<string, string> = {
   help_menu_commands: "Menu trong /help",
   start_fallback_text: "Tin /start khi chưa có nội dung"
 };
+const CONFIG_SECTIONS = [
+  {
+    title: "Nội quy & menu",
+    desc: "Nội dung bot gửi khi /start, nút Quy định và menu lệnh trong group.",
+    icon: MessageSquare,
+    tone: "content",
+    keys: ["policy_text", "show_policy_button", "policy_button_text", "bot_menu_commands", "help_menu_commands", "start_fallback_text", "help_menu_title"]
+  },
+  {
+    title: "Kiểm duyệt tự động",
+    desc: "Các công tắc chặn nội dung thường gặp trong group.",
+    icon: ShieldCheck,
+    tone: "security",
+    keys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+  },
+  {
+    title: "Bio, link & cảnh báo",
+    desc: "Quét link trong bio, xóa tin vi phạm và nội dung cảnh báo.",
+    icon: Archive,
+    tone: "scam",
+    keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+  },
+  {
+    title: "Captcha & verify",
+    desc: "Tin nhắn xác minh thành viên mới và thời gian tự xóa.",
+    icon: Bot,
+    tone: "main",
+    keys: ["captcha_text", "captcha_success_text", "captcha_failed_text", "captcha_message_delete_seconds", "verify_success_delete_seconds"]
+  },
+  {
+    title: "Scam & báo cáo",
+    desc: "Channel duyệt báo cáo và nội dung phản hồi khi tra cứu scam.",
+    icon: Activity,
+    tone: "fun",
+    keys: ["scam_review_channel_id", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+  }
+];
+const CONFIG_DESCRIPTIONS: Record<string, string> = {
+  policy_text: "Nội quy gửi kèm khi thành viên bấm nút Quy định hoặc gọi lệnh liên quan.",
+  show_policy_button: "Bật/tắt nút Quy định xuất hiện dưới tin nhắn /start.",
+  policy_button_text: "Tên hiển thị của nút Quy định trong Telegram.",
+  bot_menu_commands: "Các lệnh chính bot đăng ký cho menu Telegram.",
+  help_menu_commands: "Các lệnh hiển thị trong nội dung /help.",
+  start_fallback_text: "Tin nhắn dự phòng khi /start không có nội dung riêng.",
+  delete_system_messages: "Tự xóa tin join/leave/pin và các tin hệ thống.",
+  delete_forwarded_messages: "Chặn tin nhắn forward từ nơi khác.",
+  delete_inline_keyboard_messages: "Chặn bài có nút bấm inline đáng ngờ.",
+  delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
+  remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
+  exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
+  scan_bio_links: "Quét bio của người gửi để phát hiện link spam.",
+  bio_link_delete_message: "Xóa tin nhắn của user nếu bio có link xấu.",
+  bio_link_restrict_seconds: "Thời gian mute/restrict khi phát hiện bio có link.",
+  bio_scan_cache_seconds: "Thời gian cache kết quả quét bio để giảm gọi API.",
+  bio_link_warning_text: "Nội dung cảnh báo khi bio chứa link không an toàn.",
+  bio_link_notice_delete_seconds: "Sau bao lâu tự xóa tin cảnh báo bio.",
+  captcha_text: "Tin nhắn bot gửi khi thành viên mới cần xác minh.",
+  captcha_success_text: "Tin nhắn sau khi xác minh thành công.",
+  captcha_failed_text: "Tin nhắn khi xác minh thất bại hoặc hết hạn.",
+  captcha_message_delete_seconds: "Sau bao lâu tự xóa tin captcha.",
+  verify_success_delete_seconds: "Sau bao lâu tự xóa tin xác minh thành công.",
+  scam_review_channel_id: "Channel/group nơi admin nhận báo cáo scam chờ duyệt.",
+  scam_report_pending_text: "Tin nhắn báo đã nhận report và chờ duyệt.",
+  scam_report_confirmed_text: "Tin nhắn khi report đã được xác nhận.",
+  scam_check_safe_text: "Kết quả trả về khi không tìm thấy dữ liệu scam.",
+  scam_check_found_text: "Kết quả trả về khi tìm thấy đối tượng scam."
+};
 const defaultBulkDefaults: BulkDefaults = {
   bot_key: "main",
   pool: "default",
@@ -168,6 +237,19 @@ function titleFor(row: Row, table: TableConfig) {
     return CONFIG_LABELS[String(row.key || "")] || String(row.key || "Cài đặt").replaceAll("_", " ");
   }
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
+}
+
+function configLabel(key: string) {
+  return CONFIG_LABELS[key] || key.replaceAll("_", " ");
+}
+
+function configSectionFor(key: string) {
+  return CONFIG_SECTIONS.find((section) => section.keys.includes(key));
+}
+
+function isConfigBoolean(row: Row) {
+  const value = String(row.value ?? "").trim().toLowerCase();
+  return ["true", "false"].includes(value);
 }
 
 function fieldByKey(table: TableConfig, key: string) {
@@ -718,6 +800,32 @@ export default function HomePage() {
     }
   }
 
+  async function saveRowValues(row: Row, values: Row) {
+    if (!table) {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/${table.key}`, {
+        method: "PATCH",
+        body: JSON.stringify({ id: row.id, values })
+      });
+      setNotice("Đã lưu thay đổi.");
+      await loadRows(search);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Cannot save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleConfigValue(row: Row) {
+    const nextValue = String(row.value ?? "").trim().toLowerCase() === "true" ? "false" : "true";
+    await saveRowValues(row, { ...row, value: nextValue });
+  }
+
   async function remove(row: Row) {
     if (!table || !window.confirm(`Xóa "${titleFor(row, table)}"?`)) {
       return;
@@ -996,20 +1104,29 @@ export default function HomePage() {
             <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
-            <button type="button" className="primary" onClick={startCreate}>
-              <Plus size={17} />
-              Thêm
-            </button>
-            <button type="button" className="secondary" onClick={toggleAllVisible} disabled={!visibleRows.length}>
-              <CheckSquare size={17} />
-              {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
-            </button>
-            {selectedVisibleRows.length ? (
-              <button type="button" className="danger" disabled={saving} onClick={removeSelected}>
-                <Trash2 size={17} />
-                Xóa {selectedVisibleRows.length} mục
+            {table.key !== "config" ? (
+              <>
+                <button type="button" className="primary" onClick={startCreate}>
+                  <Plus size={17} />
+                  Thêm
+                </button>
+                <button type="button" className="secondary" onClick={toggleAllVisible} disabled={!visibleRows.length}>
+                  <CheckSquare size={17} />
+                  {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
+                </button>
+                {selectedVisibleRows.length ? (
+                  <button type="button" className="danger" disabled={saving} onClick={removeSelected}>
+                    <Trash2 size={17} />
+                    Xóa {selectedVisibleRows.length} mục
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <button type="button" className="secondary" onClick={() => setDraft({})} disabled={!Object.keys(draft).length}>
+                <X size={17} />
+                Đóng mục đang sửa
               </button>
-            ) : null}
+            )}
             {bulkTables.has(table.key) ? (
               <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
                 <Edit3 size={17} />
@@ -1235,6 +1352,193 @@ export default function HomePage() {
           </section>
         ) : null}
 
+        {table.key === "config" ? (
+          <section className="config-center">
+            <div className="config-center-head">
+              <div>
+                <h3>Trung tâm cài đặt</h3>
+                <p>Không cần nhớ mã cấu hình. Chọn nhóm bên dưới, bật/tắt nhanh hoặc sửa nội dung ngay trong card.</p>
+              </div>
+              <div className="config-summary">
+                <span>{visibleRows.filter((row) => row.enabled !== false).length}</span>
+                đang bật
+              </div>
+            </div>
+            {CONFIG_SECTIONS.map((section) => {
+              const SectionIcon = section.icon;
+              const sectionRows = visibleRows.filter((row) => section.keys.includes(String(row.key || "")));
+              if (!sectionRows.length) {
+                return null;
+              }
+              return (
+                <section className={`config-section ${section.tone}`} key={section.title}>
+                  <div className="config-section-title">
+                    <div className="config-section-icon">
+                      <SectionIcon size={22} />
+                    </div>
+                    <div>
+                      <h4>{section.title}</h4>
+                      <p>{section.desc}</p>
+                    </div>
+                  </div>
+                  <div className="settings-grid">
+                    {sectionRows.map((row) => {
+                      const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                      const booleanValue = isConfigBoolean(row);
+                      const active = row.enabled !== false;
+                      return (
+                        <article className={`setting-tile ${editing ? "editing" : ""}`} key={row.id || row.key}>
+                          <div className="setting-top">
+                            <div>
+                              <h5>{configLabel(String(row.key || ""))}</h5>
+                              <p>{CONFIG_DESCRIPTIONS[String(row.key || "")] || "Cài đặt vận hành của bot."}</p>
+                            </div>
+                            <span className={`status ${active ? "on" : "off"}`}>
+                              <Power size={13} />
+                              {active ? "Bật" : "Tắt"}
+                            </span>
+                          </div>
+
+                          {editing ? (
+                            <form className="setting-edit" onSubmit={save}>
+                              {booleanValue ? (
+                                <label className="switch-field">
+                                  <span>Giá trị</span>
+                                  <span className={`switch-control ${String(draft.value).toLowerCase() === "true" ? "checked" : ""}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={String(draft.value).toLowerCase() === "true"}
+                                      onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
+                                    />
+                                    <b />
+                                    <em>{String(draft.value).toLowerCase() === "true" ? "Bật" : "Tắt"}</em>
+                                  </span>
+                                </label>
+                              ) : (
+                                <label>
+                                  <span>Nội dung</span>
+                                  <textarea
+                                    value={draft.value ?? ""}
+                                    onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                                    rows={String(draft.value || "").length > 120 ? 7 : 3}
+                                  />
+                                </label>
+                              )}
+                              <label className="switch-field">
+                                <span>Cho phép sử dụng</span>
+                                <span className={`switch-control ${Boolean(draft.enabled) ? "checked" : ""}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(draft.enabled)}
+                                    onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
+                                  />
+                                  <b />
+                                  <em>{Boolean(draft.enabled) ? "Bật" : "Tắt"}</em>
+                                </span>
+                              </label>
+                              <div className="setting-edit-actions">
+                                <button type="button" className="ghost" onClick={() => setDraft({})}>
+                                  Hủy
+                                </button>
+                                <button type="submit" className="primary" disabled={saving}>
+                                  {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                                  Lưu
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <div className="setting-value">
+                                <span>Đang set</span>
+                                <strong>{booleanValue ? displayValue(String(row.value).toLowerCase() === "true") : displayValue(row.value)}</strong>
+                              </div>
+                              <div className="setting-actions">
+                                {booleanValue ? (
+                                  <button type="button" className="secondary" disabled={saving} onClick={() => toggleConfigValue(row)}>
+                                    <Power size={16} />
+                                    {String(row.value).toLowerCase() === "true" ? "Tắt giá trị" : "Bật giá trị"}
+                                  </button>
+                                ) : null}
+                                <button type="button" className="primary" onClick={() => startEdit(row)}>
+                                  <Edit3 size={16} />
+                                  Sửa nội dung
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })}
+            <section className="config-section other">
+              <div className="config-section-title">
+                <div className="config-section-icon">
+                  <SlidersHorizontal size={22} />
+                </div>
+                <div>
+                  <h4>Cài đặt khác</h4>
+                  <p>Các key chưa được gom nhóm vẫn có thể chỉnh tại đây.</p>
+                </div>
+              </div>
+              <div className="settings-grid compact">
+                {visibleRows.filter((row) => !configSectionFor(String(row.key || ""))).map((row) => {
+                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                  return (
+                    <article className={`setting-tile ${editing ? "editing" : ""}`} key={row.id || row.key}>
+                      <div className="setting-top">
+                        <div>
+                          <h5>{configLabel(String(row.key || ""))}</h5>
+                          <p>{String(row.key || "")}</p>
+                        </div>
+                        <span className={`status ${statusClass(row)}`}>
+                          <Power size={13} />
+                          {statusText(row)}
+                        </span>
+                      </div>
+                      {editing ? (
+                        <form className="setting-edit" onSubmit={save}>
+                          <label>
+                            <span>Nội dung</span>
+                            <textarea
+                              value={draft.value ?? ""}
+                              onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                              rows={4}
+                            />
+                          </label>
+                          <div className="setting-edit-actions">
+                            <button type="button" className="ghost" onClick={() => setDraft({})}>
+                              Hủy
+                            </button>
+                            <button type="submit" className="primary" disabled={saving}>
+                              {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                              Lưu
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <div className="setting-value">
+                            <span>Đang set</span>
+                            <strong>{displayValue(row.value)}</strong>
+                          </div>
+                          <div className="setting-actions">
+                            <button type="button" className="primary" onClick={() => startEdit(row)}>
+                              <Edit3 size={16} />
+                              Sửa
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </section>
+        ) : (
         <div className="content-grid">
           <section className="list-panel">
             <div className="list-header">
@@ -1414,6 +1718,7 @@ export default function HomePage() {
             )}
           </section>
         </div>
+        )}
       </section>
     </main>
   );
