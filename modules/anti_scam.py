@@ -8,8 +8,8 @@ class AntiScamModule(BotModule):
     priority = 20
 
     def register(self):
-        self.bot.message_handler(commands=["check", "kiemtra", "tra"], chat_types=["private"])(self.handle_check)
-        self.bot.message_handler(commands=["report", "baocao"], chat_types=["private"])(self.handle_report)
+        self.bot.message_handler(commands=["check", "kiemtra", "tra"])(self.handle_check)
+        self.bot.message_handler(commands=["report", "baocao"])(self.handle_report)
         self.bot.message_handler(commands=["addscam", "themscam"])(self.handle_add_scam)
 
     def is_enabled(self):
@@ -22,6 +22,8 @@ class AntiScamModule(BotModule):
         return default
 
     def handle_check(self, message):
+        if getattr(message.chat, "type", "") != "private":
+            return
         query = self.command_text(message)
         if not query:
             self.reply(message, "Gửi: /check uid, username, số tài khoản hoặc số điện thoại cần tra cứu.")
@@ -46,6 +48,8 @@ class AntiScamModule(BotModule):
         self.reply(message, "\n".join(lines))
 
     def handle_report(self, message):
+        if getattr(message.chat, "type", "") != "private":
+            return
         text = self.command_text(message)
         if not text:
             self.reply(message, "Gửi: /report nội dung báo cáo, UID/username/số tài khoản và bằng chứng.")

@@ -1,9 +1,11 @@
 import logging
+import random
 import re
 import threading
 from datetime import datetime, timedelta
 from html import escape
 from functools import wraps
+from urllib.parse import urlparse
 
 import telebot
 from telebot.util import content_type_service
@@ -61,6 +63,7 @@ class ModerationModule(BotModule):
     name = "moderation"
     priority = 10
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
+    URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
 
     def register(self):
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.handle_service_message)
@@ -114,6 +117,7 @@ class ModerationModule(BotModule):
                     except Exception as exc:
                         LOGGER.warning("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
                 continue
+            self.start_verification(message.chat.id, user)
             self.detect_bio_link(message.chat.id, user)
 
     def handle_policy(self, message):
@@ -203,6 +207,8 @@ class ModerationModule(BotModule):
     def handle_group_message(self, message):
         if not self.moderation_enabled(message.chat.id):
             return
+        if self.handle_verification_answer(message):
+            return
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
@@ -223,6 +229,8 @@ class ModerationModule(BotModule):
         if self.detect_spam(message):
             return
         if self.detect_content_spam(message):
+            return
+        if self.detect_blacklisted_link(message):
             return
         if self.detect_forbidden_keyword(message):
             return
@@ -301,6 +309,39 @@ class ModerationModule(BotModule):
                 self.apply_action(message, action, row.get("reason") or "Từ khóa cấm.")
                 return True
         return False
+
+    def detect_blacklisted_link(self, message):
+        text = self.message_text(message)
+        if not text:
+            return False
+        domains = self.message_domains(text)
+        if not domains:
+            return False
+        for domain in domains:
+            for row in self.store.enabled_rows("domain_blacklist"):
+                blocked = (row.get("domain") or "").lower().strip()
+                if blocked and (domain == blocked or domain.endswith("." + blocked)):
+                    action = row.get("action") or "delete"
+                    self.delete_violation_message(message, f"domain:{domain}:before_{action}")
+                    self.apply_action(message, action, row.get("notes") or "Link scam/phishing bị chặn.")
+                    return True
+            for row in self.store.enabled_rows("link_shorteners"):
+                blocked = (row.get("domain") or "").lower().strip()
+                if blocked and (domain == blocked or domain.endswith("." + blocked)):
+                    action = row.get("action") or "warn"
+                    self.delete_violation_message(message, f"shortener:{domain}:before_{action}")
+                    self.apply_action(message, action, row.get("notes") or "Không dùng link rút gọn trong nhóm.")
+                    return True
+        return False
+
+    def message_domains(self, text):
+        domains = []
+        for match in self.URL_PATTERN.findall(text or ""):
+            url = match if "://" in match else f"https://{match}"
+            domain = (urlparse(url).hostname or "").lower().lstrip("www.")
+            if domain:
+                domains.append(domain)
+        return domains
 
     def detect_forward(self, message):
         if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
@@ -484,10 +525,17 @@ class ModerationModule(BotModule):
 
     def apply_action(self, message, action, reason):
         action = (action or "warn").strip().lower()
-        if action == "delete":
+        if action in {"delete", "remove"}:
             return
         if action == "ban":
             self.ban_user(message.chat.id, message.from_user.id)
+            return
+        if action in {"mute", "restrict"}:
+            self.restrict_user_for_spam(message.chat.id, message.from_user.id)
+            self.notify_temporary_restrict(message.chat.id, message.from_user, reason)
+            return
+        if action == "kick":
+            self.kick_user(message.chat.id, message.from_user.id)
             return
         if action == "warn":
             self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user)
@@ -525,14 +573,27 @@ class ModerationModule(BotModule):
 
     def ban_user(self, chat_id, user_id):
         try:
-            self.bot.ban_chat_member(chat_id, user_id)
+            seconds = self.setting_int(chat_id, "ban_seconds", 0)
+            until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
+            self.bot.ban_chat_member(chat_id, user_id, until_date=until_date)
             self.state.reset_warnings(chat_id, user_id)
+            self.audit(chat_id, "ban", target_user_id=user_id, details=f"seconds={seconds}")
         except Exception as exc:
             LOGGER.warning("Cannot ban %s in %s: %s", user_id, chat_id, exc)
+
+    def kick_user(self, chat_id, user_id):
+        try:
+            self.bot.ban_chat_member(chat_id, user_id)
+            self.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
+            self.state.reset_warnings(chat_id, user_id)
+            self.audit(chat_id, "kick", target_user_id=user_id)
+        except Exception as exc:
+            LOGGER.warning("Cannot kick %s in %s: %s", user_id, chat_id, exc)
 
     def safe_delete(self, message, reason="unknown"):
         try:
             self.bot.delete_message(message.chat.id, message.message_id)
+            self.audit(message.chat.id, "delete_message", target_user_id=getattr(message.from_user, "id", ""), details=reason)
             LOGGER.info(
                 "Deleted message: chat_id=%s message_id=%s content_type=%s reason=%s",
                 message.chat.id,
@@ -551,6 +612,88 @@ class ModerationModule(BotModule):
                 exc,
             )
             return False
+
+    def start_verification(self, chat_id, user):
+        settings = self.verification_settings(chat_id)
+        if not settings:
+            return False
+        a = random.randint(1, 9)
+        b = random.randint(1, 9)
+        answer = str(a + b)
+        timeout = as_int(settings.get("verify_timeout_seconds"), 180)
+        text = self.setting(
+            chat_id,
+            "captcha_text",
+            "{mention} vui lòng trả lời phép tính trong {seconds}s để xác minh: {question}",
+        )
+        try:
+            sent = self.bot.send_message(
+                chat_id,
+                text.format(mention=self.user_mention(user), user_id=user.id, seconds=timeout, question=f"{a} + {b} = ?"),
+            )
+            self.state.set_pending_verification(chat_id, user.id, {
+                "answer": answer,
+                "deadline": datetime.now() + timedelta(seconds=timeout),
+                "notice_message_id": sent.message_id,
+                "kick": as_bool(settings.get("kick_unverified"), True),
+            })
+            self.delete_later(chat_id, sent.message_id, timeout, "captcha_notice")
+            if as_bool(settings.get("kick_unverified"), True):
+                self.schedule_unverified_kick(chat_id, user.id, timeout)
+            return True
+        except Exception as exc:
+            LOGGER.warning("Cannot start verification in %s for %s: %s", chat_id, user.id, exc)
+            return False
+
+    def handle_verification_answer(self, message):
+        pending = self.state.get_pending_verification(message.chat.id, message.from_user.id)
+        if not pending:
+            return False
+        if datetime.now() > pending["deadline"]:
+            self.state.clear_pending_verification(message.chat.id, message.from_user.id)
+            self.delete_violation_message(message, "captcha_expired")
+            return True
+        if (getattr(message, "text", "") or "").strip() == str(pending["answer"]):
+            self.state.clear_pending_verification(message.chat.id, message.from_user.id)
+            self.audit(message.chat.id, "verify_success", target_user_id=message.from_user.id)
+            try:
+                self.safe_delete(message, "captcha_answer")
+            except Exception:
+                pass
+            return True
+        self.delete_violation_message(message, "captcha_wrong_answer")
+        return True
+
+    def schedule_unverified_kick(self, chat_id, user_id, delay_seconds):
+        def worker():
+            pending = self.state.get_pending_verification(chat_id, user_id)
+            if not pending:
+                return
+            self.state.clear_pending_verification(chat_id, user_id)
+            self.kick_user(chat_id, user_id)
+
+        timer = threading.Timer(delay_seconds, worker)
+        timer.daemon = True
+        timer.start()
+
+    def verification_settings(self, chat_id):
+        for row in self.store.enabled_rows("verification_settings"):
+            row_chat = row.get("chat_id")
+            if not row_chat or row_chat == str(chat_id):
+                return row
+        return None
+
+    def audit(self, chat_id, action, target_user_id="", details="", actor_user_id=""):
+        try:
+            self.store.insert("audit_logs", {
+                "chat_id": str(chat_id),
+                "actor_user_id": str(actor_user_id or ""),
+                "action": action,
+                "target_user_id": str(target_user_id or ""),
+                "details": details,
+            })
+        except Exception:
+            pass
 
     def safe_reply(self, message, text):
         try:

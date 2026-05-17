@@ -57,6 +57,14 @@ export const TABLES: TableConfig[] = [
     ]
   },
   {
+    key: "config",
+    label: "Cài đặt",
+    description: "Các cài đặt chung: cảnh báo, captcha, bio link, thời gian xóa tin.",
+    titleField: "key",
+    summaryFields: ["bot_key", "value", "enabled"],
+    fields: [botKey, { key: "key", label: "Mã cài đặt", type: "text", required: true }, { key: "value", label: "Giá trị", type: "textarea" }, enabled, notes]
+  },
+  {
     key: "groups",
     label: "Nhóm",
     description: "Quản lý group Telegram, chống spam và lịch gửi nội dung.",
@@ -227,6 +235,22 @@ export const TABLES: TableConfig[] = [
       enabled,
       notes
     ]
+  },
+  {
+    key: "captcha_questions",
+    label: "Captcha",
+    description: "Câu hỏi captcha đơn giản, chủ yếu dùng cho math/button captcha.",
+    titleField: "question",
+    summaryFields: ["bot_key", "answer", "enabled"],
+    fields: [botKey, { key: "question", label: "Câu hỏi", type: "text", required: true }, { key: "answer", label: "Đáp án", type: "text", required: true }, enabled, notes]
+  },
+  {
+    key: "bot_allowlist",
+    label: "Bot được phép",
+    description: "Bot được phép tồn tại hoặc gửi tin trong group.",
+    titleField: "username",
+    summaryFields: ["bot_key", "bot_id", "chat_id", "enabled"],
+    fields: [botKey, { key: "bot_id", label: "Bot ID", type: "text" }, { key: "username", label: "Username", type: "text" }, { key: "chat_id", label: "Chat ID", type: "text" }, enabled, notes]
   },
   {
     key: "auto_replies",

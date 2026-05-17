@@ -84,6 +84,17 @@ auto_replies: trigger | reply | contains/exact/regex
 
 For multiple bots, create rows in `bots` and run each Render bot service with its own `BOT_KEY`.
 
+Core modules included in the current platform build:
+
+```text
+moderation: service-message cleanup, forward/button/bot cleanup, spam/flood, keyword/domain/link blocking, warn/mute/kick/ban
+verification: simple math captcha, auto kick unverified members
+anti_scam: private /check and /report, admin /addscam, scam database lookup
+auto_reply: rule/support/price style automatic replies
+reputation: lightweight activity point event logging
+scheduled_posts: daily message/video pool scheduling
+```
+
 Optional bot owner env:
 
 ```bash

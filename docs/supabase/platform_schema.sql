@@ -311,6 +311,25 @@ insert into groups (bot_key, group_id, group_name, warning_text, policy_text, no
 insert into config (bot_key, key, value, enabled, notes) values
   ('main', 'policy_text', 'Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam hoặc quảng cáo.\n3. Không forward bài/video vào nhóm.', true, 'Nội quy mặc định.'),
   ('main', 'scam_review_channel_id', '', true, 'Channel nhận báo cáo scam đã duyệt hoặc báo cáo mới.'),
+  ('main', 'delete_system_messages', 'true', true, 'Xóa tin join/leave/pin/đổi title.'),
+  ('main', 'delete_forwarded_messages', 'true', true, 'Chặn tin forward.'),
+  ('main', 'delete_inline_keyboard_messages', 'true', true, 'Chặn bài có nút bấm.'),
+  ('main', 'delete_messages_from_bots', 'true', true, 'Chặn bot lạ gửi tin.'),
+  ('main', 'remove_unknown_bots', 'true', true, 'Tự kick bot lạ.'),
+  ('main', 'exempt_admins', 'true', true, 'Bỏ qua admin.'),
+  ('main', 'scan_bio_links', 'true', true, 'Quét link Telegram trong bio.'),
+  ('main', 'bio_link_delete_message', 'true', true, 'Xóa tin của member có link Telegram trong bio.'),
+  ('main', 'bio_link_restrict_seconds', '0', true, '0 là mute cho đến khi admin check lại.'),
+  ('main', 'bio_scan_cache_seconds', '3600', true, 'Cache kết quả quét bio.'),
+  ('main', 'bio_link_warning_text', '{mention} vui lòng gỡ link Telegram trong bio rồi liên hệ admin để mở chat lại.', true, 'Tin cảnh báo bio link.'),
+  ('main', 'spam_action', 'warn', true, 'Spam sẽ warn, đủ cảnh báo thì ban.'),
+  ('main', 'spam_restrict_seconds', '300', true, 'Thời gian mute khi action mute/restrict.'),
+  ('main', 'ban_seconds', '0', true, '0 là ban vĩnh viễn, >0 là ban theo thời gian.'),
+  ('main', 'warning_notice_delete_seconds', '180', true, 'Xóa tin cảnh báo sau X giây.'),
+  ('main', 'forward_warning_delete_seconds', '180', true, 'Xóa cảnh báo forward sau X giây.'),
+  ('main', 'spam_notice_delete_seconds', '20', true, 'Xóa notice spam sau X giây.'),
+  ('main', 'violation_delete_retry_seconds', '2', true, 'Retry xóa tin vi phạm sau X giây nếu lần đầu lỗi.'),
+  ('main', 'captcha_text', '{mention} vui lòng xác minh trong {seconds}s: {question}', true, 'Tin captcha đơn giản.'),
   ('main', 'send_on_boot', 'false', true, 'Không gửi tin khi bot khởi động.'),
   ('main', 'send_if_silent', 'false', true, 'Chỉ gửi tin nếu nhóm có hoạt động.');
 
@@ -318,7 +337,8 @@ insert into module_settings (bot_key, module_key, module_name, category, enabled
   ('main', 'moderation', 'Kiểm duyệt cơ bản', 'Bảo mật', true, '{}'::jsonb, null),
   ('main', 'verification', 'Verify thành viên', 'Bảo mật', false, '{}'::jsonb, null),
   ('main', 'anti_scam', 'Tra cứu và báo cáo scam', 'Bảo mật', true, '{}'::jsonb, null),
-  ('main', 'reputation', 'Điểm tương tác', 'Tăng tương tác', false, '{}'::jsonb, null),
+  ('main', 'auto_reply', 'Auto reply', 'Tăng tương tác', true, '{}'::jsonb, null),
+  ('main', 'reputation', 'Điểm tương tác', 'Tăng tương tác', true, '{}'::jsonb, null),
   ('main', 'scheduled_posts', 'Đăng bài định kỳ', 'Vận hành', true, '{}'::jsonb, null),
   ('main', 'monetization', 'Kiếm tiền / vận hành', 'Vận hành', false, '{}'::jsonb, null);
 
@@ -329,6 +349,39 @@ insert into admins (bot_key, user_id, chat_id, role, enabled, notes) values
 
 insert into messages (bot_key, message, pool, weight, enabled, notes) values
   ('main', 'Bot đang hoạt động. Admin có thể sửa nội dung này trong control panel.', 'default', 1, true, 'Tin nhắn mặc định.');
+
+insert into keywords (bot_key, keyword, match, action, reason, enabled, notes) values
+  ('main', 'casino', 'contains', 'warn', 'Từ khóa cấm.', true, 'Spam/cờ bạc'),
+  ('main', 'cá cược', 'contains', 'warn', 'Từ khóa cấm.', true, 'Spam/cờ bạc'),
+  ('main', 'telegram.me/', 'contains', 'delete', 'Link Telegram đáng ngờ.', true, 'Link scam'),
+  ('main', 't.me/spam', 'contains', 'ban', 'Link spam.', true, 'Link scam'),
+  ('main', 'sex', 'contains', 'delete', 'Nội dung NSFW/porn bị chặn.', true, 'NSFW'),
+  ('main', 'porn', 'contains', 'delete', 'Nội dung NSFW/porn bị chặn.', true, 'NSFW'),
+  ('main', 'free money', 'contains', 'warn', 'Nội dung spam.', true, 'Spam');
+
+insert into domain_blacklist (bot_key, domain, risk, action, enabled, notes) values
+  ('main', 'telegram-login.example', 'telegram_clone', 'ban', true, 'Ví dụ domain clone Telegram'),
+  ('main', 'scam.example', 'scam', 'ban', true, 'Ví dụ domain scam'),
+  ('main', 'phishing.example', 'phishing', 'ban', true, 'Ví dụ domain phishing');
+
+insert into link_shorteners (bot_key, domain, action, enabled, notes) values
+  ('main', 'bit.ly', 'warn', true, 'Link rút gọn phổ biến'),
+  ('main', 'tinyurl.com', 'warn', true, 'Link rút gọn phổ biến'),
+  ('main', 'shorturl.at', 'warn', true, 'Link rút gọn phổ biến');
+
+insert into verification_settings (bot_key, chat_id, captcha_type, verify_timeout_seconds, kick_unverified, delay_join_seconds, enabled, notes) values
+  ('main', null, 'math', 180, true, 0, true, 'Captcha toán đơn giản cho mọi group của bot.');
+
+insert into captcha_questions (bot_key, question, answer, enabled, notes) values
+  ('main', '2 + 3 = ?', '5', true, 'Câu mẫu nếu cần dùng captcha cố định.');
+
+insert into auto_replies (bot_key, trigger, match, reply, enabled, notes) values
+  ('main', 'rule', 'contains', 'Bạn xem nội quy bằng lệnh /policy nhé.', true, 'Trả lời nội quy'),
+  ('main', 'support', 'contains', 'Bạn vui lòng nhắn admin hoặc gửi mô tả vấn đề để được hỗ trợ.', true, 'Trả lời support'),
+  ('main', 'giá', 'contains', 'Bạn vui lòng liên hệ admin để được báo giá chính xác.', true, 'Trả lời giá');
+
+insert into scam_entities (bot_key, uid, username, bank_account, phone, name, risk_level, reason, evidence, source, status, enabled) values
+  ('main', '123456789', 'scam_sample', '0123456789', '0900000000', 'Tài khoản mẫu', 'scam', 'Dữ liệu mẫu để test /check.', 'Bằng chứng mẫu.', 'seed', 'confirmed', true);
 
 insert into reputation_rules (bot_key, action_key, points, daily_limit, enabled, notes) values
   ('main', 'message', 1, 20, true, 'Gửi tin nhắn'),

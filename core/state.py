@@ -11,6 +11,7 @@ class RuntimeState:
     user_content_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
     warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
     bio_scan_cache: dict[tuple[int, int], tuple[float, bool]] = field(default_factory=dict)
+    pending_verifications: dict[tuple[int, int], dict] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
 
     def mark_activity(self, chat_id):
@@ -66,3 +67,15 @@ class RuntimeState:
         key = (int(chat_id), int(user_id))
         with self.lock:
             self.bio_scan_cache[key] = (time(), bool(has_blocked_link))
+
+    def set_pending_verification(self, chat_id, user_id, data):
+        with self.lock:
+            self.pending_verifications[(int(chat_id), int(user_id))] = data
+
+    def get_pending_verification(self, chat_id, user_id):
+        with self.lock:
+            return self.pending_verifications.get((int(chat_id), int(user_id)))
+
+    def clear_pending_verification(self, chat_id, user_id):
+        with self.lock:
+            self.pending_verifications.pop((int(chat_id), int(user_id)), None)
