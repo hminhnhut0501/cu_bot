@@ -613,6 +613,63 @@ function displayValue(value: unknown) {
   return String(value);
 }
 
+function formatDateTime(value: unknown) {
+  if (!value) {
+    return "Chưa có thời gian";
+  }
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+}
+
+function parseDetails(value: unknown) {
+  if (!value) {
+    return {};
+  }
+  if (typeof value === "object") {
+    return value as Record<string, unknown>;
+  }
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return { raw: String(value) };
+  }
+}
+
+function auditLogRows(row: Row) {
+  const details = parseDetails(row.details);
+  const content = details.message || details.text || details.content || details.deleted_text || details.raw || row.details;
+  const duration = details.duration || details.duration_seconds || details.until || details.restrict_seconds || details.ban_seconds;
+  return [
+    { label: "Thời gian", value: formatDateTime(row.created_at || details.created_at) },
+    { label: "Hành động", value: actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] }) },
+    { label: "Người thực hiện", value: displayValue(row.actor_user_id || details.actor_user_id || details.actor_username) },
+    { label: "Đối tượng", value: displayValue(row.target_user_id || details.target_user_id || details.target_username) },
+    { label: "Group/Kênh", value: displayValue(row.chat_id || details.chat_id || details.group_id) },
+    { label: "Thời lượng", value: duration ? configDisplayValue({ key: "duration_seconds", value: duration }) : "Không áp dụng" },
+    { label: "Nội dung", value: displayValue(content) }
+  ];
+}
+
+function auditLogSummary(row: Row) {
+  const details = auditLogRows(row);
+  const time = details.find((item) => item.label === "Thời gian")?.value;
+  const actor = details.find((item) => item.label === "Người thực hiện")?.value;
+  const target = details.find((item) => item.label === "Đối tượng")?.value;
+  const content = details.find((item) => item.label === "Nội dung")?.value;
+  return `Lúc ${time} · Người thực hiện: ${actor} · Đối tượng: ${target} · Nội dung: ${content}`;
+}
+
 function metricLabel(key: string) {
   const labels: Record<string, string> = {
     member_count: "Tổng thành viên",
@@ -753,61 +810,6 @@ function cockpitActivity(row: Row, table: TableConfig) {
     `Chính sách ${action} đã sẵn sàng đồng bộ runtime`,
     `Đã kiểm tra phạm vi ${row.group_id || row.chat_id || row.bot_key || "global"}`
   ];
-}
-
-function moduleRuntimeCopy(moduleKey: string, groups: number, rules: number) {
-  const copy: Record<string, { title: string; scope: string; items: string }> = {
-    moderation: {
-      title: `Đang bảo vệ ${groups} nhóm với ${rules} luật kiểm duyệt đang chạy.`,
-      scope: `Bảo vệ ${groups} nhóm`,
-      items: `${rules} luật kiểm duyệt`
-    },
-    menu_policy: {
-      title: `Menu và nội quy đang áp dụng cho ${groups} nhóm.`,
-      scope: `Áp dụng ${groups} nhóm`,
-      items: `${rules} mục menu/nội quy`
-    },
-    verification: {
-      title: `Verify và captcha đang theo dõi ${groups} nhóm.`,
-      scope: `Theo dõi ${groups} nhóm`,
-      items: `${rules} cấu hình verify`
-    },
-    automation: {
-      title: `Automation đang quản lý ${rules} lịch gửi, tin nhắn hoặc video.`,
-      scope: `${groups} nhóm nhận nội dung`,
-      items: `${rules} mục tự động`
-    },
-    auto_reply: {
-      title: `Auto reply có ${rules} câu trả lời đang sẵn sàng.`,
-      scope: `Áp dụng theo bot/group`,
-      items: `${rules} câu trả lời`
-    },
-    anti_scam: {
-      title: `Chống scam đang theo dõi ${rules} dữ liệu và báo cáo.`,
-      scope: `Theo dõi dữ liệu scam`,
-      items: `${rules} mục scam`
-    },
-    entertainment: {
-      title: `Giải trí đang có ${rules} hoạt động, giveaway hoặc điểm tương tác.`,
-      scope: `Hoạt động trong ${groups} nhóm`,
-      items: `${rules} mục giải trí`
-    },
-    analytics: {
-      title: `Thống kê đang ghi nhận ${rules} chỉ số hoặc nhật ký.`,
-      scope: `Theo dõi hệ thống`,
-      items: `${rules} mục theo dõi`
-    },
-    members: {
-      title: `Thành viên đang quản lý role, quyền và điểm tương tác.`,
-      scope: `Quản lý thành viên`,
-      items: `${rules} mục phân quyền`
-    }
-  };
-  return copy[moduleKey] || {
-    title: `Module đang chạy với ${rules} mục điều khiển.`,
-    scope: `Áp dụng ${groups} nhóm`,
-    items: `${rules} mục đang chạy`
-  };
 }
 
 function heroFor(activeKey: string) {
@@ -1238,7 +1240,6 @@ export default function HomePage() {
     return Object.entries(groups);
   }, [dashboardRows]);
   const activeModuleHub = useMemo(() => MODULE_HUBS.find((module) => module.key === activeModule) || MODULE_HUBS[0], [activeModule]);
-  const ActiveModuleIcon = activeModuleHub.icon;
   const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
   const moduleState = useMemo(() => {
     const map = new Map<string, Row>();
@@ -1286,7 +1287,6 @@ export default function HomePage() {
     const offModules = moduleRows.filter((row) => row.enabled === false).length;
     const missingSetup = [
       scopedGroups.length === 0,
-      lookups.messages.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot).length === 0,
       moduleRows.length === 0
     ].filter(Boolean).length;
     return {
@@ -1296,9 +1296,9 @@ export default function HomePage() {
       enabledModules: moduleRows.filter((row) => row.enabled !== false).length,
       offModules,
       missingSetup,
-      issues: disabledBots + offModules + missingSetup
+      issues: disabledBots + missingSetup
     };
-  }, [lookups.bots, lookups.groups, lookups.messages, moduleRows, selectedBot]);
+  }, [lookups.bots, lookups.groups, moduleRows, selectedBot]);
   const commandInsights = useMemo<CommandInsight[]>(() => {
     const insights: CommandInsight[] = [];
     if (healthSummary.disabledBots) {
@@ -1310,17 +1310,6 @@ export default function HomePage() {
         action: "Kiểm tra bot",
         targetLayer: "bot",
         targetTable: "bots"
-      });
-    }
-    if (healthSummary.offModules) {
-      insights.push({
-        severity: "high",
-        title: `${healthSummary.offModules} module đang tắt`,
-        body: "Các service bảo vệ/tự động hóa đang bị disable nên group có thể không được vận hành đầy đủ.",
-        impact: "Protection đang giảm hiệu quả cho đến khi bật lại các module cần thiết.",
-        action: "Khôi phục module",
-        targetLayer: "modules",
-        targetTable: "module_settings"
       });
     }
     if (!healthSummary.groups) {
@@ -1362,27 +1351,16 @@ export default function HomePage() {
     { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module đang hoạt động trên ${healthSummary.groups} nhóm` },
     { severity: "info", text: `${visibleRows.length} ${table?.label || "mục"} trong phạm vi hiện tại` },
     { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} vấn đề vận hành cần kiểm tra` : "Chưa phát hiện lỗi nghiêm trọng" },
-    { severity: healthSummary.offModules ? "high" : "info", text: healthSummary.offModules ? "Protection chưa đồng bộ hoàn toàn do có module đang tắt" : "Runtime sync đang ổn định" }
+    { severity: "info", text: healthSummary.offModules ? `${healthSummary.offModules} module tùy chọn đang ẩn khỏi sidebar` : "Các module đã bật đang hiện trên sidebar" }
   ], [healthSummary, table?.label, visibleRows.length]);
-  const activeModuleStats = useMemo(() => {
-    const ruleTables = ["keywords", "domain_blacklist", "link_shorteners", "auto_replies"];
-    const rules = ruleTables.reduce((total, key) => {
-      if (key === "keywords") {
-        return total + rows.filter((row) => table?.key === key && row.enabled !== false).length;
-      }
-      return total;
-    }, 0);
-    return {
-      groups: lookups.groups.filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot).length,
-      rules: activeModuleHub.tables.includes(table?.key || "") ? visibleRows.filter((row) => row.enabled !== false).length || rules : rules,
-      issues: moduleEnabled ? 0 : 1
-    };
-  }, [activeModuleHub.tables, lookups.groups, moduleEnabled, rows, selectedBot, table?.key, visibleRows]);
-  const activeModuleCopy = useMemo(
-    () => moduleRuntimeCopy(activeModuleHub.key, activeModuleStats.groups, activeModuleStats.rules),
-    [activeModuleHub.key, activeModuleStats.groups, activeModuleStats.rules]
-  );
   const quickFilters = useMemo(() => {
+    if (table?.key === "audit_logs") {
+      const actions = Array.from(new Set(rows.map((row) => String(row.action || "").toLowerCase()).filter(Boolean))).slice(0, 6);
+      return [
+        { key: "", label: "Tất cả" },
+        ...actions.map((action) => ({ key: action, label: actionBadge({ action }, table) }))
+      ];
+    }
     const base = [
       { key: "", label: "Tất cả" },
       { key: "active", label: "Đang chạy" },
@@ -1390,7 +1368,7 @@ export default function HomePage() {
     ];
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
-  }, [rows]);
+  }, [rows, table]);
   const commandItems = useMemo(() => [
     { title: "Khôi phục protection", hint: "Mở module đang tắt và khôi phục bảo vệ", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
     { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
@@ -1973,6 +1951,7 @@ export default function HomePage() {
   const showOverview = workMode === "overview";
   const showOperations = workMode !== "overview";
   const showPrimaryTask = activeLayer !== "modules";
+  const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
 
   if (loading && !meta) {
@@ -2154,10 +2133,10 @@ export default function HomePage() {
             <strong>{healthSummary.activeBots}</strong>
             <p>{healthSummary.disabledBots ? `${healthSummary.disabledBots} bot đang tắt` : "Các bot chính đang sẵn sàng"}</p>
           </article>
-          <article className={healthSummary.offModules ? "status-card warning" : "status-card ok"}>
-            <span>Protection đang chạy</span>
+          <article className="status-card ok">
+            <span>Module đang bật</span>
             <strong>{healthSummary.enabledModules}</strong>
-            <p>{healthSummary.offModules ? `${healthSummary.offModules} module đang tắt` : "Không có module bị tắt"}</p>
+            <p>{healthSummary.offModules ? `${healthSummary.offModules} module tùy chọn đang ẩn` : "Tất cả module đã bật đang hiện ở sidebar"}</p>
           </article>
           <article className={healthSummary.groups ? "status-card ok" : "status-card warning"}>
             <span>Nhóm đang được bảo vệ</span>
@@ -2165,9 +2144,9 @@ export default function HomePage() {
             <p>{healthSummary.groups ? "Bot có phạm vi hoạt động" : "Chưa có group cho bot này"}</p>
           </article>
           <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
-            <span>Danh sách cần xử lý</span>
+            <span>Việc cần xử lý</span>
             <strong>{healthSummary.issues}</strong>
-            <p>{healthSummary.issues ? "Bấm Setup nhanh hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
+            <p>{healthSummary.issues ? "Có bot offline hoặc thiếu group/module nền" : "Không có lỗi vận hành bắt buộc"}</p>
           </article>
         </section>
         </>
@@ -2279,131 +2258,7 @@ export default function HomePage() {
         </section>
         ) : null}
 
-        {activeLayer.startsWith("module:") ? (
-        <section className="module-workbench module-page">
-          <div className="module-section-head">
-            <div>
-              <h3>{activeModuleHub.title}</h3>
-              <p>{activeModuleHub.desc}</p>
-            </div>
-            <span>Đang bật</span>
-          </div>
-          {enabledModuleCards.length ? (
-          <div className="module-tabs active-modules" role="tablist" aria-label="Module đang bật">
-            {enabledModuleCards.map((module) => {
-              const ModuleIcon = module.icon;
-              return (
-                <button
-                  key={module.key}
-                  type="button"
-                  className={module.key === activeModule ? "active" : ""}
-                  onClick={() => {
-                    setActiveModule(module.key);
-                    if (!module.tables.includes(activeKey)) {
-                      setActiveKey(module.tables[0]);
-                    }
-                  }}
-                >
-                  <ModuleIcon size={18} />
-                  <div>
-                    <span>{module.title}</span>
-                    <p>{module.desc}</p>
-                  </div>
-                  <b>On</b>
-                </button>
-              );
-            })}
-          </div>
-          ) : (
-            <div className="module-empty-focus">
-              <Sparkles size={22} />
-              <strong>Chưa có module nào đang bật</strong>
-              <span>Bật một module bên dưới, CP mới hiện các chức năng thuộc module đó.</span>
-            </div>
-          )}
-          {disabledModuleCards.length ? (
-            <div className="module-disabled-drawer">
-              <div>
-                <strong>Module chưa bật</strong>
-                <span>Các module này đang được ẩn khỏi khu vận hành. Bật cái nào thì chức năng của cái đó mới hiện.</span>
-              </div>
-              <div className="disabled-module-list">
-                {disabledModuleCards.map((module) => {
-                  const ModuleIcon = module.icon;
-                  return (
-                    <button
-                      key={module.key}
-                      type="button"
-                      disabled={saving}
-                      onClick={() => {
-                        setActiveModule(module.key);
-                        void toggleModule((module.moduleKeys || [module.key])[0]);
-                      }}
-                    >
-                      <ModuleIcon size={16} />
-                      <span>{module.title}</span>
-                      <b>On</b>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-          {moduleEnabled && enabledModuleCards.length ? (
-          <>
-          <div className={`module-panel ${activeModuleHub.tone}`}>
-            <div className="module-copy">
-              <div className="module-icon">
-                <ActiveModuleIcon size={22} />
-              </div>
-              <div>
-                <h3>{activeModuleHub.title}</h3>
-                <p>{moduleEnabled ? activeModuleCopy.title : "Module đang tắt. Bật lại để mở các cài đặt riêng của module này."}</p>
-                <div className="module-live-stats">
-                  <span className={moduleEnabled ? "live-dot on" : "live-dot off"} />
-                  <b>{moduleEnabled ? "Đang chạy" : "Đang tắt"}</b>
-                  <span>{activeModuleCopy.scope}</span>
-                  <span>{activeModuleCopy.items}</span>
-                  {activeModuleStats.issues ? <span>{activeModuleStats.issues} cảnh báo</span> : null}
-                </div>
-              </div>
-            </div>
-            <div className="module-actions">
-              <button type="button" className="secondary" onClick={() => setActiveKey(activeModuleHub.tables[0])}>
-                Mở bước đầu tiên
-              </button>
-              {(activeModuleHub.moduleKeys || [activeModuleHub.key]).map((moduleKey) => {
-                const row = moduleState.get(moduleKey);
-                const isOn = !row || row.enabled !== false;
-                return (
-                  <button
-                    key={moduleKey}
-                    type="button"
-                    className={`toggle-switch ${isOn ? "on" : "off"}`}
-                    disabled={saving}
-                    onClick={() => toggleModule(moduleKey)}
-                    title={isOn ? "Bấm để tắt module" : "Bấm để bật module"}
-                  >
-                    <span />
-                  </button>
-                );
-              })}
-            </div>
-            <div className="module-links">
-              {activeModuleHub.tables.map((key) => {
-                  const item = meta.tables.find((tableItem) => tableItem.key === key);
-                  if (!item) {
-                    return null;
-                  }
-                  return (
-                    <button key={key} type="button" className={activeKey === key ? "active" : ""} onClick={() => setActiveKey(key)}>
-                      {item.label}
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-          {activeModuleHub.key === "automation" ? (
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "automation" ? (
             <section className="module-flow-launcher">
               <div>
                 <span>Workflow nhanh</span>
@@ -2415,10 +2270,6 @@ export default function HomePage() {
                 Tạo lịch gửi tin
               </button>
             </section>
-          ) : null}
-          </>
-          ) : null}
-        </section>
         ) : null}
 
         {showPrimaryTask ? (
@@ -2450,7 +2301,7 @@ export default function HomePage() {
                 Detail
               </button>
             </div>
-            {table.key !== "config" ? (
+            {readOnlyTable ? null : table.key !== "config" ? (
               <>
                 <button type="button" className="primary" onClick={startCreate}>
                   <Plus size={17} />
@@ -2473,7 +2324,7 @@ export default function HomePage() {
                 Đóng mục đang sửa
               </button>
             )}
-            {bulkTables.has(table.key) ? (
+            {!readOnlyTable && bulkTables.has(table.key) ? (
               <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
                 <Edit3 size={17} />
                 Nhập nhanh
@@ -2870,7 +2721,8 @@ export default function HomePage() {
 
             <div className={`card-list ${scanMode}`}>
               {visibleRows.map((row) => (
-                <article className={`data-card ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
+                <article className={`data-card ${readOnlyTable ? "audit-card" : ""} ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
+                  {!readOnlyTable ? (
                   <label className="select-card" title="Chọn mục này">
                     <input
                       type="checkbox"
@@ -2879,6 +2731,7 @@ export default function HomePage() {
                     />
                     <span />
                   </label>
+                  ) : null}
                   <button className="card-main" type="button" onClick={() => inspectRow(row)}>
                     <div className="card-title-row">
                       <h3>{titleFor(row, table)}</h3>
@@ -2887,8 +2740,17 @@ export default function HomePage() {
                         <span className="action-badge">{actionBadge(row, table)}</span>
                       </div>
                     </div>
-                    <p>{previewText(row, table) || "Chưa có nội dung mô tả."}</p>
-                    {scanMode === "detail" ? (
+                    <p>{readOnlyTable ? auditLogSummary(row) : previewText(row, table) || "Chưa có nội dung mô tả."}</p>
+                    {readOnlyTable ? (
+                      <div className="audit-grid">
+                        {auditLogRows(row).slice(0, 6).map((item) => (
+                          <span key={item.label}>
+                            <b>{item.label}</b>
+                            {item.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : scanMode === "detail" ? (
                       <div className="meta-grid">
                       {table.summaryFields.slice(0, 2).map((key) => {
                         const field = fieldByKey(table, key);
@@ -2902,6 +2764,7 @@ export default function HomePage() {
                       </div>
                     ) : null}
                   </button>
+                  {!readOnlyTable ? (
                   <div className="card-actions">
                     <button type="button" title="Sửa" onClick={() => startEdit(row)}>
                       <Edit3 size={16} />
@@ -2910,6 +2773,7 @@ export default function HomePage() {
                       <Trash2 size={16} />
                     </button>
                   </div>
+                  ) : null}
                 </article>
               ))}
               {!visibleRows.length && !loading ? (
@@ -2917,10 +2781,12 @@ export default function HomePage() {
                   <ShieldCheck size={28} />
                   <strong>{emptyState.title}</strong>
                   <span>{emptyState.body}</span>
+                  {!readOnlyTable ? (
                   <button type="button" className="primary" onClick={startCreate}>
                     <Plus size={16} />
                     {emptyState.action}
                   </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -3050,7 +2916,7 @@ export default function HomePage() {
                   </button>
                 </div>
                 <h3>{titleFor(selected, table)}</h3>
-                <p>{previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
+                <p>{readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
                 <div className="cockpit-metrics">
                   {cockpitMetrics(selected, table).map((metric) => (
                     <span key={metric.label}>
@@ -3059,6 +2925,7 @@ export default function HomePage() {
                     </span>
                   ))}
                 </div>
+                {!readOnlyTable ? (
                 <div className="inspector-actions">
                   <button type="button" className="primary" onClick={() => startEdit(selected)}>
                     <Edit3 size={16} />
@@ -3075,17 +2942,20 @@ export default function HomePage() {
                     Xóa
                   </button>
                 </div>
+                ) : null}
                 <section className="inspector-section">
-                  <h4>Chi tiết vận hành</h4>
+                  <h4>{readOnlyTable ? "Chi tiết nhật ký" : "Chi tiết vận hành"}</h4>
                   <div className="inspector-grid">
-                    {detailRows(selected, table).map((item) => (
-                      <span key={item.key}>
+                    {(readOnlyTable ? auditLogRows(selected) : detailRows(selected, table)).map((item) => (
+                      <span key={String("key" in item ? item.key : item.label)}>
                         <b>{item.label}</b>
                         {item.value}
                       </span>
                     ))}
                   </div>
                 </section>
+                {!readOnlyTable ? (
+                <>
                 <section className="inspector-section">
                   <h4>Chẩn đoán runtime</h4>
                   <div className="diagnostic-grid">
@@ -3112,6 +2982,8 @@ export default function HomePage() {
                     Test mục này
                   </button>
                 </section>
+                </>
+                ) : null}
               </div>
             ) : null}
           </section>

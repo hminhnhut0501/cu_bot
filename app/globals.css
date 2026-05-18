@@ -833,8 +833,8 @@ nav button:hover {
 .plugin-card {
   min-height: 118px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 118px;
+  gap: 18px;
   align-items: center;
   border: 1px solid #e7edf3;
   border-radius: 12px;
@@ -875,16 +875,17 @@ nav button:hover {
 }
 
 .plugin-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 56px 40px;
   gap: 8px;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
-  min-width: 112px;
+  justify-items: end;
+  min-width: 118px;
 }
 
 .plugin-actions > span {
-  width: 100%;
+  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
@@ -1101,10 +1102,16 @@ nav button:hover {
   height: 28px;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
   border: 0;
   border-radius: 999px;
   background: #cbd5e1;
   padding: 3px;
+  line-height: 0;
+  font-size: 0;
+  cursor: pointer;
+  appearance: none;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -1116,6 +1123,11 @@ nav button:hover {
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.2);
   transform: translateX(0);
   transition: transform 0.15s ease;
+}
+
+.toggle-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .toggle-switch.on {
@@ -2066,6 +2078,11 @@ button.primary:hover,
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
+.data-card.audit-card {
+  grid-template-columns: minmax(0, 1fr);
+  border-left: 4px solid var(--accent);
+}
+
 .card-list.scan .data-card {
   min-height: 54px;
   grid-template-columns: 26px minmax(0, 1fr) 84px;
@@ -2075,6 +2092,16 @@ button.primary:hover,
   border-radius: 0;
   box-shadow: none;
   padding: 8px 10px;
+}
+
+.card-list.scan .data-card.audit-card {
+  min-height: auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  border: 1px solid #e7edf3;
+  border-left: 4px solid var(--accent);
+  border-radius: 10px;
+  padding: 14px;
 }
 
 .card-list.scan .data-card:hover,
@@ -2104,6 +2131,11 @@ button.primary:hover,
 .card-list.scan .card-main p,
 .card-list.scan .action-badge {
   display: none;
+}
+
+.card-list.scan .audit-card .card-main p,
+.card-list.scan .audit-card .action-badge {
+  display: block;
 }
 
 .card-list.scan .card-state {
@@ -2286,6 +2318,32 @@ button.primary:hover,
 .meta-pill b {
   color: #1f2937;
   font-weight: 700;
+}
+
+.audit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.audit-grid span {
+  min-width: 0;
+  border: 1px solid #e7edf3;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 8px 10px;
+  color: #425466;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.audit-grid b {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 11px;
 }
 
 .card-actions {
