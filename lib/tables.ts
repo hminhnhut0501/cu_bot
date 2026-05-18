@@ -51,7 +51,7 @@ export const TABLES: TableConfig[] = [
       botKey,
       { key: "module_key", label: "Mã module", type: "text", required: true, section: "Module" },
       { key: "module_name", label: "Tên module", type: "text", required: true, section: "Module" },
-      { key: "category", label: "Nhóm chức năng", type: "select", options: ["Quản trị", "Bảo mật", "Tăng tương tác", "Vận hành"], section: "Module" },
+      { key: "category", label: "Nhóm chức năng", type: "select", options: ["Kiểm duyệt tự động", "Menu & nội quy", "Bảo mật & verify", "Tự động hóa", "Auto reply", "Chống scam", "Giải trí", "Thống kê", "Thành viên", "Hệ thống"], section: "Module" },
       { key: "settings", label: "Cấu hình JSON", type: "textarea", section: "Module", helper: "Có thể để {} nếu chưa cần cấu hình nâng cao." },
       enabled,
       notes

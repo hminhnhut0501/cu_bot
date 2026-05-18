@@ -826,6 +826,66 @@ nav button:hover {
   color: var(--danger);
 }
 
+.plugin-manager {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plugin-card {
+  min-height: 138px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #e7edf3;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+}
+
+.plugin-card.enabled {
+  border-color: #b9e1dc;
+  background: #f7fdfc;
+}
+
+.plugin-card.disabled {
+  opacity: 0.82;
+}
+
+.plugin-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.plugin-main svg {
+  color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.plugin-main h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+}
+
+.plugin-main p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.42;
+}
+
+.plugin-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.plugin-actions > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
 .module-empty-focus {
   min-height: 160px;
   display: grid;
@@ -884,6 +944,12 @@ nav button:hover {
 
 .disabled-module-list button b {
   color: var(--accent-dark);
+}
+
+.module-page .active-modules,
+.module-page .module-disabled-drawer,
+.module-page .module-empty-focus {
+  display: none;
 }
 
 .module-panel {

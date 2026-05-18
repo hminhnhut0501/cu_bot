@@ -109,37 +109,10 @@ const SYSTEM_LAYERS = [
     key: "modules",
     title: "Chức năng",
     shortTitle: "Chức năng",
-    desc: "Bật/tắt và vận hành các service lớn như kiểm duyệt, auto reply, scam, giải trí.",
+    desc: "Quản lý module giống plugin: bật module nào thì module đó mới xuất hiện trên sidebar.",
     icon: Sparkles,
     tone: "content",
-    tables: ["scheduled_posts", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules", "module_settings"]
-  },
-  {
-    key: "security",
-    title: "Bảo mật",
-    shortTitle: "Bảo mật",
-    desc: "Từ khóa cấm, link xấu, domain blacklist, captcha, verify và action xử lý.",
-    icon: SlidersHorizontal,
-    tone: "fun",
-    tables: ["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist", "groups"]
-  },
-  {
-    key: "members",
-    title: "Thành viên",
-    shortTitle: "Thành viên",
-    desc: "Phân quyền admin, role member, VIP, restricted và điểm tương tác.",
-    icon: Users,
-    tone: "security",
-    tables: ["admins", "member_roles", "reputation_rules", "giveaway_entries"]
-  },
-  {
-    key: "analytics",
-    title: "Thống kê",
-    shortTitle: "Thống kê",
-    desc: "Chỉ số vận hành, tăng trưởng, spam, verify, scam report và hiệu quả module.",
-    icon: BarChart3,
-    tone: "scam",
-    tables: ["bot_metrics", "scam_reports", "audit_logs"]
+    tables: ["module_settings"]
   },
   {
     key: "logs",
@@ -152,9 +125,9 @@ const SYSTEM_LAYERS = [
   },
   {
     key: "settings",
-    title: "Cài đặt",
-    shortTitle: "Cài đặt",
-    desc: "Text, menu lệnh, nội quy, cảnh báo và cấu hình nâng cao chỉ mở khi cần.",
+    title: "Cài đặt hệ thống",
+    shortTitle: "Cài đặt hệ thống",
+    desc: "Cài đặt chung toàn CP. Cài đặt riêng của module sẽ nằm trong module tương ứng.",
     icon: SlidersHorizontal,
     tone: "content",
     tables: ["config"]
@@ -312,20 +285,32 @@ const MODULE_HUBS = [
   {
     key: "moderation",
     moduleKeys: ["moderation"],
-    title: "Kiểm duyệt",
-    desc: "Spam, tin forward, nút bấm, bot lạ, từ khóa cấm và link xấu.",
+    title: "Kiểm duyệt tự động",
+    desc: "Chống spam, quảng cáo, ban, xóa tin hệ thống, quét bio link và link xấu.",
     icon: ShieldCheck,
     tone: "security",
-    tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"]
+    tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
+    configKeys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+  },
+  {
+    key: "menu_policy",
+    moduleKeys: ["menu_policy"],
+    title: "Menu & nội quy",
+    desc: "Menu lệnh Telegram, nút Quy định, nội quy nhóm và nội dung /start.",
+    icon: MessageSquare,
+    tone: "content",
+    tables: ["config", "groups"],
+    configKeys: ["policy_text", "show_policy_button", "policy_button_text", "bot_menu_commands", "help_menu_commands", "start_fallback_text", "help_menu_title"]
   },
   {
     key: "verification",
     moduleKeys: ["verification"],
-    title: "Verify",
-    desc: "Captcha, chào thành viên mới, tự kick member chưa xác minh.",
+    title: "Bảo mật & verify",
+    desc: "Captcha, chào thành viên mới, tự kick member chưa xác minh và bot được phép.",
     icon: Bot,
     tone: "main",
-    tables: ["verification_settings", "captcha_questions", "config"]
+    tables: ["verification_settings", "captcha_questions", "bot_allowlist", "config"],
+    configKeys: ["captcha_text", "captcha_success_text", "captcha_failed_text", "captcha_message_delete_seconds", "verify_success_delete_seconds"]
   },
   {
     key: "automation",
@@ -334,7 +319,8 @@ const MODULE_HUBS = [
     desc: "Gửi tin hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
-    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"]
+    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"],
+    configKeys: ["send_on_boot", "send_if_silent"]
   },
   {
     key: "auto_reply",
@@ -343,7 +329,7 @@ const MODULE_HUBS = [
     desc: "Câu kích hoạt, nội dung trả lời tự động và kiểu khớp.",
     icon: MessageSquare,
     tone: "fun",
-    tables: ["auto_replies", "config"]
+    tables: ["auto_replies"]
   },
   {
     key: "anti_scam",
@@ -352,7 +338,8 @@ const MODULE_HUBS = [
     desc: "Dữ liệu scam, báo cáo riêng, channel duyệt và tra cứu /check.",
     icon: Archive,
     tone: "scam",
-    tables: ["scam_entities", "scam_reports", "config"]
+    tables: ["scam_entities", "scam_reports", "config"],
+    configKeys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
   },
   {
     key: "entertainment",
@@ -361,7 +348,8 @@ const MODULE_HUBS = [
     desc: "Giveaway, quay số, event, điểm tương tác và bảng xếp hạng.",
     icon: Gift,
     tone: "fun",
-    tables: ["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules", "config"]
+    tables: ["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules", "config"],
+    configKeys: ["giveaway_created_text", "giveaway_empty_text", "giveaway_list_title", "giveaway_join_usage_text", "giveaway_not_found_open_text", "giveaway_keyword_required_text", "giveaway_joined_text", "giveaway_join_duplicate_text", "giveaway_draw_usage_text", "giveaway_not_found_text", "giveaway_no_entries_text", "giveaway_result_text", "giveaway_close_usage_text", "giveaway_closed_text"]
   },
   {
     key: "analytics",
@@ -371,8 +359,18 @@ const MODULE_HUBS = [
     icon: BarChart3,
     tone: "main",
     tables: ["bot_metrics", "audit_logs"]
+  },
+  {
+    key: "members",
+    moduleKeys: ["members"],
+    title: "Thành viên",
+    desc: "Phân quyền admin, role member, VIP, restricted và điểm tương tác.",
+    icon: Users,
+    tone: "security",
+    tables: ["admins", "member_roles", "reputation_rules", "giveaway_entries"]
   }
 ];
+const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
   policy_text: "Nội quy gửi kèm khi thành viên bấm nút Quy định hoặc gọi lệnh liên quan.",
   show_policy_button: "Bật/tắt nút Quy định xuất hiện dưới tin nhắn /start.",
@@ -1088,25 +1086,42 @@ export default function HomePage() {
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
+  const configScopeModule = useMemo(() => {
+    const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
+    return MODULE_HUBS.find((module) => module.key === moduleKey);
+  }, [activeLayer]);
+  const scopedConfigRows = useMemo(() => {
+    if (table?.key !== "config") {
+      return visibleRows;
+    }
+    if (activeLayer === "settings") {
+      return visibleRows.filter((row) => !MODULE_CONFIG_KEYS.has(String(row.key || "")));
+    }
+    if (configScopeModule?.configKeys?.length) {
+      return visibleRows.filter((row) => configScopeModule.configKeys?.includes(String(row.key || "")));
+    }
+    return visibleRows;
+  }, [activeLayer, configScopeModule, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
     const usedKeys = new Set(CONFIG_SECTIONS.flatMap((section) => section.keys));
     const baseTabs = CONFIG_SECTIONS.map((section) => ({
       ...section,
-      rows: visibleRows.filter((row) => section.keys.includes(String(row.key || "")))
+      rows: scopedConfigRows.filter((row) => section.keys.includes(String(row.key || "")))
     }));
-    const otherRows = visibleRows.filter((row) => !usedKeys.has(String(row.key || "")));
-    return [
-      ...baseTabs,
-      {
+    const otherRows = scopedConfigRows.filter((row) => !usedKeys.has(String(row.key || "")));
+    const tabs = baseTabs.filter((section) => section.rows.length);
+    if (otherRows.length) {
+      tabs.push({
         title: "Cài đặt khác",
         desc: "Các cài đặt nâng cao chưa thuộc nhóm chính.",
         icon: SlidersHorizontal,
         tone: "main",
         keys: [],
         rows: otherRows
-      }
-    ];
-  }, [visibleRows]);
+      });
+    }
+    return tabs;
+  }, [scopedConfigRows]);
   const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab), [activeConfigTab, configTabs]);
   const ActiveConfigIcon = activeConfigSection?.icon;
   const metricGroups = useMemo(() => {
@@ -1144,7 +1159,18 @@ export default function HomePage() {
     }
     return states.some((row) => row?.enabled !== false);
   }, [activeModuleHub, moduleState]);
-  const activeLayerHub = useMemo(() => SYSTEM_LAYERS.find((layer) => layer.key === activeLayer) || SYSTEM_LAYERS[0], [activeLayer]);
+  const moduleLayers = useMemo(() => enabledModuleCards.map((module) => ({
+    key: `module:${module.key}`,
+    title: module.title,
+    shortTitle: module.title,
+    desc: module.desc,
+    icon: module.icon,
+    tone: module.tone,
+    tables: module.tables,
+    moduleKey: module.key
+  })), [enabledModuleCards]);
+  const sidebarLayers = useMemo(() => [...SYSTEM_LAYERS, ...moduleLayers], [moduleLayers]);
+  const activeLayerHub = useMemo(() => sidebarLayers.find((layer) => layer.key === activeLayer) || SYSTEM_LAYERS[0], [activeLayer, sidebarLayers]);
   const ActiveLayerIcon = activeLayerHub.icon;
   const layerTables = useMemo(() => activeLayerHub.tables
     .map((key) => meta?.tables.find((tableItem) => tableItem.key === key))
@@ -1212,7 +1238,7 @@ export default function HomePage() {
         impact: "Automation có thể chưa chạy cho đến khi hoàn tất setup.",
         action: "Setup nhanh",
         targetLayer: "modules",
-        targetTable: "scheduled_posts"
+        targetTable: "module_settings"
       });
     }
     if (!insights.length) {
@@ -1383,15 +1409,35 @@ export default function HomePage() {
   }, [activeKey, activeLayer, enabledModuleCards, moduleEnabled]);
 
   useEffect(() => {
-    const currentLayer = SYSTEM_LAYERS.find((layer) => layer.key === activeLayer);
+    if (!activeLayer.startsWith("module:")) {
+      return;
+    }
+    if (!moduleLayers.some((layer) => layer.key === activeLayer)) {
+      setActiveLayer("modules");
+      setActiveKey("module_settings");
+    }
+  }, [activeLayer, moduleLayers]);
+
+  useEffect(() => {
+    if (table?.key !== "config") {
+      return;
+    }
+    if (activeConfigTab && configTabs.some((section) => section.title === activeConfigTab)) {
+      return;
+    }
+    setActiveConfigTab(configTabs[0]?.title || "");
+  }, [activeConfigTab, configTabs, table?.key]);
+
+  useEffect(() => {
+    const currentLayer = sidebarLayers.find((layer) => layer.key === activeLayer);
     if (currentLayer && layerContainsTable(currentLayer, activeKey)) {
       return;
     }
-    const matchingLayer = SYSTEM_LAYERS.find((layer) => layerContainsTable(layer, activeKey));
+    const matchingLayer = sidebarLayers.find((layer) => layerContainsTable(layer, activeKey));
     if (matchingLayer) {
       setActiveLayer(matchingLayer.key);
     }
-  }, [activeKey, activeLayer]);
+  }, [activeKey, activeLayer, sidebarLayers]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -1411,11 +1457,14 @@ export default function HomePage() {
   }, []);
 
   function selectLayer(layerKey: string) {
-    const layer = SYSTEM_LAYERS.find((item) => item.key === layerKey);
+    const layer = sidebarLayers.find((item) => item.key === layerKey);
     if (!layer) {
       return;
     }
     setActiveLayer(layer.key);
+    if ("moduleKey" in layer && layer.moduleKey) {
+      setActiveModule(String(layer.moduleKey));
+    }
     if (!layerContainsTable(layer, activeKey)) {
       setActiveKey(layer.tables[0]);
     }
@@ -1635,7 +1684,7 @@ export default function HomePage() {
             bot_key: selectedBot || "main",
             module_key: moduleKey,
             module_name: moduleInfo?.title || moduleKey,
-            category: moduleInfo?.title === "Giải trí" ? "Giải trí" : "Bảo mật",
+            category: moduleInfo?.title || "Module",
             settings: "{}",
             enabled: true
           })
@@ -1804,7 +1853,7 @@ export default function HomePage() {
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const showOverview = workMode === "overview";
   const showOperations = workMode !== "overview";
-  const showPrimaryTask = activeLayer !== "modules" || (moduleEnabled && enabledModuleCards.length > 0);
+  const showPrimaryTask = activeLayer !== "modules";
   const emptyState = emptyStateFor(table?.key || "");
 
   if (loading && !meta) {
@@ -1855,7 +1904,7 @@ export default function HomePage() {
         </div>
         <nav className="layer-nav">
           <section className="nav-group">
-            <h2>Control Center</h2>
+            <h2>Hệ thống</h2>
             {SYSTEM_LAYERS.map((layer) => {
               const LayerIcon = layer.icon;
               return (
@@ -1871,6 +1920,25 @@ export default function HomePage() {
               );
             })}
           </section>
+          {moduleLayers.length ? (
+          <section className="nav-group">
+            <h2>Module đang bật</h2>
+            {moduleLayers.map((layer) => {
+              const LayerIcon = layer.icon;
+              return (
+                <button
+                  key={layer.key}
+                  className={layer.key === activeLayer ? "active" : ""}
+                  onClick={() => selectLayer(layer.key)}
+                  type="button"
+                >
+                  <LayerIcon size={17} />
+                  <span>{layer.shortTitle}</span>
+                </button>
+              );
+            })}
+          </section>
+          ) : null}
         </nav>
       </aside>
 
@@ -2049,10 +2117,58 @@ export default function HomePage() {
         <section className="module-workbench">
           <div className="module-section-head">
             <div>
-              <h3>Module đang bật</h3>
-              <p>Chỉ module đang bật mới bung chức năng con để tránh rối màn hình.</p>
+              <h3>Quản lý module</h3>
+              <p>Bật module giống plugin. Module đang bật sẽ xuất hiện trên sidebar và có trang cài đặt riêng.</p>
             </div>
-            <span>{enabledModuleCards.length} đang bật</span>
+            <span>{enabledModuleCards.length}/{moduleCards.length} đang bật</span>
+          </div>
+          <div className="module-tabs plugin-manager" role="list" aria-label="Quản lý module">
+            {moduleCards.map((module) => {
+              const ModuleIcon = module.icon;
+              return (
+                <article className={`plugin-card ${module.isOn ? "enabled" : "disabled"}`} key={module.key}>
+                  <div className="plugin-main">
+                    <ModuleIcon size={20} />
+                    <div>
+                      <h3>{module.title}</h3>
+                      <p>{module.desc}</p>
+                    </div>
+                  </div>
+                  <div className="plugin-actions">
+                    <span>{module.isOn ? "Đang bật" : "Đang tắt"}</span>
+                    <button
+                      type="button"
+                      className={module.isOn ? "module-toggle on" : "module-toggle off"}
+                      disabled={saving}
+                      onClick={() => {
+                        setActiveModule(module.key);
+                        void toggleModule((module.moduleKeys || [module.key])[0]);
+                      }}
+                    >
+                      <Power size={15} />
+                      {module.isOn ? "Tắt" : "Bật"}
+                    </button>
+                    {module.isOn ? (
+                      <button type="button" className="ghost" onClick={() => selectLayer(`module:${module.key}`)}>
+                        Cài đặt
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+        ) : null}
+
+        {activeLayer.startsWith("module:") ? (
+        <section className="module-workbench module-page">
+          <div className="module-section-head">
+            <div>
+              <h3>{activeModuleHub.title}</h3>
+              <p>{activeModuleHub.desc}</p>
+            </div>
+            <span>Đang bật</span>
           </div>
           {enabledModuleCards.length ? (
           <div className="module-tabs active-modules" role="tablist" aria-label="Module đang bật">
