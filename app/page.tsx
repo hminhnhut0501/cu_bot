@@ -1977,6 +1977,28 @@ export default function HomePage() {
     }
     return groups;
   }, [activeLayer, table]);
+  const menuConfigRows = useMemo(() => {
+    const map = new Map<string, Row>();
+    for (const row of scopedConfigRows) {
+      map.set(String(row.key || ""), row);
+    }
+    return map;
+  }, [scopedConfigRows]);
+  const menuCommandRows = useMemo(
+    () => ["bot_menu_commands", "help_menu_commands", "help_menu_title"].map((key) => menuConfigRows.get(key)).filter((row): row is Row => Boolean(row)),
+    [menuConfigRows]
+  );
+  const menuPolicyRows = useMemo(
+    () => ["show_policy_button", "policy_button_text", "policy_text"].map((key) => menuConfigRows.get(key)).filter((row): row is Row => Boolean(row)),
+    [menuConfigRows]
+  );
+  const menuContentRows = useMemo(
+    () => ["start_fallback_text"].map((key) => menuConfigRows.get(key)).filter((row): row is Row => Boolean(row)),
+    [menuConfigRows]
+  );
+  const menuCommandsEnabled = menuCommandRows.some((row) => row.enabled !== false && String(row.value || "").trim());
+  const policyButtonRow = menuConfigRows.get("show_policy_button");
+  const policyButtonEnabled = policyButtonRow ? String(policyButtonRow.value || "").trim().toLowerCase() === "true" && policyButtonRow.enabled !== false : false;
 
   if (loading && !meta) {
     return (
@@ -2617,7 +2639,163 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {table.key === "config" ? (
+        {activeLayer === "module:menu_policy" && table.key === "config" ? (
+          <section className="menu-policy-console">
+            <section className="menu-policy-hero">
+              <div>
+                <span>Menu & nội quy</span>
+                <h3>Điều khiển những gì user thấy khi gõ `/` hoặc `/start`</h3>
+                <p>Tắt menu lệnh Telegram sẽ xóa danh sách `/start`, `/help`, `/policy` khỏi khung gợi ý của Telegram sau khi bot sync.</p>
+              </div>
+              <div className="menu-policy-status">
+                <span className={menuCommandsEnabled ? "on" : "off"}>{menuCommandsEnabled ? "Menu lệnh đang bật" : "Menu lệnh đang tắt"}</span>
+                <span className={policyButtonEnabled ? "on" : "off"}>{policyButtonEnabled ? "Nút Quy định đang bật" : "Nút Quy định đang tắt"}</span>
+              </div>
+            </section>
+
+            <div className="menu-policy-grid">
+              <section className="menu-control-card primary">
+                <div className="menu-control-head">
+                  <div>
+                    <MessageSquare size={21} />
+                    <h4>Menu lệnh Telegram</h4>
+                    <p>Danh sách lệnh hiện trong khung gợi ý khi thành viên gõ dấu `/`.</p>
+                  </div>
+                  <strong>{menuCommandsEnabled ? "Đang hiện" : "Đang ẩn"}</strong>
+                </div>
+                <div className="menu-control-rows">
+                  {menuCommandRows.map((row) => (
+                    <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
+                      <div>
+                        <b>{configLabel(String(row.key || ""))}</b>
+                        <span>{configDescription(row)}</span>
+                        <strong>{configDisplayValue(row)}</strong>
+                      </div>
+                      <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
+                        <Edit3 size={16} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <section className="menu-control-card">
+                <div className="menu-control-head">
+                  <div>
+                    <ShieldCheck size={21} />
+                    <h4>Nút Quy định</h4>
+                    <p>Nút inline nằm dưới tin `/start` và `/help` để mở nội quy nhóm.</p>
+                  </div>
+                  <strong>{policyButtonEnabled ? "Đang hiện" : "Đang ẩn"}</strong>
+                </div>
+                <div className="menu-control-rows">
+                  {menuPolicyRows.map((row) => {
+                    const booleanValue = isConfigBoolean(row);
+                    const valueOn = String(row.value).toLowerCase() === "true";
+                    return (
+                      <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
+                        <div>
+                          <b>{configLabel(String(row.key || ""))}</b>
+                          <span>{configDescription(row)}</span>
+                          <strong>{configDisplayValue(row)}</strong>
+                        </div>
+                        <div className="menu-row-actions">
+                          {booleanValue ? (
+                            <button
+                              type="button"
+                              className={`toggle-switch small ${valueOn ? "on" : "off"}`}
+                              disabled={saving}
+                              onClick={() => toggleConfigValue(row)}
+                              title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                            >
+                              <span />
+                            </button>
+                          ) : null}
+                          <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
+                            <Edit3 size={16} />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="menu-control-card">
+                <div className="menu-control-head">
+                  <div>
+                    <Sparkles size={21} />
+                    <h4>Nội dung trả lời</h4>
+                    <p>Text fallback khi `/start` chưa có tin nhắn random và nội dung liên quan.</p>
+                  </div>
+                </div>
+                <div className="menu-control-rows">
+                  {menuContentRows.map((row) => (
+                    <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
+                      <div>
+                        <b>{configLabel(String(row.key || ""))}</b>
+                        <span>{configDescription(row)}</span>
+                        <strong>{configDisplayValue(row)}</strong>
+                      </div>
+                      <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
+                        <Edit3 size={16} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {Object.keys(draft).length ? (
+              <section className="menu-inline-editor">
+                <form className="setting-edit" onSubmit={save}>
+                  <div className="editor-title">
+                    <h3>Chỉnh sửa {configLabel(String(draft.key || ""))}</h3>
+                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
+                      <X size={17} />
+                    </button>
+                  </div>
+                  {String(draft.value ?? "").trim().toLowerCase() === "true" || String(draft.value ?? "").trim().toLowerCase() === "false" ? (
+                    <label className="checkbox-field">
+                      <span>Bật giá trị này</span>
+                      <input
+                        type="checkbox"
+                        checked={String(draft.value).toLowerCase() === "true"}
+                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      <span>Nội dung / giá trị</span>
+                      <textarea
+                        value={draft.value ?? ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                        rows={String(draft.value || "").length > 120 ? 6 : 3}
+                      />
+                    </label>
+                  )}
+                  <label className="checkbox-field">
+                    <span>Kích hoạt cấu hình này</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(draft.enabled)}
+                      onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
+                    />
+                  </label>
+                  <div className="setting-edit-actions">
+                    <button type="button" className="ghost" onClick={closeFocusedPanel}>
+                      Hủy
+                    </button>
+                    <button type="submit" className="primary" disabled={saving}>
+                      {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
+                      Lưu
+                    </button>
+                  </div>
+                </form>
+              </section>
+            ) : null}
+          </section>
+        ) : table.key === "config" ? (
           <section className="config-center">
             <div className="config-tabs" aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
