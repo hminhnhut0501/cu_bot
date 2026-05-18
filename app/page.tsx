@@ -2233,7 +2233,11 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div className="plugin-actions">
-                    <span className={module.isOn ? "on" : "off"}>{module.isOn ? "Đang bật" : "Đang tắt"}</span>
+                    <span className={module.isOn ? "on" : "off"}>
+                      <span className="status-dot" />
+                      {module.isOn ? "Đang bật" : "Đang tắt"}
+                    </span>
+                    <div className="plugin-action-row">
                     <button
                       type="button"
                       className={`module-toggle-button ${module.isOn ? "on" : "off"}`}
@@ -2260,9 +2264,9 @@ export default function HomePage() {
                         title="Cài đặt module"
                       >
                         <SlidersHorizontal size={16} />
-                        Cài đặt
                       </button>
                     ) : null}
+                    </div>
                   </div>
                 </article>
               );
