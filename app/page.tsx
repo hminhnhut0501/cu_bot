@@ -2233,21 +2233,34 @@ export default function HomePage() {
                     </div>
                   </div>
                   <div className="plugin-actions">
-                    <span>{module.isOn ? "Đang bật" : "Đang tắt"}</span>
+                    <span className={module.isOn ? "on" : "off"}>{module.isOn ? "Đang bật" : "Đang tắt"}</span>
                     <button
                       type="button"
-                      className={`toggle-switch ${module.isOn ? "on" : "off"}`}
+                      className={`module-toggle-button ${module.isOn ? "on" : "off"}`}
                       disabled={saving}
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setActiveModule(module.key);
                         void toggleModule((module.moduleKeys || [module.key])[0]);
                       }}
                     >
-                      <span />
+                      <Power size={15} />
+                      {module.isOn ? "Tắt" : "Bật"}
                     </button>
                     {module.isOn ? (
-                      <button type="button" className="icon-button compact" onClick={() => selectLayer(`module:${module.key}`)} title="Cài đặt module">
+                      <button
+                        type="button"
+                        className="module-config-button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          selectLayer(`module:${module.key}`);
+                        }}
+                        title="Cài đặt module"
+                      >
                         <SlidersHorizontal size={16} />
+                        Cài đặt
                       </button>
                     ) : null}
                   </div>
