@@ -2138,19 +2138,18 @@ export default function HomePage() {
                     <span>{module.isOn ? "Đang bật" : "Đang tắt"}</span>
                     <button
                       type="button"
-                      className={module.isOn ? "module-toggle on" : "module-toggle off"}
+                      className={`toggle-switch ${module.isOn ? "on" : "off"}`}
                       disabled={saving}
                       onClick={() => {
                         setActiveModule(module.key);
                         void toggleModule((module.moduleKeys || [module.key])[0]);
                       }}
                     >
-                      <Power size={15} />
-                      {module.isOn ? "Tắt" : "Bật"}
+                      <span />
                     </button>
                     {module.isOn ? (
-                      <button type="button" className="ghost" onClick={() => selectLayer(`module:${module.key}`)}>
-                        Cài đặt
+                      <button type="button" className="icon-button compact" onClick={() => selectLayer(`module:${module.key}`)} title="Cài đặt module">
+                        <SlidersHorizontal size={16} />
                       </button>
                     ) : null}
                   </div>
@@ -2191,7 +2190,7 @@ export default function HomePage() {
                     <span>{module.title}</span>
                     <p>{module.desc}</p>
                   </div>
-                  <b>Bật</b>
+                  <b>On</b>
                 </button>
               );
             })}
@@ -2224,7 +2223,7 @@ export default function HomePage() {
                     >
                       <ModuleIcon size={16} />
                       <span>{module.title}</span>
-                      <b>Bật</b>
+                      <b>On</b>
                     </button>
                   );
                 })}
@@ -2261,13 +2260,12 @@ export default function HomePage() {
                   <button
                     key={moduleKey}
                     type="button"
-                    className={`module-toggle ${isOn ? "on" : "off"}`}
+                    className={`toggle-switch ${isOn ? "on" : "off"}`}
                     disabled={saving}
                     onClick={() => toggleModule(moduleKey)}
                     title={isOn ? "Bấm để tắt module" : "Bấm để bật module"}
                   >
-                    <Power size={15} />
-                    {isOn ? "Bật" : "Tắt"}
+                    <span />
                   </button>
                 );
               })}
@@ -2660,12 +2658,12 @@ export default function HomePage() {
                             {booleanValue ? (
                               <button
                                 type="button"
-                                className={`setting-toggle ${valueOn ? "on" : "off"}`}
+                                className={`toggle-switch small ${valueOn ? "on" : "off"}`}
                                 disabled={saving}
                                 onClick={() => toggleConfigValue(row)}
                                 title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
                               >
-                                <Power size={16} />
+                                <span />
                               </button>
                             ) : null}
                             <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
@@ -2863,7 +2861,6 @@ export default function HomePage() {
                                 onChange={(event) => updateField(field, event.target.checked)}
                               />
                               <b />
-                              <em>{Boolean(draft[field.key]) ? "Bật" : "Tắt"}</em>
                             </span>
                           ) : field.type === "select" || lookupOptions.length ? (
                             <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
