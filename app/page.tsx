@@ -319,7 +319,7 @@ const MODULE_HUBS = [
     desc: "Gửi tin hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
-    tables: ["scheduled_posts", "messages", "video_messages", "config"],
+    tables: ["groups", "messages", "video_messages", "config"],
     configKeys: ["send_on_boot", "send_if_silent"]
   },
   {
@@ -1164,9 +1164,18 @@ export default function HomePage() {
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
-  const activeGuide = table ? TABLE_GUIDES[table.key] : undefined;
   const messagePools = useMemo(() => uniqueValues(lookups.messages, "pool"), [lookups.messages]);
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
+  const activeGuide = useMemo(() => {
+    if (activeLayer === "module:automation" && table?.key === "groups") {
+      return {
+        title: "Cách dùng random tin hẹn giờ",
+        body: "Runtime hiện tại gửi random theo Nhóm nội dung trong bảng Tin nhắn. Chọn đúng pool tại đây để bot lấy ngẫu nhiên mỗi ngày.",
+        steps: ["Tạo nhiều Tin nhắn cùng một Nhóm nội dung", "Vào group này và chọn Nhóm nội dung đó", "Đặt Bắt đầu và Kết thúc cùng giờ nếu muốn gửi đúng một thời điểm"]
+      };
+    }
+    return table ? TABLE_GUIDES[table.key] : undefined;
+  }, [activeLayer, table]);
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
   const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
@@ -1606,27 +1615,29 @@ export default function HomePage() {
   }
 
   function startScheduledMessageFlow() {
-    const scheduleTable = meta?.tables.find((item) => item.key === "scheduled_posts");
-    if (!scheduleTable) {
+    const groupTable = meta?.tables.find((item) => item.key === "groups");
+    if (!groupTable) {
       return;
     }
-    setActiveLayer("modules");
+    setActiveLayer("module:automation");
     setActiveModule("automation");
-    setActiveKey("scheduled_posts");
+    setActiveKey("groups");
     setSelected(null);
     setSelectedIds(new Set());
     setDraft({
-      ...emptyValues(scheduleTable),
+      ...emptyValues(groupTable),
       bot_key: selectedBot || "main",
-      chat_id: selectedGroup || "",
-      title: "Chào buổi sáng",
-      content: "",
-      schedule_text: "daily 09:00",
+      group_id: selectedGroup || "",
+      daily_enabled: true,
+      daily_window_start: "09:00",
+      daily_window_end: "09:00",
+      send_if_silent: true,
+      message_pool: messagePools[0] || "default",
       enabled: true
     });
     setBulkOpen(false);
     setWorkMode("edit");
-    setNotice("Flow gửi tin hẹn giờ đã mở. Chọn group, nhập nội dung và lưu lịch.");
+    setNotice("Flow random tin hẹn giờ đã mở. Chọn group, chọn Nhóm nội dung, đặt giờ rồi lưu.");
   }
 
   async function saveBulk() {
@@ -1953,6 +1964,19 @@ export default function HomePage() {
   const showPrimaryTask = activeLayer !== "modules";
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
+  const editorFieldGroups = useMemo(() => {
+    if (!table) {
+      return [];
+    }
+    const groups = groupedFields(table);
+    if (activeLayer === "module:automation" && table.key === "groups") {
+      const allowed = new Set(["Phạm vi", "Thông tin nhóm", "Lịch gửi tin", "Video", "Ghi chú"]);
+      return groups
+        .map(([section, fields]) => [section, fields.filter((field) => allowed.has(section))] as [string, FieldConfig[]])
+        .filter(([, fields]) => fields.length);
+    }
+    return groups;
+  }, [activeLayer, table]);
 
   if (loading && !meta) {
     return (
@@ -2820,7 +2844,7 @@ export default function HomePage() {
                   </button>
                 </div>
                 <div className="fields">
-                  {groupedFields(table).map(([section, fields]) => (
+                  {editorFieldGroups.map(([section, fields]) => (
                     <section className="field-section" key={section}>
                       <h4>{section}</h4>
                       {fields.map((field) => {
