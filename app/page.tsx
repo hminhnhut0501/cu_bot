@@ -65,6 +65,7 @@ type CommandInsight = {
   targetLayer: string;
   targetTable: string;
 };
+type WorkMode = "overview" | "operate" | "edit";
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
@@ -797,6 +798,51 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
   return null;
 }
 
+function emptyStateFor(tableKey: string) {
+  const states: Record<string, { title: string; body: string; action: string }> = {
+    messages: {
+      title: "Chưa có kho tin nhắn",
+      body: "Tạo nhóm nội dung đầu tiên, paste nhiều dòng rồi chọn group sẽ dùng pool này.",
+      action: "Tạo tin nhắn"
+    },
+    video_messages: {
+      title: "Chưa có kho video",
+      body: "Bắt đầu bằng một video source, sau đó bật random mode và chọn group output.",
+      action: "Tạo video source"
+    },
+    keywords: {
+      title: "Chưa có rule từ khóa",
+      body: "Áp dụng preset chống scam hoặc paste danh sách từ khóa để bot tự xóa/warn tin vi phạm.",
+      action: "Tạo rule đầu tiên"
+    },
+    auto_replies: {
+      title: "Chưa có auto reply",
+      body: "Tạo trigger như giá, support, rule để bot trả lời tự động trong group hoặc inbox.",
+      action: "Tạo auto reply"
+    },
+    scheduled_posts: {
+      title: "Chưa có lịch đăng",
+      body: "Tạo automation đăng bài định kỳ, chọn pool nội dung và giờ chạy.",
+      action: "Tạo lịch đăng"
+    },
+    bots: {
+      title: "Chưa có bot",
+      body: "Thêm token bot trước, sau đó nối group và bật module cần vận hành.",
+      action: "Thêm bot"
+    },
+    groups: {
+      title: "Chưa có group/kênh",
+      body: "Thêm group ID, kiểm tra quyền admin rồi bật module cho phạm vi này.",
+      action: "Thêm group"
+    }
+  };
+  return states[tableKey] || {
+    title: "Chưa có mục vận hành nào",
+    body: "Bắt đầu bằng preset khuyên dùng hoặc tạo mục điều khiển đầu tiên cho phạm vi này.",
+    action: "Tạo mục đầu tiên"
+  };
+}
+
 function groupedFields(table: TableConfig) {
   const groups: Record<string, FieldConfig[]> = {};
   for (const field of table.fields) {
@@ -984,6 +1030,7 @@ export default function HomePage() {
   const [activeLayer, setActiveLayer] = useState("overview");
   const [activeModule, setActiveModule] = useState("moderation");
   const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
+  const [workMode, setWorkMode] = useState<WorkMode>("overview");
   const [quickFilter, setQuickFilter] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
@@ -1327,6 +1374,9 @@ export default function HomePage() {
       }
       if (event.key === "Escape") {
         setCommandOpen(false);
+        setDraft({});
+        setSelected(null);
+        setWorkMode((current) => (current === "edit" ? "operate" : current));
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -1345,11 +1395,13 @@ export default function HomePage() {
     setSelected(null);
     setDraft({});
     setSelectedIds(new Set());
+    setWorkMode(layer.key === "overview" ? "overview" : "operate");
   }
 
   function goToInsight(insight: { targetLayer: string; targetTable: string }) {
     selectLayer(insight.targetLayer);
     setActiveKey(insight.targetTable);
+    setWorkMode("operate");
   }
 
   function runCommand(action: () => void) {
@@ -1376,6 +1428,7 @@ export default function HomePage() {
       }
     }
     setDraft(nextDraft);
+    setWorkMode("edit");
     setNotice("");
   }
 
@@ -1410,13 +1463,21 @@ export default function HomePage() {
   function startEdit(row: Row) {
     setSelected(row);
     setDraft(draftFromRow(row));
+    setWorkMode("edit");
     setNotice("");
   }
 
   function inspectRow(row: Row) {
     setSelected(row);
     setDraft({});
+    setWorkMode("operate");
     setNotice("");
+  }
+
+  function closeFocusedPanel() {
+    setDraft({});
+    setSelected(null);
+    setWorkMode(activeLayer === "overview" ? "overview" : "operate");
   }
 
   async function toggleSelectedRowEnabled() {
@@ -1448,6 +1509,7 @@ export default function HomePage() {
       }
       setNotice("Đã lưu thay đổi.");
       await loadRows(search);
+      setWorkMode(activeLayer === "overview" ? "overview" : "operate");
       if (table.key === "bots") {
         await loadLookups();
       }
@@ -1555,6 +1617,7 @@ export default function HomePage() {
     try {
       await api(`/api/${table.key}?id=${row.id}`, { method: "DELETE" });
       await loadRows(search);
+      setWorkMode(activeLayer === "overview" ? "overview" : "operate");
       if (table.key === "bots") {
         await loadLookups();
       }
@@ -1687,6 +1750,11 @@ export default function HomePage() {
     updateField(field, next.join(","));
   }
 
+  const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
+  const showOverview = workMode === "overview";
+  const showOperations = workMode !== "overview";
+  const emptyState = emptyStateFor(table?.key || "");
+
   if (loading && !meta) {
     return (
       <main className="loading">
@@ -1790,6 +1858,23 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="workflow-mode-bar" aria-label="Chế độ làm việc">
+          <button type="button" className={workMode === "overview" ? "active" : ""} onClick={() => setWorkMode("overview")}>
+            <BarChart3 size={16} />
+            <span>Tổng quan</span>
+          </button>
+          <button type="button" className={workMode === "operate" ? "active" : ""} onClick={() => setWorkMode("operate")}>
+            <Activity size={16} />
+            <span>Vận hành</span>
+          </button>
+          <button type="button" className={workMode === "edit" ? "active" : ""} onClick={() => (hasFocusedPanel ? setWorkMode("edit") : startCreate())}>
+            <Edit3 size={16} />
+            <span>Chỉnh sửa</span>
+          </button>
+        </section>
+
+        {showOverview ? (
+        <>
         <section className="command-center">
           <div className="command-copy">
             <span className="eyebrow">Trung tâm điều khiển live</span>
@@ -1846,7 +1931,11 @@ export default function HomePage() {
             <p>{healthSummary.issues ? "Bấm Setup nhanh hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
           </article>
         </section>
+        </>
+        ) : null}
 
+        {showOperations ? (
+        <>
         <section className={`layer-workbench ${activeLayerHub.tone}`}>
           <div className="layer-copy">
             <div className="layer-icon">
@@ -2042,7 +2131,7 @@ export default function HomePage() {
                 ) : null}
               </>
             ) : (
-              <button type="button" className="secondary" onClick={() => setDraft({})} disabled={!Object.keys(draft).length}>
+              <button type="button" className="secondary" onClick={closeFocusedPanel} disabled={!Object.keys(draft).length}>
                 <X size={17} />
                 Đóng mục đang sửa
               </button>
@@ -2395,7 +2484,7 @@ export default function HomePage() {
                               />
                             </label>
                             <div className="setting-edit-actions">
-                              <button type="button" className="ghost" onClick={() => setDraft({})}>
+                              <button type="button" className="ghost" onClick={closeFocusedPanel}>
                                 Hủy
                               </button>
                               <button type="submit" className="primary" disabled={saving}>
@@ -2432,7 +2521,7 @@ export default function HomePage() {
             ) : null}
           </section>
         ) : (
-        <div className={`content-grid ${selected ? "focus-mode" : ""}`}>
+        <div className={`content-grid ${hasFocusedPanel ? "focus-mode" : ""} ${workMode === "edit" ? "edit-mode" : ""}`}>
           <section className="list-panel">
             <div className="list-header">
               <div>
@@ -2489,23 +2578,24 @@ export default function HomePage() {
               {!visibleRows.length && !loading ? (
                 <div className="empty-state">
                   <ShieldCheck size={28} />
-                  <strong>Chưa có mục vận hành nào</strong>
-                  <span>Bắt đầu bằng preset khuyên dùng hoặc tạo mục điều khiển đầu tiên cho phạm vi này.</span>
+                  <strong>{emptyState.title}</strong>
+                  <span>{emptyState.body}</span>
                   <button type="button" className="primary" onClick={startCreate}>
                     <Plus size={16} />
-                    Tạo mục đầu tiên
+                    {emptyState.action}
                   </button>
                 </div>
               ) : null}
             </div>
           </section>
 
-          <section className="editor-panel">
+          {hasFocusedPanel ? (
+          <section className="editor-panel" role="dialog" aria-label={Object.keys(draft).length ? "Chế độ chỉnh sửa" : "Inspector vận hành"}>
               {Object.keys(draft).length ? (
               <form onSubmit={save}>
                 <div className="editor-title">
                   <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
-                  <button type="button" className="icon-button" onClick={() => setDraft({})}>
+                  <button type="button" className="icon-button" onClick={closeFocusedPanel}>
                     <X size={17} />
                   </button>
                 </div>
@@ -2619,7 +2709,7 @@ export default function HomePage() {
                     <span className="eyebrow">Buồng điều khiển vận hành</span>
                     <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
                   </div>
-                  <button type="button" className="icon-button" onClick={() => setSelected(null)}>
+                  <button type="button" className="icon-button" onClick={closeFocusedPanel}>
                     <X size={17} />
                   </button>
                 </div>
@@ -2687,15 +2777,13 @@ export default function HomePage() {
                   </button>
                 </section>
               </div>
-            ) : (
-              <div className="placeholder">
-                <Edit3 size={24} />
-                Chọn một mục để inspect, hoặc bấm Thêm để tạo mới.
-              </div>
-            )}
+            ) : null}
           </section>
+          ) : null}
         </div>
         )}
+        </>
+        ) : null}
       </section>
       {commandOpen ? (
         <section className="command-palette-backdrop" onClick={() => setCommandOpen(false)}>
