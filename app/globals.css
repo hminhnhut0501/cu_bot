@@ -898,6 +898,40 @@ nav button:hover {
   padding: 18px;
 }
 
+.module-flow-launcher {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #b9e1dc;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff, #ecfdf9);
+  padding: 18px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+.module-flow-launcher span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.module-flow-launcher h3 {
+  margin: 0 0 5px;
+  font-size: 18px;
+}
+
+.module-flow-launcher p {
+  margin: 0;
+  max-width: 720px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .module-copy {
   display: flex;
   gap: 12px;
@@ -2669,6 +2703,7 @@ textarea:focus {
   .hero-panel,
   .layer-workbench,
   .module-panel,
+  .module-flow-launcher,
   .module-tabs,
   .module-overview,
   .scope-bar,

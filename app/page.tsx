@@ -115,15 +115,6 @@ const SYSTEM_LAYERS = [
     tables: ["scheduled_posts", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules", "module_settings"]
   },
   {
-    key: "automation",
-    title: "Tự động hóa",
-    shortTitle: "Tự động hóa",
-    desc: "Lịch đăng, gửi tin tự động, video, nhóm nội dung và điều kiện theo giờ/group.",
-    icon: SlidersHorizontal,
-    tone: "fun",
-    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"]
-  },
-  {
     key: "security",
     title: "Bảo mật",
     shortTitle: "Bảo mật",
@@ -181,9 +172,9 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
     steps: ["Paste mỗi dòng một tin", "Đặt Nhóm nội dung mặc định khi nhập nhanh", "Vào Nhóm và set message_pool trùng tên"]
   },
   scheduled_posts: {
-    title: "Cách dùng Lịch đăng",
-    body: "Lịch đăng là nơi quyết định bot nào gửi nội dung nào vào group nào và vào lúc mấy giờ.",
-    steps: ["Chọn Bot và Group/Kênh trước", "Tạo hoặc chọn nội dung cần gửi", "Đặt lịch dạng daily 09:00 rồi bật lịch"]
+    title: "Cách dùng Gửi tin hẹn giờ",
+    body: "Đây là flow quyết định bot nào gửi nội dung nào vào group nào và vào lúc mấy giờ.",
+    steps: ["Chọn Bot và Group/Kênh trước", "Nhập nội dung cần gửi", "Đặt giờ dạng daily 09:00 rồi bật lịch"]
   },
   keywords: {
     title: "Rule kiểm duyệt",
@@ -340,7 +331,7 @@ const MODULE_HUBS = [
     key: "automation",
     moduleKeys: ["scheduled_posts"],
     title: "Tự động hóa",
-    desc: "Lịch đăng, tin nhắn hẹn giờ, video và nhóm nội dung dùng chung.",
+    desc: "Gửi tin hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
     tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"]
@@ -766,7 +757,7 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
   if (tableKey === "scheduled_posts") {
     return {
       title: "Flow gửi tin hẹn giờ",
-      body: "Để gửi chào buổi sáng lúc 09:00: bật module Tự động hóa, tạo Tin nhắn trong pool good_morning, rồi tạo Lịch đăng cho đúng group.",
+      body: "Để gửi chào buổi sáng lúc 09:00: bật module Tự động hóa, bấm Tạo lịch gửi tin, nhập nội dung và lưu.",
       icon: SlidersHorizontal,
       chips: [
         { label: "Lịch đang bật", value: rows.filter((row) => row.enabled !== false).length },
@@ -838,9 +829,9 @@ function emptyStateFor(tableKey: string) {
       action: "Tạo auto reply"
     },
     scheduled_posts: {
-      title: "Chưa có lịch đăng",
+      title: "Chưa có lịch gửi tin",
       body: "Tạo automation đăng bài định kỳ, chọn pool nội dung và giờ chạy.",
-      action: "Tạo lịch đăng"
+      action: "Tạo lịch gửi tin"
     },
     bots: {
       title: "Chưa có bot",
@@ -1220,8 +1211,8 @@ export default function HomePage() {
         body: "Hoàn tất group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
         impact: "Automation có thể chưa chạy cho đến khi hoàn tất setup.",
         action: "Setup nhanh",
-        targetLayer: "automation",
-        targetTable: "messages"
+        targetLayer: "modules",
+        targetTable: "scheduled_posts"
       });
     }
     if (!insights.length) {
@@ -1271,7 +1262,7 @@ export default function HomePage() {
     { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
     { title: "Áp dụng preset chống scam", hint: "Mở workflow từ khóa và domain nguy hiểm", action: () => goToInsight({ targetLayer: "security", targetTable: "keywords" }) },
     { title: "Mở logs runtime", hint: "Kiểm tra nhật ký và hoạt động gần đây", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
-    { title: "Đồng bộ automation", hint: "Kiểm tra lịch đăng và nhóm nội dung", action: () => goToInsight({ targetLayer: "automation", targetTable: "scheduled_posts" }) },
+    { title: "Tạo lịch gửi tin", hint: "Mở flow gửi tin hẹn giờ cho group", action: () => startScheduledMessageFlow() },
     { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "security", targetTable: "verification_settings" }) },
     { title: "Tạo mục điều khiển mới", hint: `Tạo trong ${table?.label || "màn hình hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
@@ -1466,6 +1457,30 @@ export default function HomePage() {
     setDraft(nextDraft);
     setWorkMode("edit");
     setNotice("");
+  }
+
+  function startScheduledMessageFlow() {
+    const scheduleTable = meta?.tables.find((item) => item.key === "scheduled_posts");
+    if (!scheduleTable) {
+      return;
+    }
+    setActiveLayer("modules");
+    setActiveModule("automation");
+    setActiveKey("scheduled_posts");
+    setSelected(null);
+    setSelectedIds(new Set());
+    setDraft({
+      ...emptyValues(scheduleTable),
+      bot_key: selectedBot || "main",
+      chat_id: selectedGroup || "",
+      title: "Chào buổi sáng",
+      content: "",
+      schedule_text: "daily 09:00",
+      enabled: true
+    });
+    setBulkOpen(false);
+    setWorkMode("edit");
+    setNotice("Flow gửi tin hẹn giờ đã mở. Chọn group, nhập nội dung và lưu lịch.");
   }
 
   async function saveBulk() {
@@ -2101,6 +2116,7 @@ export default function HomePage() {
             </div>
           ) : null}
           {moduleEnabled && enabledModuleCards.length ? (
+          <>
           <div className={`module-panel ${activeModuleHub.tone}`}>
             <div className="module-copy">
               <div className="module-icon">
@@ -2154,6 +2170,20 @@ export default function HomePage() {
                 })}
             </div>
           </div>
+          {activeModuleHub.key === "automation" ? (
+            <section className="module-flow-launcher">
+              <div>
+                <span>Workflow nhanh</span>
+                <h3>Gửi tin hẹn giờ cho group</h3>
+                <p>Đi theo một flow duy nhất: chọn bot, chọn group, nhập nội dung, đặt giờ rồi lưu. Không cần tự tìm nhiều bảng kỹ thuật.</p>
+              </div>
+              <button type="button" className="primary" onClick={startScheduledMessageFlow}>
+                <Plus size={17} />
+                Tạo lịch gửi tin
+              </button>
+            </section>
+          ) : null}
+          </>
           ) : null}
         </section>
         ) : null}

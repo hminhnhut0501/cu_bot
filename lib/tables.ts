@@ -281,16 +281,16 @@ export const TABLES: TableConfig[] = [
   },
   {
     key: "scheduled_posts",
-    label: "Lịch đăng",
-    description: "Đăng bài định kỳ, thông báo event, countdown.",
+    label: "Gửi tin hẹn giờ",
+    description: "Tạo lịch để bot gửi nội dung vào đúng group và đúng giờ.",
     titleField: "title",
     summaryFields: ["bot_key", "chat_id", "schedule_text", "enabled"],
     fields: [
       botKey,
-      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Lịch" },
+      { key: "chat_id", label: "Group/Kênh nhận tin", type: "text", required: true, section: "Lịch" },
       { key: "title", label: "Tiêu đề", type: "text", section: "Lịch" },
-      { key: "content", label: "Nội dung", type: "textarea", required: true, section: "Lịch" },
-      { key: "schedule_text", label: "Lịch", type: "text", section: "Lịch", helper: "Ví dụ: daily 20:00, every monday 09:00." },
+      { key: "content", label: "Nội dung bot sẽ gửi", type: "textarea", required: true, section: "Lịch" },
+      { key: "schedule_text", label: "Giờ gửi", type: "text", section: "Lịch", helper: "Ví dụ: daily 09:00 để gửi mỗi ngày lúc 9 giờ sáng." },
       enabled,
       notes
     ]
