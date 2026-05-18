@@ -112,7 +112,7 @@ const SYSTEM_LAYERS = [
     desc: "Bật/tắt và vận hành các service lớn như kiểm duyệt, auto reply, scam, giải trí.",
     icon: Sparkles,
     tone: "content",
-    tables: ["module_settings", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules"]
+    tables: ["module_settings", "scheduled_posts", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules"]
   },
   {
     key: "automation",
@@ -179,6 +179,11 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
     title: "Cách dùng Tin nhắn",
     body: "Tin trong cùng một Nhóm nội dung sẽ được bot chọn ngẫu nhiên theo Độ ưu tiên.",
     steps: ["Paste mỗi dòng một tin", "Đặt Nhóm nội dung mặc định khi nhập nhanh", "Vào Nhóm và set message_pool trùng tên"]
+  },
+  scheduled_posts: {
+    title: "Cách dùng Lịch đăng",
+    body: "Lịch đăng là nơi quyết định bot nào gửi nội dung nào vào group nào và vào lúc mấy giờ.",
+    steps: ["Chọn Bot và Group/Kênh trước", "Tạo hoặc chọn nội dung cần gửi", "Đặt lịch dạng daily 09:00 rồi bật lịch"]
   },
   keywords: {
     title: "Rule kiểm duyệt",
@@ -332,13 +337,13 @@ const MODULE_HUBS = [
     tables: ["verification_settings", "captcha_questions", "config"]
   },
   {
-    key: "content",
+    key: "automation",
     moduleKeys: ["scheduled_posts"],
-    title: "Nội dung",
-    desc: "Tin nhắn, video, lịch đăng và nhóm nội dung dùng chung.",
+    title: "Tự động hóa",
+    desc: "Lịch đăng, tin nhắn hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
-    tables: ["messages", "video_messages", "scheduled_posts", "groups", "config"]
+    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"]
   },
   {
     key: "auto_reply",
@@ -754,6 +759,18 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       chips: [
         { label: "Nhóm nội dung", value: pools.length },
         { label: "Tin đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đang chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "scheduled_posts") {
+    return {
+      title: "Flow gửi tin hẹn giờ",
+      body: "Để gửi chào buổi sáng lúc 09:00: bật module Tự động hóa, tạo Tin nhắn trong pool good_morning, rồi tạo Lịch đăng cho đúng group.",
+      icon: SlidersHorizontal,
+      chips: [
+        { label: "Lịch đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Group có lịch", value: uniqueValues(rows, "chat_id").length },
         { label: "Đang chọn", value: selectedCount }
       ]
     };
@@ -2078,7 +2095,7 @@ export default function HomePage() {
                 })
               ) : (
                 <div className="module-off-note">
-                  Module đang tắt nên các chức năng con được ẩn. Bật lại module để cấu hình chi tiết.
+                  Module đang tắt nên runtime chưa chạy. Bật lại module để mở các bước: {activeModuleHub.tables.map((key) => meta.tables.find((tableItem) => tableItem.key === key)?.label).filter(Boolean).join(" -> ")}.
                 </div>
               )}
             </div>
