@@ -2220,7 +2220,7 @@ export default function HomePage() {
             </div>
             <span>{enabledModuleCards.length}/{moduleCards.length} đang bật</span>
           </div>
-          <div className="module-tabs plugin-manager" role="list" aria-label="Quản lý module">
+          <div className="plugin-manager" role="list" aria-label="Quản lý module">
             {moduleCards.map((module) => {
               const ModuleIcon = module.icon;
               return (
