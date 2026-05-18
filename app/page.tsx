@@ -644,15 +644,15 @@ function statusText(row: Row) {
 
 function healthState(row: Row) {
   if (row.enabled === false || row.status === "paused" || row.status === "closed" || row.status === "rejected") {
-    return { className: "disabled", label: "Disabled" };
+    return { className: "disabled", label: "Đang tắt" };
   }
   if (row.status === "pending" || row.status === "draft" || row.status === "watch") {
-    return { className: "setup", label: "Need setup" };
+    return { className: "setup", label: "Cần setup" };
   }
   if (row.status === "error" || row.status === "danger") {
-    return { className: "error", label: "Error" };
+    return { className: "error", label: "Lỗi" };
   }
-  return { className: "healthy", label: "Healthy" };
+  return { className: "healthy", label: "Ổn định" };
 }
 
 function actionBadge(row: Row, table: TableConfig) {
@@ -693,11 +693,11 @@ function rowMatchesQuickFilter(row: Row, filter: string) {
 function cockpitMetrics(row: Row, table: TableConfig) {
   const action = actionBadge(row, table);
   const health = healthState(row).label;
-  const scope = row.group_id || row.chat_id || row.bot_key || "Global";
+  const scope = row.group_id || row.chat_id || row.bot_key || "Toàn hệ thống";
   return [
-    { label: "Health", value: health },
-    { label: "Action", value: action },
-    { label: "Scope", value: String(scope) }
+    { label: "Sức khỏe", value: health },
+    { label: "Hành động", value: action },
+    { label: "Phạm vi", value: String(scope) }
   ];
 }
 
@@ -705,9 +705,9 @@ function cockpitActivity(row: Row, table: TableConfig) {
   const title = titleFor(row, table);
   const action = actionBadge(row, table).toLowerCase();
   return [
-    `${title} loaded from Supabase`,
-    `${action} policy is ready for runtime sync`,
-    `Scope check completed for ${row.group_id || row.chat_id || row.bot_key || "global"}`
+    `${title} đã được tải từ Supabase`,
+    `Chính sách ${action} đã sẵn sàng đồng bộ runtime`,
+    `Đã kiểm tra phạm vi ${row.group_id || row.chat_id || row.bot_key || "global"}`
   ];
 }
 
@@ -1113,8 +1113,8 @@ export default function HomePage() {
         severity: "critical",
         title: `${healthSummary.disabledBots} bot đang offline`,
         body: "Một số bot đang tắt hoặc paused. Kiểm tra token, trạng thái và Render service.",
-        impact: "Runtime coverage is reduced. Some groups may not receive moderation or automation.",
-        action: "Review bots",
+        impact: "Độ phủ runtime đang giảm. Một số nhóm có thể không được kiểm duyệt hoặc tự động hóa.",
+        action: "Kiểm tra bot",
         targetLayer: "bot",
         targetTable: "bots"
       });
@@ -1124,8 +1124,8 @@ export default function HomePage() {
         severity: "high",
         title: `${healthSummary.offModules} module đang tắt`,
         body: "Các service bảo vệ/tự động hóa đang bị disable nên group có thể không được vận hành đầy đủ.",
-        impact: "Protection is degraded until disabled services are restored.",
-        action: "Review modules",
+        impact: "Protection đang giảm hiệu quả cho đến khi bật lại các module cần thiết.",
+        action: "Khôi phục module",
         targetLayer: "modules",
         targetTable: "module_settings"
       });
@@ -1135,8 +1135,8 @@ export default function HomePage() {
         severity: "warning",
         title: "Chưa có group hoạt động",
         body: "Bot cần được nối group/kênh và có quyền admin trước khi module vận hành.",
-        impact: "No group is currently under bot control.",
-        action: "Connect group",
+        impact: "Hiện chưa có nhóm nào nằm trong phạm vi điều khiển của bot.",
+        action: "Kết nối nhóm",
         targetLayer: "group",
         targetTable: "groups"
       });
@@ -1146,8 +1146,8 @@ export default function HomePage() {
         severity: "info",
         title: `${healthSummary.missingSetup} bước setup còn thiếu`,
         body: "Hoàn tất group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
-        impact: "Automation may not trigger until setup is completed.",
-        action: "Quick setup",
+        impact: "Automation có thể chưa chạy cho đến khi hoàn tất setup.",
+        action: "Setup nhanh",
         targetLayer: "automation",
         targetTable: "messages"
       });
@@ -1155,10 +1155,10 @@ export default function HomePage() {
     if (!insights.length) {
       insights.push({
         severity: "healthy",
-        title: "System steady",
+        title: "Hệ thống ổn định",
         body: "Bot, group và module chính đang ở trạng thái ổn định. Theo dõi activity stream để phát hiện bất thường.",
-        impact: "Coverage is healthy in the current scope.",
-        action: "View activity",
+        impact: "Độ phủ vận hành đang tốt trong phạm vi hiện tại.",
+        action: "Xem hoạt động",
         targetLayer: "logs",
         targetTable: "audit_logs"
       });
@@ -1166,10 +1166,10 @@ export default function HomePage() {
     return insights.slice(0, 3);
   }, [healthSummary]);
   const liveActivity = useMemo(() => [
-    { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module active across ${healthSummary.groups} group` },
-    { severity: "info", text: `${visibleRows.length} ${table?.label || "item"} visible in current scope` },
-    { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} operational issue needs review` : "No critical issue detected" },
-    { severity: healthSummary.offModules ? "high" : "info", text: healthSummary.offModules ? "Protection sync degraded by disabled modules" : "Runtime sync appears stable" }
+    { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module đang hoạt động trên ${healthSummary.groups} nhóm` },
+    { severity: "info", text: `${visibleRows.length} ${table?.label || "mục"} trong phạm vi hiện tại` },
+    { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} vấn đề vận hành cần kiểm tra` : "Chưa phát hiện lỗi nghiêm trọng" },
+    { severity: healthSummary.offModules ? "high" : "info", text: healthSummary.offModules ? "Protection chưa đồng bộ hoàn toàn do có module đang tắt" : "Runtime sync đang ổn định" }
   ], [healthSummary, table?.label, visibleRows.length]);
   const activeModuleStats = useMemo(() => {
     const ruleTables = ["keywords", "domain_blacklist", "link_shorteners", "auto_replies"];
@@ -1188,20 +1188,20 @@ export default function HomePage() {
   const quickFilters = useMemo(() => {
     const base = [
       { key: "", label: "Tất cả" },
-      { key: "active", label: "Active" },
-      { key: "disabled", label: "Disabled" }
+      { key: "active", label: "Đang chạy" },
+      { key: "disabled", label: "Đang tắt" }
     ];
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
   }, [rows]);
   const commandItems = useMemo(() => [
-    { title: "Restore protection", hint: "Open disabled modules and recover protection", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
-    { title: "Run permission audit", hint: "Review groups and bot allowlist", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
-    { title: "Apply scam protection preset", hint: "Open keyword/domain protection workflow", action: () => goToInsight({ targetLayer: "security", targetTable: "keywords" }) },
-    { title: "Open runtime logs", hint: "Inspect audit and recent events", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
-    { title: "Sync automation", hint: "Review scheduled posts and message pools", action: () => goToInsight({ targetLayer: "automation", targetTable: "scheduled_posts" }) },
-    { title: "Enable emergency verification", hint: "Open captcha and verification controls", action: () => goToInsight({ targetLayer: "security", targetTable: "verification_settings" }) },
-    { title: "Create new control item", hint: `Create in ${table?.label || "current view"}`, action: () => startCreate() }
+    { title: "Khôi phục protection", hint: "Mở module đang tắt và khôi phục bảo vệ", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
+    { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
+    { title: "Áp dụng preset chống scam", hint: "Mở workflow từ khóa và domain nguy hiểm", action: () => goToInsight({ targetLayer: "security", targetTable: "keywords" }) },
+    { title: "Mở logs runtime", hint: "Kiểm tra nhật ký và hoạt động gần đây", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
+    { title: "Đồng bộ automation", hint: "Kiểm tra lịch đăng và nhóm nội dung", action: () => goToInsight({ targetLayer: "automation", targetTable: "scheduled_posts" }) },
+    { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "security", targetTable: "verification_settings" }) },
+    { title: "Tạo mục điều khiển mới", hint: `Tạo trong ${table?.label || "màn hình hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
@@ -1224,7 +1224,7 @@ export default function HomePage() {
         window.localStorage.removeItem("cu_bot_cp_password");
         setSavedPassword("");
       }
-      throw new Error(payload.error || "Request failed.");
+      throw new Error(payload.error || "Yêu cầu thất bại.");
     }
     return payload;
   }
@@ -1264,7 +1264,7 @@ export default function HomePage() {
       setDraft({});
       setSelectedIds(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot load rows.");
+      setError(err instanceof Error ? err.message : "Không thể tải dữ liệu.");
     } finally {
       setLoading(false);
     }
@@ -1452,7 +1452,7 @@ export default function HomePage() {
         await loadLookups();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot save.");
+      setError(err instanceof Error ? err.message : "Không thể lưu.");
     } finally {
       setSaving(false);
     }
@@ -1473,7 +1473,7 @@ export default function HomePage() {
       setNotice("Đã lưu thay đổi.");
       await loadRows(search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot save.");
+      setError(err instanceof Error ? err.message : "Không thể lưu.");
     } finally {
       setSaving(false);
     }
@@ -1494,7 +1494,7 @@ export default function HomePage() {
       }
       await loadLookups();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot save.");
+      setError(err instanceof Error ? err.message : "Không thể lưu.");
     } finally {
       setSaving(false);
     }
@@ -1530,7 +1530,7 @@ export default function HomePage() {
         setNotice("Đã tạo và bật module.");
         await loadLookups();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Cannot create module.");
+        setError(err instanceof Error ? err.message : "Không thể tạo module.");
       } finally {
         setSaving(false);
       }
@@ -1560,7 +1560,7 @@ export default function HomePage() {
       }
       setNotice("Đã xóa.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot delete.");
+      setError(err instanceof Error ? err.message : "Không thể xóa.");
     }
   }
 
@@ -1581,7 +1581,7 @@ export default function HomePage() {
       }
       setNotice(`Đã xóa ${selectedVisibleRows.length} mục.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Cannot delete selected rows.");
+      setError(err instanceof Error ? err.message : "Không thể xóa các mục đã chọn.");
     } finally {
       setSaving(false);
     }
@@ -1792,7 +1792,7 @@ export default function HomePage() {
 
         <section className="command-center">
           <div className="command-copy">
-            <span className="eyebrow">Live command center</span>
+            <span className="eyebrow">Trung tâm điều khiển live</span>
             <h2>{commandInsights[0]?.title}</h2>
             <p>{commandInsights[0]?.body}</p>
             <div className={`severity-ribbon ${commandInsights[0]?.severity}`}>
@@ -1806,14 +1806,14 @@ export default function HomePage() {
                 </button>
               ))}
               <button type="button" className="ghost dark" onClick={() => setCommandOpen(true)}>
-                Command palette
+                Mở command palette
               </button>
             </div>
           </div>
           <div className="live-feed">
             <div className="live-feed-head">
               <span className="live-dot on" />
-              <strong>Live activity</strong>
+              <strong>Hoạt động live</strong>
             </div>
             {liveActivity.map((item) => (
               <span key={item.text} className={`event-line ${item.severity}`}>
@@ -1826,24 +1826,24 @@ export default function HomePage() {
 
         <section className="status-dashboard">
           <article className={healthSummary.disabledBots ? "status-card warning" : "status-card ok"}>
-            <span>Bot fleet online</span>
+            <span>Bot đang online</span>
             <strong>{healthSummary.activeBots}</strong>
             <p>{healthSummary.disabledBots ? `${healthSummary.disabledBots} bot đang tắt` : "Các bot chính đang sẵn sàng"}</p>
           </article>
           <article className={healthSummary.offModules ? "status-card warning" : "status-card ok"}>
-            <span>Protection active</span>
+            <span>Protection đang chạy</span>
             <strong>{healthSummary.enabledModules}</strong>
             <p>{healthSummary.offModules ? `${healthSummary.offModules} module đang tắt` : "Không có module bị tắt"}</p>
           </article>
           <article className={healthSummary.groups ? "status-card ok" : "status-card warning"}>
-            <span>Groups under control</span>
+            <span>Nhóm đang được bảo vệ</span>
             <strong>{healthSummary.groups}</strong>
             <p>{healthSummary.groups ? "Bot có phạm vi hoạt động" : "Chưa có group cho bot này"}</p>
           </article>
           <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
-            <span>Action queue</span>
+            <span>Danh sách cần xử lý</span>
             <strong>{healthSummary.issues}</strong>
-            <p>{healthSummary.issues ? "Bấm Quick setup hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
+            <p>{healthSummary.issues ? "Bấm Setup nhanh hoặc mở module lỗi" : "Hệ thống không có cảnh báo rõ ràng"}</p>
           </article>
         </section>
 
@@ -1939,11 +1939,11 @@ export default function HomePage() {
               </div>
               <div>
                 <h3>{activeModuleHub.title}</h3>
-                <p>{moduleEnabled ? `Protecting ${activeModuleStats.groups} group with ${activeModuleStats.rules} active control item.` : "Module is offline. Turn it on to resume protection and automation."}</p>
+                <p>{moduleEnabled ? `Đang bảo vệ ${activeModuleStats.groups} nhóm với ${activeModuleStats.rules} mục điều khiển đang chạy.` : "Module đang tắt. Bật lại để khôi phục protection và automation."}</p>
                 <div className="module-live-stats">
                   <span className={moduleEnabled ? "live-dot on" : "live-dot off"} />
-                  <b>{moduleEnabled ? "Active" : "Disabled"}</b>
-                  <span>Đang bảo vệ {activeModuleStats.groups} group</span>
+                  <b>{moduleEnabled ? "Đang chạy" : "Đang tắt"}</b>
+                  <span>Đang bảo vệ {activeModuleStats.groups} nhóm</span>
                   <span>{activeModuleStats.rules} mục đang chạy</span>
                   {activeModuleStats.issues ? <span>{activeModuleStats.issues} cảnh báo</span> : null}
                 </div>
@@ -1951,7 +1951,7 @@ export default function HomePage() {
             </div>
             <div className="module-actions">
               <button type="button" className="secondary" onClick={() => setActiveKey(activeModuleHub.tables[0])}>
-                Quick setup
+                Setup nhanh
               </button>
               <button type="button" className="ghost" onClick={() => setActiveKey("module_settings")}>
                 Chi tiết
@@ -2016,12 +2016,14 @@ export default function HomePage() {
             <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
-            <button type="button" className={scanMode === "scan" ? "secondary" : "ghost"} onClick={() => setScanMode("scan")}>
-              Scan
-            </button>
-            <button type="button" className={scanMode === "detail" ? "secondary" : "ghost"} onClick={() => setScanMode("detail")}>
-              Detail
-            </button>
+            <div className="mode-switch" aria-label="Chế độ hiển thị">
+              <button type="button" className={scanMode === "scan" ? "active" : ""} onClick={() => setScanMode("scan")}>
+                Scan
+              </button>
+              <button type="button" className={scanMode === "detail" ? "active" : ""} onClick={() => setScanMode("detail")}>
+                Detail
+              </button>
+            </div>
             {table.key !== "config" ? (
               <>
                 <button type="button" className="primary" onClick={startCreate}>
@@ -2299,7 +2301,7 @@ export default function HomePage() {
 
         {table.key === "config" ? (
           <section className="config-center">
-            <div className="config-tabs" role="tablist" aria-label="Nhóm cài đặt">
+            <div className="config-tabs" aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
                 const TabIcon = section.icon;
                 const active = activeConfigSection?.title === section.title;
@@ -2487,11 +2489,11 @@ export default function HomePage() {
               {!visibleRows.length && !loading ? (
                 <div className="empty-state">
                   <ShieldCheck size={28} />
-                  <strong>No operations configured yet</strong>
-                  <span>Start with a recommended preset or create the first control item for this scope.</span>
+                  <strong>Chưa có mục vận hành nào</strong>
+                  <span>Bắt đầu bằng preset khuyên dùng hoặc tạo mục điều khiển đầu tiên cho phạm vi này.</span>
                   <button type="button" className="primary" onClick={startCreate}>
                     <Plus size={16} />
-                    Create first item
+                    Tạo mục đầu tiên
                   </button>
                 </div>
               ) : null}
@@ -2614,7 +2616,7 @@ export default function HomePage() {
               <div className="inspector-shell">
                 <div className="inspector-head">
                   <div>
-                    <span className="eyebrow">Operational cockpit</span>
+                    <span className="eyebrow">Buồng điều khiển vận hành</span>
                     <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
                   </div>
                   <button type="button" className="icon-button" onClick={() => setSelected(null)}>
@@ -2659,15 +2661,15 @@ export default function HomePage() {
                   </div>
                 </section>
                 <section className="inspector-section">
-                  <h4>Runtime diagnostics</h4>
+                  <h4>Chẩn đoán runtime</h4>
                   <div className="diagnostic-grid">
-                    <span className="ok">Runtime loaded</span>
-                    <span className="ok">Scope resolved</span>
-                    <span className={selected.enabled === false ? "warn" : "ok"}>{selected.enabled === false ? "Participation disabled" : "Participation active"}</span>
+                    <span className="ok">Runtime đã tải</span>
+                    <span className="ok">Phạm vi đã xác định</span>
+                    <span className={selected.enabled === false ? "warn" : "ok"}>{selected.enabled === false ? "Không tham gia runtime" : "Đang tham gia runtime"}</span>
                   </div>
                 </section>
                 <section className="inspector-section">
-                  <h4>Activity timeline</h4>
+                  <h4>Dòng thời gian hoạt động</h4>
                   <div className="activity-stream">
                     {cockpitActivity(selected, table).map((item) => (
                       <span key={item}><i />{item}</span>
@@ -2675,11 +2677,11 @@ export default function HomePage() {
                   </div>
                 </section>
                 <section className="inspector-section suggestion-box">
-                  <h4>Suggested next action</h4>
-                  <p>{selected.enabled === false ? "Enable this item if it should participate in runtime protection." : "Run a quick test or review recent logs before changing advanced fields."}</p>
+                  <h4>Gợi ý bước tiếp theo</h4>
+                  <p>{selected.enabled === false ? "Bật mục này nếu nó cần tham gia protection/runtime." : "Chạy test nhanh hoặc xem logs gần đây trước khi sửa cấu hình nâng cao."}</p>
                 </section>
                 <section className="inspector-section">
-                  <h4>Test tool</h4>
+                  <h4>Công cụ test</h4>
                   <button type="button" className="ghost" onClick={() => setNotice("Test tool UI đã sẵn sàng. Phần runtime test sẽ nối ở bước backend tiếp theo.")}>
                     Test mục này
                   </button>
@@ -2703,7 +2705,7 @@ export default function HomePage() {
               <input
                 value={commandSearch}
                 onChange={(event) => setCommandSearch(event.target.value)}
-                placeholder="Run command: enable anti spam, open logs, apply preset..."
+                placeholder="Gõ command: bật anti spam, mở logs, áp dụng preset..."
                 autoFocus
               />
               <span>⌘K</span>
@@ -2716,7 +2718,7 @@ export default function HomePage() {
                 </button>
               ))}
               {!filteredCommandItems.length ? (
-                <div className="command-empty">No command matched. Try “logs”, “preset”, “permission”, or “automation”.</div>
+                <div className="command-empty">Không tìm thấy command phù hợp. Thử “logs”, “preset”, “permission” hoặc “automation”.</div>
               ) : null}
             </div>
           </div>

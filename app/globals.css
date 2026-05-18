@@ -614,9 +614,9 @@ nav button:hover {
 
 .layer-workbench {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
-  gap: 14px;
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: stretch;
   margin-bottom: 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -680,23 +680,24 @@ nav button:hover {
 .layer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
+  gap: 22px;
+  justify-content: flex-start;
+  border-bottom: 1px solid #eef2f6;
 }
 
 .layer-links button {
-  min-height: 34px;
-  border: 1px solid #d9e0e8;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #344054;
-  padding: 0 12px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #667085;
+  padding: 0 0 10px;
   font-weight: 800;
 }
 
 .layer-links button.active {
-  border-color: #9de3d8;
-  background: #ecfdf9;
+  border-bottom: 3px solid var(--accent);
+  background: transparent;
   color: var(--accent-dark);
 }
 
@@ -891,25 +892,25 @@ nav button:hover {
 .module-links {
   grid-column: 1 / -1;
   display: flex;
-  gap: 8px;
+  gap: 18px;
   flex-wrap: wrap;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid #eef2f6;
 }
 
 .module-links button {
-  min-height: 34px;
-  border: 1px solid #d9e0e8;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #344054;
-  padding: 0 12px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #667085;
+  padding: 0 0 8px;
   font-weight: 800;
 }
 
 .module-links button.active {
-  border-color: #9de3d8;
-  background: #ecfdf9;
+  border-bottom: 2px solid var(--accent);
+  background: transparent;
   color: var(--accent-dark);
 }
 
@@ -949,12 +950,13 @@ nav button:hover {
 }
 
 .quick-filter-bar button {
-  min-height: 34px;
-  border: 1px solid #d9e0e8;
+  min-height: 28px;
+  border: 1px solid #e7edf3;
   border-radius: 999px;
-  background: #ffffff;
+  background: #f8fafc;
   color: #425466;
-  padding: 0 12px;
+  padding: 0 10px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -970,6 +972,34 @@ nav button:hover {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 36px;
+  border: 1px solid #d9e0e8;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 3px;
+}
+
+.mode-switch button {
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #667085;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mode-switch button.active {
+  background: #ffffff;
+  color: var(--accent-dark);
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.12);
 }
 
 .search {
@@ -1190,7 +1220,9 @@ button.primary:hover,
 
 .config-center {
   display: grid;
-  gap: 12px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
 }
 
 .config-closed-state {
@@ -1217,28 +1249,32 @@ button.primary:hover,
 }
 
 .config-tabs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 8px;
+  display: grid;
+  gap: 6px;
+  overflow: visible;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  position: sticky;
+  top: 112px;
 }
 
 .config-tabs button {
-  min-height: 42px;
-  display: inline-flex;
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 8px;
-  background: #f8fafc;
+  background: transparent;
   color: #344054;
   padding: 0 10px;
   white-space: nowrap;
   font-weight: 800;
+  text-align: left;
 }
 
 .config-tabs button svg {
@@ -1257,7 +1293,7 @@ button.primary:hover,
 }
 
 .config-tabs button.active {
-  border-color: #9de3d8;
+  border-color: transparent;
   background: #ecfdf9;
   color: var(--accent-dark);
 }
@@ -2454,6 +2490,7 @@ textarea:focus {
   .module-overview,
   .scope-bar,
   .workflow-panel,
+  .config-center,
   .settings-grid,
   .settings-grid.compact,
   .usage-guide {
@@ -2498,6 +2535,14 @@ textarea:focus {
 
   .actions button,
   .bulk-footer button {
+    flex: 1;
+  }
+
+  .mode-switch {
+    width: 100%;
+  }
+
+  .mode-switch button {
     flex: 1;
   }
 
