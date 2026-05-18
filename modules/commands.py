@@ -1,5 +1,6 @@
 import logging
 import random
+import time
 
 import telebot
 
@@ -32,6 +33,10 @@ class CommandsModule(BotModule):
     name = "commands"
     priority = 1
 
+    def __init__(self, app):
+        super().__init__(app)
+        self.command_menu_signature = None
+
     def register(self):
         self.bot.message_handler(commands=["start"])(self.active(self.handle_start))
         self.bot.message_handler(commands=["help", "menu"])(self.active(self.handle_help))
@@ -41,14 +46,75 @@ class CommandsModule(BotModule):
         if not self.bot_active():
             return
         self.register_bot_commands()
+        self.app.run_background("command-menu-sync", self.command_menu_sync_loop)
+
+    def command_menu_sync_loop(self):
+        while True:
+            time.sleep(max(self.settings.data_refresh_seconds, 60))
+            if self.bot_active():
+                self.register_bot_commands()
 
     def register_bot_commands(self):
-        command_keys = as_list(self.store.value("bot_menu_commands", "start,help,policy"))
+        row = self.config_row("bot_menu_commands")
+        if row and not as_bool(row.get("enabled"), True):
+            if self.command_menu_signature == ("disabled",):
+                return
+            self.clear_bot_commands()
+            self.command_menu_signature = ("disabled",)
+            return
+
+        raw_value = row.get("value") if row else self.store.value("bot_menu_commands", "start,help,policy")
+        command_keys = as_list(raw_value)
         commands = [telebot.types.BotCommand(*COMMAND_CATALOG[key]) for key in command_keys if key in COMMAND_CATALOG]
+        signature = ("commands", tuple(command_keys))
+        if signature == self.command_menu_signature:
+            return
+
+        if not commands:
+            self.clear_bot_commands()
+            self.command_menu_signature = signature
+            return
+
         try:
             self.bot.set_my_commands(commands)
+            self.command_menu_signature = signature
         except Exception as exc:
             LOGGER.warning("Cannot set bot commands menu: %s", exc)
+
+    def clear_bot_commands(self):
+        scopes = [None]
+        for scope_name in (
+            "BotCommandScopeDefault",
+            "BotCommandScopeAllPrivateChats",
+            "BotCommandScopeAllGroupChats",
+            "BotCommandScopeAllChatAdministrators",
+        ):
+            scope_type = getattr(telebot.types, scope_name, None)
+            if scope_type:
+                scopes.append(scope_type())
+
+        for scope in scopes:
+            try:
+                if scope is None:
+                    self.bot.delete_my_commands()
+                else:
+                    self.bot.delete_my_commands(scope=scope)
+            except TypeError:
+                try:
+                    self.bot.delete_my_commands()
+                except Exception as exc:
+                    LOGGER.warning("Cannot clear bot commands menu: %s", exc)
+                break
+            except Exception as exc:
+                LOGGER.warning("Cannot clear bot commands menu: %s", exc)
+
+    def config_row(self, key):
+        key = key.strip().lower()
+        for row in self.store.rows("config"):
+            row_key = (row.get("key") or row.get("name") or "").strip().lower()
+            if row_key == key:
+                return row
+        return None
 
     def handle_start(self, message):
         selected = weighted_choice(self.store.enabled_rows("messages"))
