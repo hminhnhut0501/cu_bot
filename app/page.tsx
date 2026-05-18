@@ -112,7 +112,7 @@ const SYSTEM_LAYERS = [
     desc: "Bật/tắt và vận hành các service lớn như kiểm duyệt, auto reply, scam, giải trí.",
     icon: Sparkles,
     tone: "content",
-    tables: ["module_settings", "scheduled_posts", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules"]
+    tables: ["scheduled_posts", "messages", "video_messages", "auto_replies", "scam_entities", "giveaway_campaigns", "entertainment_events", "reputation_rules", "module_settings"]
   },
   {
     key: "automation",
@@ -1137,6 +1137,14 @@ export default function HomePage() {
     }
     return map;
   }, [moduleRows]);
+  const moduleCards = useMemo(() => MODULE_HUBS.map((module) => {
+    const keys = module.moduleKeys || [module.key];
+    const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
+    const isOn = states.length ? states.some((row) => row?.enabled !== false) : true;
+    return { ...module, isOn };
+  }), [moduleState]);
+  const enabledModuleCards = useMemo(() => moduleCards.filter((module) => module.isOn), [moduleCards]);
+  const disabledModuleCards = useMemo(() => moduleCards.filter((module) => !module.isOn), [moduleCards]);
   const moduleEnabled = useMemo(() => {
     const keys = activeModuleHub.moduleKeys || [activeModuleHub.key];
     const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
@@ -1371,6 +1379,17 @@ export default function HomePage() {
       setActiveModule(matchingModule.key);
     }
   }, [activeKey, activeModule]);
+
+  useEffect(() => {
+    if (activeLayer !== "modules" || moduleEnabled || !enabledModuleCards.length) {
+      return;
+    }
+    const nextModule = enabledModuleCards[0];
+    setActiveModule(nextModule.key);
+    if (!nextModule.tables.includes(activeKey)) {
+      setActiveKey(nextModule.tables[0]);
+    }
+  }, [activeKey, activeLayer, enabledModuleCards, moduleEnabled]);
 
   useEffect(() => {
     const currentLayer = SYSTEM_LAYERS.find((layer) => layer.key === activeLayer);
@@ -1770,6 +1789,7 @@ export default function HomePage() {
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const showOverview = workMode === "overview";
   const showOperations = workMode !== "overview";
+  const showPrimaryTask = activeLayer !== "modules" || (moduleEnabled && enabledModuleCards.length > 0);
   const emptyState = emptyStateFor(table?.key || "");
 
   if (loading && !meta) {
@@ -1964,6 +1984,7 @@ export default function HomePage() {
               <p>{activeLayerHub.desc}</p>
             </div>
           </div>
+          {activeLayer !== "modules" ? (
           <div className="layer-links">
             {layerTables.map((item) => (
               <button key={item.key} type="button" className={activeKey === item.key ? "active" : ""} onClick={() => setActiveKey(item.key)}>
@@ -1971,6 +1992,7 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+          ) : null}
         </section>
 
         <section className="scope-bar">
@@ -2010,17 +2032,22 @@ export default function HomePage() {
 
         {activeLayer === "modules" ? (
         <section className="module-workbench">
-          <div className="module-tabs" role="tablist" aria-label="Module chức năng">
-            {MODULE_HUBS.map((module) => {
+          <div className="module-section-head">
+            <div>
+              <h3>Module đang bật</h3>
+              <p>Chỉ module đang bật mới bung chức năng con để tránh rối màn hình.</p>
+            </div>
+            <span>{enabledModuleCards.length} đang bật</span>
+          </div>
+          {enabledModuleCards.length ? (
+          <div className="module-tabs active-modules" role="tablist" aria-label="Module đang bật">
+            {enabledModuleCards.map((module) => {
               const ModuleIcon = module.icon;
-              const keys = module.moduleKeys || [module.key];
-              const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
-              const isOn = states.length ? states.some((row) => row?.enabled !== false) : true;
               return (
                 <button
                   key={module.key}
                   type="button"
-                  className={`${module.key === activeModule ? "active" : ""} ${isOn ? "" : "off"}`}
+                  className={module.key === activeModule ? "active" : ""}
                   onClick={() => {
                     setActiveModule(module.key);
                     if (!module.tables.includes(activeKey)) {
@@ -2033,11 +2060,47 @@ export default function HomePage() {
                     <span>{module.title}</span>
                     <p>{module.desc}</p>
                   </div>
-                  <b>{isOn ? "Bật" : "Tắt"}</b>
+                  <b>Bật</b>
                 </button>
               );
             })}
           </div>
+          ) : (
+            <div className="module-empty-focus">
+              <Sparkles size={22} />
+              <strong>Chưa có module nào đang bật</strong>
+              <span>Bật một module bên dưới, CP mới hiện các chức năng thuộc module đó.</span>
+            </div>
+          )}
+          {disabledModuleCards.length ? (
+            <div className="module-disabled-drawer">
+              <div>
+                <strong>Module chưa bật</strong>
+                <span>Các module này đang được ẩn khỏi khu vận hành. Bật cái nào thì chức năng của cái đó mới hiện.</span>
+              </div>
+              <div className="disabled-module-list">
+                {disabledModuleCards.map((module) => {
+                  const ModuleIcon = module.icon;
+                  return (
+                    <button
+                      key={module.key}
+                      type="button"
+                      disabled={saving}
+                      onClick={() => {
+                        setActiveModule(module.key);
+                        void toggleModule((module.moduleKeys || [module.key])[0]);
+                      }}
+                    >
+                      <ModuleIcon size={16} />
+                      <span>{module.title}</span>
+                      <b>Bật</b>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          {moduleEnabled && enabledModuleCards.length ? (
           <div className={`module-panel ${activeModuleHub.tone}`}>
             <div className="module-copy">
               <div className="module-icon">
@@ -2057,10 +2120,7 @@ export default function HomePage() {
             </div>
             <div className="module-actions">
               <button type="button" className="secondary" onClick={() => setActiveKey(activeModuleHub.tables[0])}>
-                Setup nhanh
-              </button>
-              <button type="button" className="ghost" onClick={() => setActiveKey("module_settings")}>
-                Chi tiết
+                Mở bước đầu tiên
               </button>
               {(activeModuleHub.moduleKeys || [activeModuleHub.key]).map((moduleKey) => {
                 const row = moduleState.get(moduleKey);
@@ -2081,8 +2141,7 @@ export default function HomePage() {
               })}
             </div>
             <div className="module-links">
-              {moduleEnabled ? (
-                activeModuleHub.tables.map((key) => {
+              {activeModuleHub.tables.map((key) => {
                   const item = meta.tables.find((tableItem) => tableItem.key === key);
                   if (!item) {
                     return null;
@@ -2092,17 +2151,15 @@ export default function HomePage() {
                       {item.label}
                     </button>
                   );
-                })
-              ) : (
-                <div className="module-off-note">
-                  Module đang tắt nên runtime chưa chạy. Bật lại module để mở các bước: {activeModuleHub.tables.map((key) => meta.tables.find((tableItem) => tableItem.key === key)?.label).filter(Boolean).join(" -> ")}.
-                </div>
-              )}
+                })}
             </div>
           </div>
+          ) : null}
         </section>
         ) : null}
 
+        {showPrimaryTask ? (
+        <>
         <header className="topbar">
           <div>
             <h2>{table.label}</h2>
@@ -2799,6 +2856,8 @@ export default function HomePage() {
           ) : null}
         </div>
         )}
+        </>
+        ) : null}
         </>
         ) : null}
       </section>
