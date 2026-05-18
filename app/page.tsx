@@ -121,7 +121,7 @@ const SYSTEM_LAYERS = [
     desc: "Ai ban member, ai xóa tin, ai sửa quyền và các sự kiện vận hành cần rà soát.",
     icon: Activity,
     tone: "main",
-    tables: ["audit_logs", "scam_reports"]
+    tables: ["audit_logs"]
   },
   {
     key: "settings",
@@ -135,9 +135,9 @@ const SYSTEM_LAYERS = [
 ];
 const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[] }> = {
   groups: {
-    title: "Luồng cần nhớ",
-    body: "Group là nơi nối cấu hình với bot: bật kiểm duyệt, chọn pool tin nhắn, đặt lịch gửi, nội quy và menu.",
-    steps: ["Set đúng Group ID", "Chọn Nhóm nội dung trùng với Tin nhắn", "Bật/tắt nút Quy định và lệnh /help tại Menu bot"]
+    title: "Group trong kiểm duyệt",
+    body: "Group là nơi bot áp dụng luật kiểm duyệt, chống spam, xóa tin vi phạm và quyền xử lý thành viên.",
+    steps: ["Set đúng Group ID", "Bật các công tắc kiểm duyệt cần dùng", "Kiểm tra bot có quyền xóa tin, mute hoặc ban"]
   },
   messages: {
     title: "Cách dùng Tin nhắn",
@@ -299,7 +299,7 @@ const MODULE_HUBS = [
     desc: "Menu lệnh Telegram, nút Quy định, nội quy nhóm và nội dung /start.",
     icon: MessageSquare,
     tone: "content",
-    tables: ["config", "groups"],
+    tables: ["config"],
     configKeys: ["policy_text", "show_policy_button", "policy_button_text", "bot_menu_commands", "help_menu_commands", "start_fallback_text", "help_menu_title"]
   },
   {
@@ -319,7 +319,7 @@ const MODULE_HUBS = [
     desc: "Gửi tin hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
-    tables: ["scheduled_posts", "messages", "video_messages", "groups", "config"],
+    tables: ["scheduled_posts", "messages", "video_messages", "config"],
     configKeys: ["send_on_boot", "send_if_silent"]
   },
   {
@@ -370,6 +370,28 @@ const MODULE_HUBS = [
     tables: ["admins", "member_roles", "reputation_rules", "giveaway_entries"]
   }
 ];
+const MODULE_TABLE_OWNER: Record<string, string> = {
+  keywords: "moderation",
+  domain_blacklist: "moderation",
+  link_shorteners: "moderation",
+  bot_allowlist: "moderation",
+  verification_settings: "verification",
+  captcha_questions: "verification",
+  scheduled_posts: "automation",
+  messages: "automation",
+  video_messages: "automation",
+  auto_replies: "auto_reply",
+  scam_entities: "anti_scam",
+  scam_reports: "anti_scam",
+  giveaway_campaigns: "entertainment",
+  giveaway_entries: "entertainment",
+  entertainment_events: "entertainment",
+  reputation_rules: "entertainment",
+  bot_metrics: "analytics",
+  audit_logs: "analytics",
+  admins: "members",
+  member_roles: "members"
+};
 const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
   policy_text: "Nội quy gửi kèm khi thành viên bấm nút Quy định hoặc gọi lệnh liên quan.",
@@ -494,6 +516,20 @@ function draftFromRow(row: Row) {
 function titleFor(row: Row, table: TableConfig) {
   if (table.key === "config") {
     return CONFIG_LABELS[String(row.key || "")] || String(row.key || "Cài đặt").replaceAll("_", " ");
+  }
+  if (table.key === "audit_logs") {
+    const labels: Record<string, string> = {
+      delete_message: "Đã xóa tin nhắn",
+      ban: "Đã ban thành viên",
+      kick: "Đã kick thành viên",
+      mute: "Đã mute thành viên",
+      warn: "Đã cảnh báo thành viên",
+      role_update: "Đã đổi quyền",
+      title_update: "Đã đổi tiêu đề",
+      module_update: "Đã đổi trạng thái module"
+    };
+    const action = String(row.action || "");
+    return labels[action.toLowerCase()] || action.replaceAll("_", " ") || `Nhật ký #${row.id}`;
   }
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
 }
@@ -653,6 +689,19 @@ function healthState(row: Row) {
 function actionBadge(row: Row, table: TableConfig) {
   const action = row.action || row.risk_level || row.status || row.role || row.captcha_type || row.period || "";
   if (action) {
+    if (table.key === "audit_logs") {
+      const labels: Record<string, string> = {
+        delete_message: "Xóa tin",
+        ban: "Ban",
+        kick: "Kick",
+        mute: "Mute",
+        warn: "Cảnh báo",
+        role_update: "Đổi quyền",
+        title_update: "Đổi tiêu đề",
+        module_update: "Đổi module"
+      };
+      return labels[String(action).toLowerCase()] || String(action).replaceAll("_", " ");
+    }
     return String(action).replaceAll("_", " ").toUpperCase();
   }
   if (table.key === "messages" || table.key === "video_messages") {
@@ -704,6 +753,61 @@ function cockpitActivity(row: Row, table: TableConfig) {
     `Chính sách ${action} đã sẵn sàng đồng bộ runtime`,
     `Đã kiểm tra phạm vi ${row.group_id || row.chat_id || row.bot_key || "global"}`
   ];
+}
+
+function moduleRuntimeCopy(moduleKey: string, groups: number, rules: number) {
+  const copy: Record<string, { title: string; scope: string; items: string }> = {
+    moderation: {
+      title: `Đang bảo vệ ${groups} nhóm với ${rules} luật kiểm duyệt đang chạy.`,
+      scope: `Bảo vệ ${groups} nhóm`,
+      items: `${rules} luật kiểm duyệt`
+    },
+    menu_policy: {
+      title: `Menu và nội quy đang áp dụng cho ${groups} nhóm.`,
+      scope: `Áp dụng ${groups} nhóm`,
+      items: `${rules} mục menu/nội quy`
+    },
+    verification: {
+      title: `Verify và captcha đang theo dõi ${groups} nhóm.`,
+      scope: `Theo dõi ${groups} nhóm`,
+      items: `${rules} cấu hình verify`
+    },
+    automation: {
+      title: `Automation đang quản lý ${rules} lịch gửi, tin nhắn hoặc video.`,
+      scope: `${groups} nhóm nhận nội dung`,
+      items: `${rules} mục tự động`
+    },
+    auto_reply: {
+      title: `Auto reply có ${rules} câu trả lời đang sẵn sàng.`,
+      scope: `Áp dụng theo bot/group`,
+      items: `${rules} câu trả lời`
+    },
+    anti_scam: {
+      title: `Chống scam đang theo dõi ${rules} dữ liệu và báo cáo.`,
+      scope: `Theo dõi dữ liệu scam`,
+      items: `${rules} mục scam`
+    },
+    entertainment: {
+      title: `Giải trí đang có ${rules} hoạt động, giveaway hoặc điểm tương tác.`,
+      scope: `Hoạt động trong ${groups} nhóm`,
+      items: `${rules} mục giải trí`
+    },
+    analytics: {
+      title: `Thống kê đang ghi nhận ${rules} chỉ số hoặc nhật ký.`,
+      scope: `Theo dõi hệ thống`,
+      items: `${rules} mục theo dõi`
+    },
+    members: {
+      title: `Thành viên đang quản lý role, quyền và điểm tương tác.`,
+      scope: `Quản lý thành viên`,
+      items: `${rules} mục phân quyền`
+    }
+  };
+  return copy[moduleKey] || {
+    title: `Module đang chạy với ${rules} mục điều khiển.`,
+    scope: `Áp dụng ${groups} nhóm`,
+    items: `${rules} mục đang chạy`
+  };
 }
 
 function heroFor(activeKey: string) {
@@ -1274,6 +1378,10 @@ export default function HomePage() {
       issues: moduleEnabled ? 0 : 1
     };
   }, [activeModuleHub.tables, lookups.groups, moduleEnabled, rows, selectedBot, table?.key, visibleRows]);
+  const activeModuleCopy = useMemo(
+    () => moduleRuntimeCopy(activeModuleHub.key, activeModuleStats.groups, activeModuleStats.rules),
+    [activeModuleHub.key, activeModuleStats.groups, activeModuleStats.rules]
+  );
   const quickFilters = useMemo(() => {
     const base = [
       { key: "", label: "Tất cả" },
@@ -1286,10 +1394,10 @@ export default function HomePage() {
   const commandItems = useMemo(() => [
     { title: "Khôi phục protection", hint: "Mở module đang tắt và khôi phục bảo vệ", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
     { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
-    { title: "Áp dụng preset chống scam", hint: "Mở workflow từ khóa và domain nguy hiểm", action: () => goToInsight({ targetLayer: "security", targetTable: "keywords" }) },
+    { title: "Áp dụng preset chống scam", hint: "Mở workflow từ khóa và domain nguy hiểm", action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "keywords" }) },
     { title: "Mở logs runtime", hint: "Kiểm tra nhật ký và hoạt động gần đây", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
     { title: "Tạo lịch gửi tin", hint: "Mở flow gửi tin hẹn giờ cho group", action: () => startScheduledMessageFlow() },
-    { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "security", targetTable: "verification_settings" }) },
+    { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "module:verification", targetTable: "verification_settings" }) },
     { title: "Tạo mục điều khiển mới", hint: `Tạo trong ${table?.label || "màn hình hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
   const filteredCommandItems = useMemo(() => {
@@ -1391,11 +1499,18 @@ export default function HomePage() {
   }, [selectedBot]);
 
   useEffect(() => {
-    const matchingModule = MODULE_HUBS.find((module) => module.tables.includes(activeKey));
-    if (matchingModule && matchingModule.key !== activeModule) {
-      setActiveModule(matchingModule.key);
+    if (activeLayer.startsWith("module:")) {
+      const moduleKey = activeLayer.replace("module:", "");
+      if (moduleKey && moduleKey !== activeModule) {
+        setActiveModule(moduleKey);
+      }
+      return;
     }
-  }, [activeKey, activeModule]);
+    const moduleKey = MODULE_TABLE_OWNER[activeKey];
+    if (moduleKey && moduleKey !== activeModule) {
+      setActiveModule(moduleKey);
+    }
+  }, [activeKey, activeLayer, activeModule]);
 
   useEffect(() => {
     if (activeLayer !== "modules" || moduleEnabled || !enabledModuleCards.length) {
@@ -1436,6 +1551,10 @@ export default function HomePage() {
     const matchingLayer = sidebarLayers.find((layer) => layerContainsTable(layer, activeKey));
     if (matchingLayer) {
       setActiveLayer(matchingLayer.key);
+      return;
+    }
+    if (currentLayer?.tables.length) {
+      setActiveKey(currentLayer.tables[0]);
     }
   }, [activeKey, activeLayer, sidebarLayers]);
 
@@ -2239,12 +2358,12 @@ export default function HomePage() {
               </div>
               <div>
                 <h3>{activeModuleHub.title}</h3>
-                <p>{moduleEnabled ? `Đang bảo vệ ${activeModuleStats.groups} nhóm với ${activeModuleStats.rules} mục điều khiển đang chạy.` : "Module đang tắt. Bật lại để khôi phục protection và automation."}</p>
+                <p>{moduleEnabled ? activeModuleCopy.title : "Module đang tắt. Bật lại để mở các cài đặt riêng của module này."}</p>
                 <div className="module-live-stats">
                   <span className={moduleEnabled ? "live-dot on" : "live-dot off"} />
                   <b>{moduleEnabled ? "Đang chạy" : "Đang tắt"}</b>
-                  <span>Đang bảo vệ {activeModuleStats.groups} nhóm</span>
-                  <span>{activeModuleStats.rules} mục đang chạy</span>
+                  <span>{activeModuleCopy.scope}</span>
+                  <span>{activeModuleCopy.items}</span>
                   {activeModuleStats.issues ? <span>{activeModuleStats.issues} cảnh báo</span> : null}
                 </div>
               </div>
