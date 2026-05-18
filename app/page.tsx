@@ -2230,32 +2230,32 @@ export default function HomePage() {
                     <div>
                       <h3>{module.title}</h3>
                       <p>{module.desc}</p>
+                      <div className="plugin-status-box">
+                        <span>Trạng thái module</span>
+                        <strong>{module.isOn ? "Bật" : "Tắt"}</strong>
+                      </div>
                     </div>
                   </div>
                   <div className="plugin-actions">
-                    <span className={module.isOn ? "on" : "off"}>
-                      <span className="status-dot" />
-                      {module.isOn ? "Đang bật" : "Đang tắt"}
-                    </span>
                     <div className="plugin-action-row">
-                    <button
-                      type="button"
-                      className={`module-toggle-button ${module.isOn ? "on" : "off"}`}
-                      disabled={saving}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setActiveModule(module.key);
-                        void toggleModule((module.moduleKeys || [module.key])[0]);
-                      }}
-                    >
-                      <Power size={15} />
-                      {module.isOn ? "Tắt" : "Bật"}
-                    </button>
+                      <button
+                        type="button"
+                        className={`module-switch ${module.isOn ? "on" : "off"}`}
+                        disabled={saving}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          setActiveModule(module.key);
+                          void toggleModule((module.moduleKeys || [module.key])[0]);
+                        }}
+                        title={module.isOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                      >
+                        <span />
+                      </button>
                     {module.isOn ? (
                       <button
                         type="button"
-                        className="module-config-button"
+                        className="module-edit-button"
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -2263,7 +2263,7 @@ export default function HomePage() {
                         }}
                         title="Cài đặt module"
                       >
-                        <SlidersHorizontal size={16} />
+                        <Edit3 size={20} />
                       </button>
                     ) : null}
                     </div>

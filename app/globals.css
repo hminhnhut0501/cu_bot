@@ -831,11 +831,11 @@ nav button:hover {
 }
 
 .plugin-card {
-  min-height: 108px;
+  min-height: 160px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
-  align-items: center;
+  align-items: start;
   border: 1px solid #e7edf3;
   border-radius: 12px;
   background: #ffffff;
@@ -856,6 +856,7 @@ nav button:hover {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .plugin-main svg {
@@ -874,99 +875,97 @@ nav button:hover {
   line-height: 1.42;
 }
 
-.plugin-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  align-items: flex-end;
-  justify-content: center;
-  min-width: 132px;
+.plugin-status-box {
+  max-width: 420px;
+  margin-top: 18px;
+  border: 1px solid #e1e8f0;
+  border-radius: 11px;
+  background: #f8fafc;
+  padding: 12px 14px;
 }
 
-.plugin-actions > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  border-radius: 999px;
-  padding: 0 9px;
-  font-size: 12px;
+.plugin-status-box span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 13px;
   font-weight: 900;
 }
 
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: currentColor;
+.plugin-status-box strong {
+  display: block;
+  color: var(--text);
+  font-size: 18px;
 }
 
-.plugin-actions > span.on {
-  color: #027a48;
-  background: #ecfdf3;
-}
-
-.plugin-actions > span.off {
-  color: #667085;
-  background: #f2f4f7;
+.plugin-actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: flex-end;
 }
 
 .plugin-action-row {
   display: inline-flex;
-  gap: 7px;
+  gap: 10px;
   align-items: center;
   justify-content: flex-end;
 }
 
-.module-toggle-button,
-.module-config-button {
-  min-height: 34px;
+.module-switch {
+  width: 64px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-start;
   border-radius: 999px;
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 900;
+  border: 0;
+  background: #cbd5e1;
+  padding: 4px;
   cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.module-toggle-button {
-  border: 1px solid #d9e0e8;
+.module-switch span {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
   background: #ffffff;
-  color: #344054;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.18);
+  transform: translateX(0);
+  transition: transform 0.15s ease;
 }
 
-.module-toggle-button.on {
-  border-color: #fecdca;
-  background: #fff3f2;
-  color: #b42318;
+.module-switch.on {
+  background: var(--accent);
 }
 
-.module-toggle-button.off {
-  border-color: #b9e1dc;
-  background: #ecfdf9;
-  color: var(--accent-dark);
+.module-switch.on span {
+  transform: translateX(28px);
 }
 
-.module-config-button {
-  width: 34px;
-  padding: 0;
-  border: 1px solid #d9e0e8;
-  background: #ffffff;
-  color: #344054;
-}
-
-.module-toggle-button:hover,
-.module-config-button:hover {
-  border-color: var(--accent);
-  color: var(--accent-dark);
-}
-
-.module-toggle-button:disabled {
+.module-switch:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.module-edit-button {
+  width: 48px;
+  height: 48px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #d9e0e8;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.module-edit-button:hover {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
 .module-empty-focus {
