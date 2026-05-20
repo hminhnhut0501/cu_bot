@@ -80,6 +80,66 @@ type EmptyStateConfig = {
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
+const GROUP_TAB_ORDER = ["Thông tin", "Kiểm duyệt", "Chống spam", "Lịch gửi tin", "Video", "Menu bot", "Nội dung", "Ghi chú", "Advanced"];
+const GROUP_TAB_LABELS: Record<string, string> = {
+  "Thông tin nhóm": "Thông tin",
+  "Thông tin": "Thông tin",
+  "Kiểm duyệt": "Kiểm duyệt",
+  "Chống spam": "Spam",
+  "Lịch gửi tin": "Lịch gửi tin",
+  Video: "Video",
+  "Menu bot": "Menu/Nội quy",
+  "Nội dung": "Menu/Nội quy",
+  "Ghi chú": "Advanced",
+  Advanced: "Advanced"
+};
+const GROUP_PRESETS = [
+  {
+    key: "basic_spam",
+    title: "Chống spam cơ bản",
+    desc: "Warn khi spam, chặn forward/nút bấm và giữ admin được miễn trừ.",
+    values: {
+      spam_max_messages: 5,
+      spam_window_seconds: 30,
+      spam_action: "warn",
+      delete_forwarded_messages: true,
+      delete_inline_keyboard_messages: true,
+      exempt_admins: true,
+      enabled: true
+    }
+  },
+  {
+    key: "strict_links",
+    title: "Chặn quảng cáo mạnh",
+    desc: "Xóa forward, xóa bài có nút, chặn bot lạ và tăng mức xử lý spam.",
+    values: {
+      spam_max_messages: 3,
+      spam_window_seconds: 20,
+      spam_action: "ban",
+      forward_action: "delete",
+      inline_keyboard_action: "delete",
+      delete_forwarded_messages: true,
+      delete_inline_keyboard_messages: true,
+      delete_messages_from_bots: true,
+      remove_unknown_bots: true,
+      enabled: true
+    }
+  },
+  {
+    key: "safe_mode",
+    title: "Safe mode",
+    desc: "Chỉ xóa/warn, tránh ban/kick tự động trong lúc thử nghiệm.",
+    values: {
+      spam_action: "warn",
+      forward_action: "warn",
+      inline_keyboard_action: "warn",
+      ban_after_warnings: 5,
+      remove_unknown_bots: false,
+      exempt_admins: true,
+      enabled: true
+    }
+  }
+];
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
 const NAV_GROUPS = [
   { label: "Tổng quan", keys: ["bot_metrics", "audit_logs"] },
@@ -1088,6 +1148,38 @@ function groupedFields(table: TableConfig) {
   return Object.entries(groups);
 }
 
+function sortGroupFieldGroups(groups: [string, FieldConfig[]][]) {
+  return [...groups].sort(([left], [right]) => {
+    const leftIndex = GROUP_TAB_ORDER.indexOf(left);
+    const rightIndex = GROUP_TAB_ORDER.indexOf(right);
+    return (leftIndex === -1 ? 999 : leftIndex) - (rightIndex === -1 ? 999 : rightIndex);
+  });
+}
+
+function groupTabLabel(section: string) {
+  return GROUP_TAB_LABELS[section] || section;
+}
+
+function dangerousGroupChanges(values: Row) {
+  const issues: string[] = [];
+  if (values.enabled === false) {
+    issues.push("Group đang bị tắt, bot sẽ không áp dụng bảo vệ cho group này.");
+  }
+  if (["ban", "kick"].includes(String(values.spam_action || ""))) {
+    issues.push("Spam action đang đặt mức xử lý mạnh.");
+  }
+  if (["ban", "kick"].includes(String(values.forward_action || ""))) {
+    issues.push("Forward action đang đặt mức xử lý mạnh.");
+  }
+  if (["ban", "kick"].includes(String(values.inline_keyboard_action || ""))) {
+    issues.push("Inline keyboard action đang đặt mức xử lý mạnh.");
+  }
+  if (values.remove_unknown_bots === true) {
+    issues.push("Tự kick bot lạ đang bật.");
+  }
+  return issues;
+}
+
 function splitBulkLines(text: string) {
   return text
     .split(/\r?\n/)
@@ -1269,6 +1361,7 @@ export default function HomePage() {
   const [quickFilter, setQuickFilter] = useState("");
   const [quickTestInput, setQuickTestInput] = useState("");
   const [showAdvancedFields, setShowAdvancedFields] = useState(false);
+  const [activeGroupTab, setActiveGroupTab] = useState("Thông tin");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
@@ -1333,6 +1426,36 @@ export default function HomePage() {
   }, [lookups.groups, selectedGroup]);
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
+  const selectedGroupProtection = useMemo(() => {
+    const row = selectedGroupRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedGroup) || null;
+    if (!row) {
+      return {
+        ready: false,
+        enabledChecks: 0,
+        totalChecks: 6,
+        warnings: ["Chưa chọn group cụ thể để đánh giá bảo vệ."]
+      };
+    }
+    const checks = [
+      row.enabled !== false,
+      row.delete_forwarded_messages === true,
+      row.delete_inline_keyboard_messages === true,
+      row.delete_messages_from_bots === true || row.remove_unknown_bots === true,
+      Boolean(row.spam_action),
+      Boolean(row.spam_max_messages && row.spam_window_seconds)
+    ];
+    const warnings = [
+      row.enabled === false ? "Group đang tắt protection." : "",
+      !row.spam_action ? "Chưa đặt spam action." : "",
+      row.remove_unknown_bots === true ? "Tự kick bot lạ đang bật, cần kiểm tra allowlist." : ""
+    ].filter(Boolean);
+    return {
+      ready: checks.every(Boolean),
+      enabledChecks: checks.filter(Boolean).length,
+      totalChecks: checks.length,
+      warnings
+    };
+  }, [selectedGroup, selectedGroupRow, table?.key, visibleRows]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -1558,7 +1681,7 @@ export default function HomePage() {
       meta: `${healthSummary.groups} group trong phạm vi`,
       icon: ShieldCheck,
       tone: healthSummary.groups ? "healthy" : "warning",
-      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "groups" })
+      action: () => startGroupProtectionFlow()
     },
     {
       title: "Gửi tin định kỳ",
@@ -1820,6 +1943,7 @@ export default function HomePage() {
     setDraft(nextDraft);
     setWorkMode("edit");
     setShowAdvancedFields(false);
+    setActiveGroupTab("Thông tin");
     setNotice("");
   }
 
@@ -1847,6 +1971,7 @@ export default function HomePage() {
     setBulkOpen(false);
     setWorkMode("edit");
     setShowAdvancedFields(false);
+    setActiveGroupTab("Lịch gửi tin");
     setNotice("Flow random tin hẹn giờ đã mở. Chọn group, chọn Nhóm nội dung, đặt giờ rồi lưu.");
   }
 
@@ -1883,6 +2008,7 @@ export default function HomePage() {
     setDraft(draftFromRow(row));
     setWorkMode("edit");
     setShowAdvancedFields(false);
+    setActiveGroupTab("Thông tin");
     setNotice("");
   }
 
@@ -1905,6 +2031,9 @@ export default function HomePage() {
     if (!selected || !table || !table.fields.some((field) => field.key === "enabled")) {
       return;
     }
+    if (table.key === "groups" && selected.enabled !== false && !window.confirm("Tắt group sẽ khiến bot bỏ qua protection/runtime cho group này. Bạn vẫn muốn tắt?")) {
+      return;
+    }
     await saveRowValues(selected, { ...selected, enabled: selected.enabled === false });
   }
 
@@ -1912,6 +2041,12 @@ export default function HomePage() {
     event.preventDefault();
     if (!table) {
       return;
+    }
+    if (table.key === "groups") {
+      const issues = dangerousGroupChanges(draft);
+      if (issues.length && !window.confirm(`Cấu hình này có rủi ro:\n- ${issues.join("\n- ")}\n\nBạn vẫn muốn lưu?`)) {
+        return;
+      }
     }
     setSaving(true);
     setError("");
@@ -2132,6 +2267,42 @@ export default function HomePage() {
     }));
   }
 
+  function applyGroupPreset(values: Row, tab = "Kiểm duyệt") {
+    setDraft((current) => ({
+      ...current,
+      ...values
+    }));
+    setActiveGroupTab(tab);
+    setWorkMode("edit");
+    setNotice("Đã áp dụng preset vào form. Kiểm tra lại rồi bấm Lưu để cập nhật group.");
+  }
+
+  function startGroupProtectionFlow() {
+    const groupTable = meta?.tables.find((item) => item.key === "groups");
+    if (!groupTable) {
+      return;
+    }
+    const groupRow = selectedGroup
+      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup)
+      : visibleRows.find((row) => table?.key === "groups");
+    setActiveLayer("module:moderation");
+    setActiveModule("moderation");
+    setActiveKey("groups");
+    setSelected(groupRow || null);
+    setDraft(groupRow ? draftFromRow(groupRow) : {
+      ...emptyValues(groupTable),
+      bot_key: selectedBot || "main",
+      group_id: selectedGroup || "",
+      enabled: true,
+      exempt_admins: true,
+      spam_action: "warn"
+    });
+    setActiveGroupTab("Kiểm duyệt");
+    setShowAdvancedFields(false);
+    setWorkMode("edit");
+    setNotice("Flow Bảo vệ group đã mở. Chọn preset, kiểm tra tab Spam/Test luật rồi lưu.");
+  }
+
   function toggleSelected(id: unknown) {
     const key = String(id);
     setSelectedIds((current) => {
@@ -2224,26 +2395,50 @@ export default function HomePage() {
     { label: "Module", value: activeModuleHub.title },
     { label: "Việc", value: table?.label || "Chưa chọn" }
   ], [activeModuleHub.title, currentBot, selectedBot, selectedGroup, selectedGroupRow, table?.label]);
+  const groupEditorTabs = useMemo(() => {
+    if (table?.key !== "groups") {
+      return [];
+    }
+    const labels = new Map<string, { key: string; label: string; count: number }>();
+    for (const [section, fields] of groupedFields(table)) {
+      const label = groupTabLabel(section);
+      const visibleCount = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key)).length;
+      const current = labels.get(label);
+      labels.set(label, { key: current?.key || section, label, count: (current?.count || 0) + visibleCount });
+    }
+    return GROUP_TAB_ORDER
+      .map((section) => groupTabLabel(section))
+      .filter((label, index, all) => all.indexOf(label) === index)
+      .map((label) => labels.get(label) || { key: label, label, count: 0 })
+      .filter((tab) => tab.count || tab.label === "Advanced");
+  }, [showAdvancedFields, table]);
   const editorFieldGroups = useMemo(() => {
     if (!table) {
       return [];
     }
     const groups = groupedFields(table);
     let visibleGroups = groups;
+    if (table.key === "groups") {
+      visibleGroups = groups.filter(([section]) => groupTabLabel(section) === activeGroupTab);
+    }
     if (activeLayer === "module:automation" && table.key === "groups") {
       const allowed = new Set(["Phạm vi", "Thông tin nhóm", "Lịch gửi tin", "Video", "Ghi chú"]);
       visibleGroups = groups
         .map(([section, fields]) => [section, fields.filter((field) => allowed.has(section))] as [string, FieldConfig[]])
+        .filter(([section]) => groupTabLabel(section) === activeGroupTab)
         .filter(([, fields]) => fields.length);
     }
-    return visibleGroups
+    if (table.key === "groups" && activeGroupTab === "Advanced") {
+      visibleGroups = groups.filter(([section]) => ["Ghi chú", "Advanced"].includes(section));
+    }
+    return sortGroupFieldGroups(visibleGroups)
       .map(([section, fields]) => {
         const nextFields = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key));
         const sectionName = fields.every((field) => fieldIsAdvanced(table.key, field.key)) ? "Advanced" : section;
         return [sectionName, nextFields] as [string, FieldConfig[]];
       })
       .filter(([, fields]) => fields.length);
-  }, [activeLayer, showAdvancedFields, table]);
+  }, [activeGroupTab, activeLayer, showAdvancedFields, table]);
   const menuConfigRows = useMemo(() => {
     const map = new Map<string, Row>();
     for (const row of scopedConfigRows) {
@@ -2636,6 +2831,24 @@ export default function HomePage() {
                 Tạo lịch gửi tin
               </button>
             </section>
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
+          <section className="protection-flow-launcher">
+            <div>
+              <span>Flow bảo vệ group</span>
+              <h3>Chọn group, bật luật, test tin nhắn, rồi xem logs</h3>
+              <p>Flow này gom cấu hình group, spam action, keyword/domain và audit log vào một đường đi rõ ràng.</p>
+            </div>
+            <div className="protection-score">
+              <strong>{selectedGroupProtection.enabledChecks}/{selectedGroupProtection.totalChecks}</strong>
+              <span>{selectedGroupProtection.ready ? "Protection đủ điều kiện nền" : selectedGroupProtection.warnings[0]}</span>
+            </div>
+            <button type="button" className="primary" onClick={startGroupProtectionFlow}>
+              <ShieldCheck size={17} />
+              Mở flow bảo vệ
+            </button>
+          </section>
         ) : null}
 
         {showPrimaryTask ? (
@@ -3416,6 +3629,42 @@ export default function HomePage() {
                   <div className="advanced-hint">
                     Đang ẩn field kỹ thuật như ID, timestamp, JSON settings và raw config key.
                   </div>
+                ) : null}
+                {table.key === "groups" ? (
+                  <>
+                    <div className="group-editor-tabs" aria-label="Nhóm cấu hình group">
+                      {groupEditorTabs.map((tab) => (
+                        <button
+                          key={tab.label}
+                          type="button"
+                          className={activeGroupTab === tab.label ? "active" : ""}
+                          onClick={() => {
+                            setActiveGroupTab(tab.label);
+                            if (tab.label === "Advanced") {
+                              setShowAdvancedFields(true);
+                            }
+                          }}
+                        >
+                          {tab.label}
+                          <b>{tab.count}</b>
+                        </button>
+                      ))}
+                    </div>
+                    {activeGroupTab === "Kiểm duyệt" || activeGroupTab === "Spam" ? (
+                      <section className="group-presets">
+                        <div>
+                          <h4>Preset nhanh</h4>
+                          <p>Áp dụng vào form hiện tại, sau đó vẫn cần bấm Lưu.</p>
+                        </div>
+                        {GROUP_PRESETS.map((preset) => (
+                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, preset.key === "safe_mode" ? "Spam" : "Kiểm duyệt")}>
+                            <strong>{preset.title}</strong>
+                            <span>{preset.desc}</span>
+                          </button>
+                        ))}
+                      </section>
+                    ) : null}
+                  </>
                 ) : null}
                 <div className="fields">
                   {editorFieldGroups.map(([section, fields]) => (
