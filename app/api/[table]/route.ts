@@ -59,6 +59,44 @@ function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
 }
 
+function serverError(error: unknown) {
+  const message = error instanceof Error ? error.message : "Server error.";
+  const setupError = message.includes("SUPABASE_");
+  return NextResponse.json(
+    {
+      error: setupError
+        ? `${message} Kiểm tra Environment Variables trên Vercel trước khi dùng Admin CP.`
+        : message
+    },
+    { status: 500 }
+  );
+}
+
+function scopedField(config: ReturnType<typeof tableConfig>, candidates: string[]) {
+  return candidates.find((candidate) => config?.fields.some((field) => field.key === candidate));
+}
+
+function applyScopeFilters(query: DynamicTable, config: ReturnType<typeof tableConfig>, request: NextRequest) {
+  const botKey = request.nextUrl.searchParams.get("bot_key")?.trim();
+  const groupId = request.nextUrl.searchParams.get("group_id")?.trim();
+
+  if (botKey) {
+    const field = scopedField(config, ["bot_key"]);
+    if (field) {
+      query = query.eq(field, botKey);
+    }
+  }
+
+  if (groupId) {
+    const field = scopedField(config, ["group_id", "chat_id"]);
+    if (field) {
+      query = query.eq(field, groupId);
+    }
+  }
+
+  return query;
+}
+
 function cleanPayload(table: string, payload: Record<string, unknown>) {
   const config = tableConfig(table);
   const allowed = new Map(config.fields.map((field) => [field.key, field]));
@@ -154,22 +192,27 @@ export async function GET(request: NextRequest, { params }: Params) {
     return badRequest("Unknown table.");
   }
 
-  const search = request.nextUrl.searchParams.get("search")?.trim();
-  const supabaseAdmin = getSupabaseAdmin();
-  let query = dynamicTable(supabaseAdmin, params.table).select("*").order("id", { ascending: true });
-  if (search) {
-    const searchFields = config.fields.filter((field) => field.type === "text" || field.type === "textarea").slice(0, 5);
-    const filter = searchFields.map((field) => `${field.key}.ilike.%${search}%`).join(",");
-    if (filter) {
-      query = query.or(filter);
+  try {
+    const search = request.nextUrl.searchParams.get("search")?.trim();
+    const supabaseAdmin = getSupabaseAdmin();
+    let query = dynamicTable(supabaseAdmin, params.table).select("*").order("id", { ascending: true });
+    query = applyScopeFilters(query, config, request);
+    if (search) {
+      const searchFields = config.fields.filter((field) => field.type === "text" || field.type === "textarea").slice(0, 5);
+      const filter = searchFields.map((field) => `${field.key}.ilike.%${search}%`).join(",");
+      if (filter) {
+        query = query.or(filter);
+      }
     }
-  }
 
-  const { data, error } = (await query) as { data: unknown[] | null; error: { message: string } | null };
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data, error } = (await query) as { data: unknown[] | null; error: { message: string } | null };
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ rows: data || [] });
+  } catch (error) {
+    return serverError(error);
   }
-  return NextResponse.json({ rows: data || [] });
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -193,7 +236,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         error: { message: string } | null;
       };
       if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return serverError(new Error(error.message));
       }
       if (params.table === "bots") {
         for (const row of (data || []) as Payload[]) {
@@ -209,7 +252,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       error: { message: string } | null;
     };
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(new Error(error.message));
     }
     if (params.table === "bots") {
       await seedBotDefaults(supabaseAdmin, (data as Payload)?.bot_key ?? payload.bot_key);
@@ -241,7 +284,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       error: { message: string } | null;
     };
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return serverError(new Error(error.message));
     }
     if (params.table === "bots") {
       await seedBotDefaults(supabaseAdmin, (data as Payload)?.bot_key ?? payload.bot_key);
@@ -265,12 +308,16 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     return badRequest("Missing id.");
   }
 
-  const supabaseAdmin = getSupabaseAdmin();
-  const { error } = (await dynamicTable(supabaseAdmin, params.table).delete().eq("id", id)) as {
-    error: { message: string } | null;
-  };
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    const { error } = (await dynamicTable(supabaseAdmin, params.table).delete().eq("id", id)) as {
+      error: { message: string } | null;
+    };
+    if (error) {
+      return serverError(new Error(error.message));
+    }
+  } catch (error) {
+    return serverError(error);
   }
   return NextResponse.json({ ok: true });
 }

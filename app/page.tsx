@@ -66,6 +66,11 @@ type CommandInsight = {
   targetTable: string;
 };
 type WorkMode = "overview" | "operate" | "edit";
+type RuleTestResult = {
+  label: string;
+  detail: string;
+  matched: boolean;
+};
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
@@ -791,6 +796,91 @@ function rowMatchesQuickFilter(row: Row, filter: string) {
   return [row.action, row.match, row.status, row.role, row.risk_level].map((value) => String(value || "").toLowerCase()).includes(filter);
 }
 
+function tableHasField(table: TableConfig | undefined, fieldKey: string) {
+  return Boolean(table?.fields.some((field) => field.key === fieldKey));
+}
+
+function tableSupportsScope(table: TableConfig | undefined, scope: "bot" | "group") {
+  if (scope === "bot") {
+    return tableHasField(table, "bot_key");
+  }
+  return tableHasField(table, "group_id") || tableHasField(table, "chat_id");
+}
+
+function buildScopedQuery(table: TableConfig, searchText: string, selectedBot: string, selectedGroup: string) {
+  const params = new URLSearchParams();
+  if (searchText.trim()) {
+    params.set("search", searchText.trim());
+  }
+  if (selectedBot && tableSupportsScope(table, "bot")) {
+    params.set("bot_key", selectedBot);
+  }
+  if (selectedGroup && tableSupportsScope(table, "group")) {
+    params.set("group_id", selectedGroup);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function normalizedText(value: unknown) {
+  return String(value || "").toLowerCase();
+}
+
+function safeRegexMatch(pattern: unknown, text: string) {
+  try {
+    return new RegExp(String(pattern), "i").test(text);
+  } catch {
+    return false;
+  }
+}
+
+function rowMatchesRule(row: Row, text: string, key: string) {
+  const source = String(row[key] || "").trim();
+  const matchMode = String(row.match || "contains").toLowerCase();
+  if (!source || !text) {
+    return false;
+  }
+  if (matchMode === "regex") {
+    return safeRegexMatch(source, text);
+  }
+  if (matchMode === "exact") {
+    return normalizedText(text).trim() === normalizedText(source).trim();
+  }
+  return normalizedText(text).includes(normalizedText(source));
+}
+
+function extractDomains(text: string) {
+  return Array.from(text.matchAll(/(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi))
+    .map((match) => match[1].toLowerCase());
+}
+
+function testRowsForTable(tableKey: string, rows: Row[], text: string): RuleTestResult[] {
+  const value = text.trim();
+  if (!value) {
+    return [];
+  }
+  if (tableKey === "keywords") {
+    return rows
+      .filter((row) => row.enabled !== false && rowMatchesRule(row, value, "keyword"))
+      .map((row) => ({ label: String(row.keyword), detail: `${row.match || "contains"} -> ${row.action || "delete"}`, matched: true }));
+  }
+  if (tableKey === "auto_replies") {
+    return rows
+      .filter((row) => row.enabled !== false && rowMatchesRule(row, value, "trigger"))
+      .map((row) => ({ label: String(row.trigger), detail: String(row.reply || "Chưa có nội dung trả lời"), matched: true }));
+  }
+  if (tableKey === "domain_blacklist" || tableKey === "link_shorteners") {
+    const domains = extractDomains(value);
+    return rows
+      .filter((row) => {
+        const domain = String(row.domain || "").toLowerCase();
+        return row.enabled !== false && domain && domains.some((item) => item === domain || item.endsWith(`.${domain}`));
+      })
+      .map((row) => ({ label: String(row.domain), detail: `${row.risk || "shortener"} -> ${row.action || "warn"}`, matched: true }));
+  }
+  return [];
+}
+
 function cockpitMetrics(row: Row, table: TableConfig) {
   const action = actionBadge(row, table);
   const health = healthState(row).label;
@@ -1144,6 +1234,7 @@ export default function HomePage() {
   const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
   const [workMode, setWorkMode] = useState<WorkMode>("overview");
   const [quickFilter, setQuickFilter] = useState("");
+  const [quickTestInput, setQuickTestInput] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
@@ -1200,6 +1291,14 @@ export default function HomePage() {
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
+  const selectedGroupRow = useMemo(() => {
+    if (!selectedGroup) {
+      return null;
+    }
+    return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup) || null;
+  }, [lookups.groups, selectedGroup]);
+  const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
+  const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -1250,6 +1349,29 @@ export default function HomePage() {
   }, [dashboardRows]);
   const activeModuleHub = useMemo(() => MODULE_HUBS.find((module) => module.key === activeModule) || MODULE_HUBS[0], [activeModule]);
   const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
+  const setupChecklist = useMemo(() => [
+    {
+      label: "Bot đã bật",
+      done: Boolean(currentBot && currentBot.enabled !== false && currentBot.status !== "paused"),
+      detail: currentBot ? `${currentBot.name || currentBot.bot_key} đang ${currentBot.enabled === false || currentBot.status === "paused" ? "tắt/paused" : "sẵn sàng"}` : "Chưa chọn hoặc chưa có bot trong CP"
+    },
+    {
+      label: "Có group trong phạm vi",
+      done: Boolean(selectedGroupRow || lookups.groups.length),
+      detail: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : `${lookups.groups.length} group/kênh đã khai báo`
+    },
+    {
+      label: "Module nền đã tạo",
+      done: Boolean(moduleRows.length),
+      detail: moduleRows.length ? `${moduleRows.length} module có cấu hình` : "Chưa có module_settings cho bot này"
+    },
+    {
+      label: "Pool nội dung khả dụng",
+      done: Boolean(messagePools.length || videoPools.length),
+      detail: messagePools.length || videoPools.length ? `${messagePools.length} pool tin nhắn, ${videoPools.length} pool video` : "Chưa có pool message/video cho automation"
+    }
+  ], [currentBot, lookups.groups.length, messagePools.length, moduleRows.length, selectedGroup, selectedGroupRow, videoPools.length]);
+  const setupIssues = useMemo(() => setupChecklist.filter((item) => !item.done), [setupChecklist]);
   const moduleState = useMemo(() => {
     const map = new Map<string, Row>();
     for (const row of moduleRows) {
@@ -1415,12 +1537,13 @@ export default function HomePage() {
 
   async function loadLookups() {
     try {
+      const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload] = await Promise.all([
         api("/api/bots"),
-        api("/api/groups"),
-        api("/api/messages"),
-        api("/api/video_messages"),
-        api("/api/module_settings")
+        api(`/api/groups${scopedBotQuery}`),
+        api(`/api/messages${scopedBotQuery}`),
+        api(`/api/video_messages${scopedBotQuery}`),
+        api(`/api/module_settings${scopedBotQuery}`)
       ]);
       setLookups({
         bots: botsPayload.rows || [],
@@ -1441,7 +1564,7 @@ export default function HomePage() {
     setLoading(true);
     setError("");
     try {
-      const query = nextSearch ? `?search=${encodeURIComponent(nextSearch)}` : "";
+      const query = buildScopedQuery(table, nextSearch, selectedBot, selectedGroup);
       const payload = await api(`/api/${table.key}${query}`);
       setRows(payload.rows || []);
       setSelected(null);
@@ -1459,16 +1582,17 @@ export default function HomePage() {
       void loadRows("");
       setSearch("");
       setQuickFilter("");
+      setQuickTestInput("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKey, savedPassword, table?.key]);
+  }, [activeKey, savedPassword, selectedBot, selectedGroup, table?.key]);
 
   useEffect(() => {
     if (meta && (!meta.passwordRequired || savedPassword)) {
       void loadLookups();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta?.passwordRequired, savedPassword]);
+  }, [meta?.passwordRequired, savedPassword, selectedBot]);
 
   useEffect(() => {
     if (!lookups.bots.length || activeKey === "bots") {
@@ -1768,6 +1892,46 @@ export default function HomePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function confirmScamReport(row: Row) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/scam_entities", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: row.bot_key || selectedBot || "main",
+          uid: row.target_uid || "",
+          username: row.target_username || "",
+          bank_account: row.bank_account || "",
+          phone: row.phone || "",
+          name: "",
+          risk_level: "scam",
+          reason: row.admin_note || "Xác nhận từ báo cáo thành viên",
+          evidence: row.evidence || "",
+          source: "scam_report",
+          status: "confirmed",
+          enabled: true
+        })
+      });
+      await api("/api/scam_reports", {
+        method: "PATCH",
+        body: JSON.stringify({ id: row.id, values: { ...row, status: "confirmed" } })
+      });
+      setNotice("Đã xác nhận report và tạo dữ liệu scam.");
+      await loadRows(search);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể xác nhận báo cáo scam.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function rejectScamReport(row: Row) {
+    await saveTableRowValues("scam_reports", row, { ...row, status: "rejected" });
+    setNotice("Đã đánh dấu báo cáo là từ chối.");
   }
 
   function selectBot(botKey: string) {
@@ -2449,6 +2613,80 @@ export default function HomePage() {
                   {chip.label}
                 </span>
               ))}
+            </div>
+          </section>
+        ) : null}
+
+        {activeKey === "bot_metrics" || activeKey === "groups" || activeLayer === "overview" ? (
+          <section className={`ops-checklist ${setupIssues.length ? "needs-work" : "ready"}`}>
+            <div className="ops-checklist-head">
+              <div>
+                <h3>Checklist setup vận hành</h3>
+                <p>{setupIssues.length ? "Các mục dưới đây quyết định bot có chạy đúng trong group hay không." : "Các điều kiện nền đã đủ để vận hành trong phạm vi hiện tại."}</p>
+              </div>
+              <strong>{setupChecklist.length - setupIssues.length}/{setupChecklist.length}</strong>
+            </div>
+            <div className="ops-checklist-grid">
+              {setupChecklist.map((item) => (
+                <span key={item.label} className={item.done ? "done" : "missing"}>
+                  {item.done ? <Check size={15} /> : <X size={15} />}
+                  <b>{item.label}</b>
+                  {item.detail}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {table.key === "scheduled_posts" || (activeLayer.startsWith("module:") && activeModuleHub.key === "automation" && table.key === "groups") ? (
+          <section className="runtime-note">
+            <SlidersHorizontal size={20} />
+            <div>
+              <h3>Lịch gửi runtime đang điều khiển từ Group</h3>
+              <p>
+                Bot hiện dùng `groups.daily_*`, `groups.message_pool`, `groups.video_*` cùng kho `messages`/`video_messages`.
+                Bảng `scheduled_posts` chỉ nên xem như dữ liệu kỹ thuật hoặc mở rộng sau này.
+              </p>
+            </div>
+            <button type="button" className="secondary" onClick={startScheduledMessageFlow}>
+              Mở flow đúng
+            </button>
+          </section>
+        ) : null}
+
+        {showRuleTester ? (
+          <section className="rule-tester">
+            <div>
+              <h3>Test nhanh luật đang bật</h3>
+              <p>Paste một tin nhắn hoặc link để biết rule nào sẽ khớp trong phạm vi hiện tại.</p>
+            </div>
+            <label>
+              <span>Nội dung test</span>
+              <input
+                value={quickTestInput}
+                onChange={(event) => setQuickTestInput(event.target.value)}
+                placeholder={table.key === "auto_replies" ? "Ví dụ: shop có hỗ trợ không?" : "Ví dụ: tin nhắn có keyword hoặc link cần kiểm tra"}
+              />
+            </label>
+            <div className="rule-test-results">
+              {quickTestInput ? (
+                ruleTestResults.length ? (
+                  ruleTestResults.slice(0, 5).map((result) => (
+                    <span key={`${result.label}-${result.detail}`} className="matched">
+                      <Check size={14} />
+                      <b>{result.label}</b>
+                      {result.detail}
+                    </span>
+                  ))
+                ) : (
+                  <span className="clean">
+                    <ShieldCheck size={14} />
+                    Không khớp rule nào đang bật
+                  </span>
+                )
+              ) : (
+                <span className="idle">Chưa nhập nội dung test</span>
+              )}
             </div>
           </section>
         ) : null}
@@ -3154,6 +3392,18 @@ export default function HomePage() {
                     <button type="button" className="secondary" disabled={saving} onClick={toggleSelectedRowEnabled}>
                       <Power size={16} />
                       {selected.enabled === false ? "Bật lại" : "Tắt"}
+                    </button>
+                  ) : null}
+                  {table.key === "scam_reports" && selected.status !== "confirmed" ? (
+                    <button type="button" className="secondary" disabled={saving} onClick={() => confirmScamReport(selected)}>
+                      <ShieldCheck size={16} />
+                      Xác nhận scam
+                    </button>
+                  ) : null}
+                  {table.key === "scam_reports" && selected.status !== "rejected" ? (
+                    <button type="button" className="ghost" disabled={saving} onClick={() => rejectScamReport(selected)}>
+                      <X size={16} />
+                      Từ chối report
                     </button>
                   ) : null}
                   <button type="button" className="ghost" onClick={() => remove(selected)}>
