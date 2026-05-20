@@ -604,10 +604,15 @@ function titleFor(row: Row, table: TableConfig) {
       warn: "Đã cảnh báo thành viên",
       role_update: "Đã đổi quyền",
       title_update: "Đã đổi tiêu đề",
-      module_update: "Đã đổi trạng thái module"
+      module_update: "Đã đổi trạng thái module",
+      scam_report_confirmed: "Đã xác nhận báo cáo scam",
+      scam_report_rejected: "Đã từ chối báo cáo scam"
     };
     const action = String(row.action || "");
     return labels[action.toLowerCase()] || action.replaceAll("_", " ") || `Nhật ký #${row.id}`;
+  }
+  if (table.key === "scam_reports") {
+    return row.target_username || row.bank_account || row.phone || row.target_uid || `Report #${row.id}`;
   }
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
 }
@@ -776,9 +781,33 @@ function metricValue(row: Row) {
 }
 
 function previewText(row: Row, table: TableConfig) {
+  if (table.key === "scam_reports") {
+    return scamReportSummary(row);
+  }
   const key = table.titleField;
   const raw = row[key] || row.value || row.reason || row.notes || "";
   return String(raw).replace(/\s+/g, " ").trim();
+}
+
+function scamReportTarget(row: Row) {
+  return row.target_username || row.bank_account || row.phone || row.target_uid || "Chưa rõ đối tượng";
+}
+
+function scamReportSummary(row: Row) {
+  const reporter = row.reporter_username || row.reporter_user_id || "ẩn danh";
+  const target = scamReportTarget(row);
+  const evidence = String(row.evidence || "Chưa có bằng chứng").replace(/\s+/g, " ").trim();
+  return `Người báo cáo: ${reporter} · Đối tượng: ${target} · Bằng chứng: ${evidence}`;
+}
+
+function scamReportFacts(row: Row) {
+  return [
+    { label: "Người báo cáo", value: displayValue(row.reporter_username || row.reporter_user_id) },
+    { label: "Đối tượng", value: displayValue(scamReportTarget(row)) },
+    { label: "Tài khoản", value: displayValue(row.bank_account) },
+    { label: "Điện thoại", value: displayValue(row.phone) },
+    { label: "Trạng thái", value: statusText(row) }
+  ];
 }
 
 function statusClass(row: Row) {
@@ -833,7 +862,9 @@ function actionBadge(row: Row, table: TableConfig) {
         warn: "Cảnh báo",
         role_update: "Đổi quyền",
         title_update: "Đổi tiêu đề",
-        module_update: "Đổi module"
+        module_update: "Đổi module",
+        scam_report_confirmed: "Xác nhận scam",
+        scam_report_rejected: "Từ chối scam"
       };
       return labels[String(action).toLowerCase()] || String(action).replaceAll("_", " ");
     }
@@ -1448,6 +1479,14 @@ export default function HomePage() {
   }, [lookups.groups, selectedGroup]);
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
+  const scamInboxStats = useMemo(() => {
+    const sourceRows = table?.key === "scam_reports" ? rows : [];
+    return {
+      pending: sourceRows.filter((row) => String(row.status || "pending") === "pending").length,
+      confirmed: sourceRows.filter((row) => row.status === "confirmed").length,
+      rejected: sourceRows.filter((row) => row.status === "rejected").length
+    };
+  }, [rows, table?.key]);
   const selectedGroupProtection = useMemo(() => {
     const row = selectedGroupRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedGroup) || null;
     if (!row) {
@@ -1688,6 +1727,14 @@ export default function HomePage() {
         ...actions.map((action) => ({ key: action, label: actionBadge({ action }, table) }))
       ];
     }
+    if (table?.key === "scam_reports") {
+      return [
+        { key: "pending", label: `Chờ duyệt (${scamInboxStats.pending})` },
+        { key: "", label: "Tất cả" },
+        { key: "confirmed", label: `Đã xác nhận (${scamInboxStats.confirmed})` },
+        { key: "rejected", label: `Từ chối (${scamInboxStats.rejected})` }
+      ];
+    }
     const base = [
       { key: "", label: "Tất cả" },
       { key: "active", label: "Đang chạy" },
@@ -1695,7 +1742,7 @@ export default function HomePage() {
     ];
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
-  }, [rows, table]);
+  }, [rows, scamInboxStats.confirmed, scamInboxStats.pending, scamInboxStats.rejected, table]);
   const commandItems = useMemo(() => [
     { title: "Khôi phục protection", hint: "Mở module đang tắt và khôi phục bảo vệ", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
     { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
@@ -1733,10 +1780,13 @@ export default function HomePage() {
     {
       title: "Duyệt scam",
       desc: "Xem report pending, xác nhận để tạo dữ liệu scam hoặc từ chối report sai.",
-      meta: "Report -> entity",
+      meta: scamInboxStats.pending ? `${scamInboxStats.pending} report chờ duyệt` : "Không có report pending",
       icon: Archive,
       tone: "scam",
-      action: () => goToInsight({ targetLayer: "module:anti_scam", targetTable: "scam_reports" })
+      action: () => {
+        goToInsight({ targetLayer: "module:anti_scam", targetTable: "scam_reports" });
+        setQuickFilter("pending");
+      }
     },
     {
       title: "Test luật",
@@ -1754,7 +1804,7 @@ export default function HomePage() {
       tone: "info",
       action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })
     }
-  ], [healthSummary.groups, messagePools.length, setupIssues.length, videoPools.length]);
+  ], [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
     if (!query) {
@@ -1827,7 +1877,7 @@ export default function HomePage() {
     if (table && (!meta?.passwordRequired || savedPassword)) {
       void loadRows("");
       setSearch("");
-      setQuickFilter("");
+      setQuickFilter(table.key === "scam_reports" ? "pending" : "");
       setQuickTestInput("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2163,6 +2213,29 @@ export default function HomePage() {
     }
   }
 
+  async function writeAuditLog(action: string, row: Row, details: Row = {}) {
+    try {
+      await api("/api/audit_logs", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: row.bot_key || selectedBot || "main",
+          chat_id: row.chat_id || row.group_id || "",
+          actor_user_id: "admin_cp",
+          action,
+          target_user_id: row.target_uid || row.target_username || row.bank_account || row.phone || "",
+          details: JSON.stringify({
+            report_id: row.id,
+            target: scamReportTarget(row),
+            reporter: row.reporter_username || row.reporter_user_id || "",
+            ...details
+          })
+        })
+      });
+    } catch {
+      // Audit log should not block the moderation action.
+    }
+  }
+
   async function confirmScamReport(row: Row) {
     setSaving(true);
     setError("");
@@ -2189,6 +2262,7 @@ export default function HomePage() {
         method: "PATCH",
         body: JSON.stringify({ id: row.id, values: { ...row, status: "confirmed" } })
       });
+      await writeAuditLog("scam_report_confirmed", row, { evidence: row.evidence || "" });
       setNotice("Đã xác nhận report và tạo dữ liệu scam.");
       await loadRows(search);
     } catch (err) {
@@ -2199,8 +2273,22 @@ export default function HomePage() {
   }
 
   async function rejectScamReport(row: Row) {
-    await saveTableRowValues("scam_reports", row, { ...row, status: "rejected" });
-    setNotice("Đã đánh dấu báo cáo là từ chối.");
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/scam_reports", {
+        method: "PATCH",
+        body: JSON.stringify({ id: row.id, values: { ...row, status: "rejected" } })
+      });
+      await writeAuditLog("scam_report_rejected", row, { admin_note: row.admin_note || "" });
+      setNotice("Đã đánh dấu báo cáo là từ chối.");
+      await loadRows(search);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không thể từ chối báo cáo scam.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function selectBot(botKey: string) {
@@ -3033,6 +3121,21 @@ export default function HomePage() {
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
 
+        {table.key === "scam_reports" ? (
+          <section className="scam-inbox">
+            <div className="scam-inbox-copy">
+              <span className="eyebrow">Phase 4 review inbox</span>
+              <h3>Duyệt báo cáo scam</h3>
+              <p>Mặc định chỉ hiện report chờ duyệt. Mở từng report để xác nhận tạo dữ liệu scam, từ chối report sai hoặc sửa thông tin trước khi xác nhận.</p>
+            </div>
+            <div className="scam-inbox-stats">
+              <span className="pending"><b>{scamInboxStats.pending}</b>Chờ duyệt</span>
+              <span className="confirmed"><b>{scamInboxStats.confirmed}</b>Đã xác nhận</span>
+              <span className="rejected"><b>{scamInboxStats.rejected}</b>Từ chối</span>
+            </div>
+          </section>
+        ) : null}
+
         {table.key !== "config" ? (
           <section className="quick-filter-bar">
             {quickFilters.map((filter) => (
@@ -3648,7 +3751,7 @@ export default function HomePage() {
 
             <div className={`card-list ${scanMode}`}>
               {visibleRows.map((row) => (
-                <article className={`data-card ${readOnlyTable ? "audit-card" : ""} ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
+                <article className={`data-card ${readOnlyTable ? "audit-card" : ""} ${table.key === "scam_reports" ? "scam-report-card" : ""} ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
                   {!readOnlyTable ? (
                   <label className="select-card" title="Chọn mục này">
                     <input
@@ -3668,7 +3771,16 @@ export default function HomePage() {
                       </div>
                     </div>
                     <p>{readOnlyTable ? auditLogSummary(row) : previewText(row, table) || "Chưa có nội dung mô tả."}</p>
-                    {readOnlyTable ? (
+                    {table.key === "scam_reports" ? (
+                      <div className="scam-report-facts">
+                        {scamReportFacts(row).map((item) => (
+                          <span key={item.label}>
+                            <b>{item.label}</b>
+                            {item.value}
+                          </span>
+                        ))}
+                      </div>
+                    ) : readOnlyTable ? (
                       <div className="audit-grid">
                         {auditLogRows(row).slice(0, 6).map((item) => (
                           <span key={item.label}>
@@ -3693,6 +3805,11 @@ export default function HomePage() {
                   </button>
                   {!readOnlyTable ? (
                   <div className="card-actions">
+                    {table.key === "scam_reports" && row.status !== "confirmed" ? (
+                      <button type="button" title="Xác nhận scam" disabled={saving} onClick={() => confirmScamReport(row)}>
+                        <ShieldCheck size={16} />
+                      </button>
+                    ) : null}
                     <button type="button" title="Sửa" onClick={() => startEdit(row)}>
                       <Edit3 size={16} />
                     </button>
@@ -3905,6 +4022,22 @@ export default function HomePage() {
                 </div>
                 <h3>{titleFor(selected, table)}</h3>
                 <p>{readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
+                {table.key === "scam_reports" ? (
+                  <section className="scam-review-detail">
+                    <div className="scam-review-facts">
+                      {scamReportFacts(selected).map((item) => (
+                        <span key={item.label}>
+                          <b>{item.label}</b>
+                          {item.value}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="scam-evidence-box">
+                      <b>Bằng chứng</b>
+                      <p>{displayValue(selected.evidence)}</p>
+                    </div>
+                  </section>
+                ) : null}
                 <div className="cockpit-metrics">
                   {cockpitMetrics(selected, table).map((metric) => (
                     <span key={metric.label}>
@@ -3929,6 +4062,12 @@ export default function HomePage() {
                     <button type="button" className="secondary" disabled={saving} onClick={() => confirmScamReport(selected)}>
                       <ShieldCheck size={16} />
                       Xác nhận scam
+                    </button>
+                  ) : null}
+                  {table.key === "scam_reports" && selected.status !== "confirmed" ? (
+                    <button type="button" className="secondary" onClick={() => startEdit(selected)}>
+                      <Edit3 size={16} />
+                      Sửa trước khi xác nhận
                     </button>
                   ) : null}
                   {table.key === "scam_reports" && selected.status !== "rejected" ? (

@@ -1613,6 +1613,69 @@ nav button:hover {
   color: var(--accent-dark);
 }
 
+.scam-inbox {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  border: 1px solid #fecdd3;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff, #fff1f2);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.scam-inbox h3 {
+  margin: 4px 0;
+  font-size: 20px;
+}
+
+.scam-inbox p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.scam-inbox-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.scam-inbox-stats span {
+  min-width: 96px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid #ffe4e6;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.scam-inbox-stats b {
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.scam-inbox-stats .pending b {
+  color: #b54708;
+}
+
+.scam-inbox-stats .confirmed b {
+  color: var(--success);
+}
+
+.scam-inbox-stats .rejected b {
+  color: var(--danger);
+}
+
 .actions {
   display: flex;
   gap: 8px;
@@ -2787,6 +2850,10 @@ button.primary:hover,
   border-left: 4px solid var(--accent);
 }
 
+.data-card.scam-report-card {
+  border-left: 4px solid #e11d48;
+}
+
 .card-list.scan .data-card {
   min-height: 54px;
   grid-template-columns: 26px minmax(0, 1fr) 84px;
@@ -2835,6 +2902,15 @@ button.primary:hover,
 .card-list.scan .card-main p,
 .card-list.scan .action-badge {
   display: none;
+}
+
+.card-list.scan .scam-report-card .card-main p,
+.card-list.scan .scam-report-card .action-badge {
+  display: block;
+}
+
+.card-list.scan .scam-report-card .scam-report-facts {
+  display: grid;
 }
 
 .card-list.scan .audit-card .card-main p,
@@ -3024,6 +3100,35 @@ button.primary:hover,
   font-weight: 700;
 }
 
+.scam-report-facts,
+.scam-review-facts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.scam-report-facts span,
+.scam-review-facts span {
+  min-width: 0;
+  border: 1px solid #ffe4e6;
+  border-radius: 8px;
+  background: #fff7f8;
+  color: #425466;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.scam-report-facts b,
+.scam-review-facts b {
+  display: block;
+  color: #9f1239;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
 .audit-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3152,6 +3257,36 @@ button.primary:hover,
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.scam-review-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.scam-review-detail .scam-review-facts {
+  margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scam-evidence-box {
+  border: 1px solid #fecdd3;
+  border-radius: 10px;
+  background: #fff7f8;
+  padding: 12px;
+}
+
+.scam-evidence-box b {
+  display: block;
+  color: #9f1239;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.scam-evidence-box p {
+  margin: 0;
+  color: #425466;
+  white-space: pre-wrap;
 }
 
 .cockpit-metrics {
@@ -3680,6 +3815,7 @@ textarea:focus {
   .dashboard-strip,
   .bot-context,
   .command-center,
+  .scam-inbox,
   .ops-task-grid,
   .status-dashboard,
   .hero-panel,
@@ -3699,6 +3835,15 @@ textarea:focus {
   .settings-grid,
   .settings-grid.compact,
   .usage-guide {
+    grid-template-columns: 1fr;
+  }
+
+  .scam-inbox-stats {
+    justify-content: flex-start;
+  }
+
+  .scam-report-facts,
+  .scam-review-detail .scam-review-facts {
     grid-template-columns: 1fr;
   }
 
