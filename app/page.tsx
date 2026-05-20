@@ -1509,6 +1509,56 @@ export default function HomePage() {
     { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "module:verification", targetTable: "verification_settings" }) },
     { title: "Tạo mục điều khiển mới", hint: `Tạo trong ${table?.label || "màn hình hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
+  const operationTasks = useMemo(() => [
+    {
+      title: "Setup bot mới",
+      desc: "Tạo bot, nối group, bật module nền và kiểm tra pool nội dung.",
+      meta: setupIssues.length ? `${setupIssues.length} bước còn thiếu` : "Đủ điều kiện nền",
+      icon: Bot,
+      tone: setupIssues.length ? "warning" : "healthy",
+      action: () => goToInsight({ targetLayer: "bot", targetTable: "bots" })
+    },
+    {
+      title: "Bảo vệ group",
+      desc: "Đi thẳng tới group, spam action, keyword, domain và bot allowlist.",
+      meta: `${healthSummary.groups} group trong phạm vi`,
+      icon: ShieldCheck,
+      tone: healthSummary.groups ? "healthy" : "warning",
+      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "groups" })
+    },
+    {
+      title: "Gửi tin định kỳ",
+      desc: "Chọn group, chọn pool tin nhắn/video và đặt giờ chạy đúng flow runtime.",
+      meta: `${messagePools.length + videoPools.length} pool khả dụng`,
+      icon: Sparkles,
+      tone: messagePools.length || videoPools.length ? "healthy" : "warning",
+      action: () => startScheduledMessageFlow()
+    },
+    {
+      title: "Duyệt scam",
+      desc: "Xem report pending, xác nhận để tạo dữ liệu scam hoặc từ chối report sai.",
+      meta: "Report -> entity",
+      icon: Archive,
+      tone: "scam",
+      action: () => goToInsight({ targetLayer: "module:anti_scam", targetTable: "scam_reports" })
+    },
+    {
+      title: "Test luật",
+      desc: "Mở keyword/auto reply/domain rồi paste nội dung để kiểm tra rule khớp.",
+      meta: "Có test nhanh",
+      icon: Activity,
+      tone: "info",
+      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "keywords" })
+    },
+    {
+      title: "Xem nhật ký",
+      desc: "Rà soát ban, warn, xóa tin, đổi module và các thao tác đáng chú ý.",
+      meta: "Audit trail",
+      icon: BarChart3,
+      tone: "info",
+      action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })
+    }
+  ], [healthSummary.groups, messagePools.length, setupIssues.length, videoPools.length]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
     if (!query) {
@@ -2305,8 +2355,8 @@ export default function HomePage() {
         <>
         <section className="command-center">
           <div className="command-copy">
-            <span className="eyebrow">Trung tâm điều khiển live</span>
-            <h2>{commandInsights[0]?.title}</h2>
+            <span className="eyebrow">Operations console</span>
+            <h2>Làm theo việc cần xử lý, không theo bảng Supabase</h2>
             <p>{commandInsights[0]?.body}</p>
             <div className={`severity-ribbon ${commandInsights[0]?.severity}`}>
               <strong>{commandInsights[0]?.severity?.toUpperCase()}</strong>
@@ -2334,6 +2384,33 @@ export default function HomePage() {
                 {item.text}
               </span>
             ))}
+          </div>
+        </section>
+
+        <section className="ops-task-board">
+          <div className="ops-task-head">
+            <div>
+              <span className="eyebrow">Bảng tác vụ admin</span>
+              <h3>Chọn việc cần làm</h3>
+            </div>
+            <button type="button" className="ghost" onClick={() => setCommandOpen(true)}>
+              Mở tìm nhanh
+            </button>
+          </div>
+          <div className="ops-task-grid">
+            {operationTasks.map((task) => {
+              const TaskIcon = task.icon;
+              return (
+                <button key={task.title} type="button" className={`ops-task-card ${task.tone}`} onClick={task.action}>
+                  <span className="ops-task-icon">
+                    <TaskIcon size={19} />
+                  </span>
+                  <strong>{task.title}</strong>
+                  <p>{task.desc}</p>
+                  <small>{task.meta}</small>
+                </button>
+              );
+            })}
           </div>
         </section>
 
