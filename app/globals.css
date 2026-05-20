@@ -560,6 +560,32 @@ nav button:hover {
   color: #ffffff;
 }
 
+.scope-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 16px;
+}
+
+.scope-breadcrumb span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid #d9e0e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #425466;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.scope-breadcrumb b {
+  color: var(--accent-dark);
+}
+
 .scope-bar {
   display: grid;
   grid-template-columns: minmax(180px, 260px) minmax(220px, 340px) minmax(160px, 1fr);
@@ -2879,6 +2905,17 @@ button.primary:hover,
   color: var(--text);
 }
 
+.empty-state ol {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 4px;
+  padding-left: 20px;
+  color: #425466;
+  text-align: left;
+  line-height: 1.4;
+  font-size: 13px;
+}
+
 .editor-panel {
   position: fixed;
   top: 24px;
@@ -3148,12 +3185,42 @@ button.primary:hover,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .editor-title h3 {
   margin: 0;
   font-size: 18px;
+}
+
+.editor-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.editor-title-actions .secondary {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.editor-title-actions .secondary.active {
+  border-color: #9de3d8;
+  background: #ecfdf9;
+  color: var(--accent-dark);
+}
+
+.advanced-hint {
+  margin: 0 0 12px;
+  border: 1px solid #e7edf3;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--muted);
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .fields {
@@ -3174,6 +3241,23 @@ button.primary:hover,
   margin: 0 0 12px;
   color: #111827;
   font-size: 14px;
+}
+
+.field-section h4::after {
+  content: "";
+  display: block;
+  width: 34px;
+  height: 2px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: #9de3d8;
+}
+
+.advanced-section {
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #fbfcfe;
+  padding: 14px;
 }
 
 label {

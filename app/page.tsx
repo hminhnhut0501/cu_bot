@@ -71,8 +71,15 @@ type RuleTestResult = {
   detail: string;
   matched: boolean;
 };
+type EmptyStateConfig = {
+  title: string;
+  body: string;
+  action: string;
+  steps: string[];
+};
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
+const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
 const NAV_GROUPS = [
   { label: "Tổng quan", keys: ["bot_metrics", "audit_logs"] },
@@ -778,9 +785,27 @@ function actionBadge(row: Row, table: TableConfig) {
 function detailRows(row: Row, table: TableConfig) {
   const keys = Array.from(new Set([...table.summaryFields, "bot_key", "group_id", "chat_id", "match", "action", "reason", "status", "enabled"]));
   return keys
-    .filter((key) => row[key] !== undefined && row[key] !== null && row[key] !== "")
+    .filter((key) => !fieldIsAdvanced(table.key, key) && row[key] !== undefined && row[key] !== null && row[key] !== "")
     .slice(0, 10)
     .map((key) => ({ key, label: fieldByKey(table, key)?.label || key.replaceAll("_", " "), value: displayValue(row[key]) }));
+}
+
+function advancedDetailRows(row: Row, table: TableConfig) {
+  const keys = Array.from(new Set(["id", "created_at", "updated_at", "settings", "key", ...Object.keys(row)]));
+  return keys
+    .filter((key) => fieldIsAdvanced(table.key, key) && row[key] !== undefined && row[key] !== null && row[key] !== "")
+    .slice(0, 12)
+    .map((key) => ({ key, label: fieldByKey(table, key)?.label || key.replaceAll("_", " "), value: displayValue(row[key]) }));
+}
+
+function fieldIsAdvanced(tableKey: string, fieldKey: string) {
+  if (ADVANCED_FIELD_KEYS.has(fieldKey)) {
+    return true;
+  }
+  if (tableKey === "config" && fieldKey === "key") {
+    return true;
+  }
+  return false;
 }
 
 function rowMatchesQuickFilter(row: Row, filter: string) {
@@ -1000,48 +1025,56 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
   return null;
 }
 
-function emptyStateFor(tableKey: string) {
-  const states: Record<string, { title: string; body: string; action: string }> = {
+function emptyStateFor(tableKey: string): EmptyStateConfig {
+  const states: Record<string, EmptyStateConfig> = {
     messages: {
       title: "Chưa có kho tin nhắn",
       body: "Tạo nhóm nội dung đầu tiên, paste nhiều dòng rồi chọn group sẽ dùng pool này.",
-      action: "Tạo tin nhắn"
+      action: "Tạo tin nhắn",
+      steps: ["Bấm Nhập nhanh", "Paste mỗi dòng một tin", "Đặt cùng Nhóm nội dung để group dùng pool này"]
     },
     video_messages: {
       title: "Chưa có kho video",
       body: "Bắt đầu bằng một video source, sau đó bật random mode và chọn group output.",
-      action: "Tạo video source"
+      action: "Tạo video source",
+      steps: ["Lấy source chat ID", "Nhập message ID của video", "Gán Nhóm video cho group"]
     },
     keywords: {
       title: "Chưa có rule từ khóa",
       body: "Áp dụng preset chống scam hoặc paste danh sách từ khóa để bot tự xóa/warn tin vi phạm.",
-      action: "Tạo rule đầu tiên"
+      action: "Tạo rule đầu tiên",
+      steps: ["Chọn hành động mặc định", "Paste keyword hàng loạt", "Dùng Test nhanh để kiểm tra rule"]
     },
     auto_replies: {
       title: "Chưa có auto reply",
       body: "Tạo trigger như giá, support, rule để bot trả lời tự động trong group hoặc inbox.",
-      action: "Tạo auto reply"
+      action: "Tạo auto reply",
+      steps: ["Nhập câu kích hoạt", "Nhập nội dung trả lời", "Test câu hỏi mẫu trước khi bật"]
     },
     scheduled_posts: {
       title: "Chưa có lịch gửi tin",
       body: "Tạo automation đăng bài định kỳ, chọn pool nội dung và giờ chạy.",
-      action: "Tạo lịch gửi tin"
+      action: "Tạo lịch gửi tin",
+      steps: ["Mở flow đúng từ Group", "Chọn message/video pool", "Đặt giờ bắt đầu và kết thúc"]
     },
     bots: {
       title: "Chưa có bot",
       body: "Thêm token bot trước, sau đó nối group và bật module cần vận hành.",
-      action: "Thêm bot"
+      action: "Thêm bot",
+      steps: ["Nhập bot_key và token", "Đặt trạng thái active", "Sau khi lưu, nối group cho bot"]
     },
     groups: {
       title: "Chưa có group/kênh",
       body: "Thêm group ID, kiểm tra quyền admin rồi bật module cho phạm vi này.",
-      action: "Thêm group"
+      action: "Thêm group",
+      steps: ["Nhập Group ID dạng -100...", "Bật group", "Kiểm tra bot có quyền xóa tin/ban/mute"]
     }
   };
   return states[tableKey] || {
     title: "Chưa có mục vận hành nào",
     body: "Bắt đầu bằng preset khuyên dùng hoặc tạo mục điều khiển đầu tiên cho phạm vi này.",
-    action: "Tạo mục đầu tiên"
+    action: "Tạo mục đầu tiên",
+    steps: ["Bấm Thêm", "Điền các trường chính", "Chỉ mở Advanced khi cần sửa dữ liệu kỹ thuật"]
   };
 }
 
@@ -1235,6 +1268,7 @@ export default function HomePage() {
   const [workMode, setWorkMode] = useState<WorkMode>("overview");
   const [quickFilter, setQuickFilter] = useState("");
   const [quickTestInput, setQuickTestInput] = useState("");
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
@@ -1785,6 +1819,7 @@ export default function HomePage() {
     }
     setDraft(nextDraft);
     setWorkMode("edit");
+    setShowAdvancedFields(false);
     setNotice("");
   }
 
@@ -1811,6 +1846,7 @@ export default function HomePage() {
     });
     setBulkOpen(false);
     setWorkMode("edit");
+    setShowAdvancedFields(false);
     setNotice("Flow random tin hẹn giờ đã mở. Chọn group, chọn Nhóm nội dung, đặt giờ rồi lưu.");
   }
 
@@ -1846,6 +1882,7 @@ export default function HomePage() {
     setSelected(row);
     setDraft(draftFromRow(row));
     setWorkMode("edit");
+    setShowAdvancedFields(false);
     setNotice("");
   }
 
@@ -1853,12 +1890,14 @@ export default function HomePage() {
     setSelected(row);
     setDraft({});
     setWorkMode("operate");
+    setShowAdvancedFields(false);
     setNotice("");
   }
 
   function closeFocusedPanel() {
     setDraft({});
     setSelected(null);
+    setShowAdvancedFields(false);
     setWorkMode(activeLayer === "overview" ? "overview" : "operate");
   }
 
@@ -1989,6 +2028,7 @@ export default function HomePage() {
     setSelectedGroup("");
     setSelected(null);
     setDraft({});
+    setShowAdvancedFields(false);
     setSelectedIds(new Set());
   }
 
@@ -2178,19 +2218,32 @@ export default function HomePage() {
   const showPrimaryTask = activeLayer !== "modules";
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
+  const scopeCrumbs = useMemo(() => [
+    { label: "Bot", value: currentBot?.name || selectedBot || "Tất cả bot" },
+    { label: "Group", value: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : selectedGroup || "Tất cả group" },
+    { label: "Module", value: activeModuleHub.title },
+    { label: "Việc", value: table?.label || "Chưa chọn" }
+  ], [activeModuleHub.title, currentBot, selectedBot, selectedGroup, selectedGroupRow, table?.label]);
   const editorFieldGroups = useMemo(() => {
     if (!table) {
       return [];
     }
     const groups = groupedFields(table);
+    let visibleGroups = groups;
     if (activeLayer === "module:automation" && table.key === "groups") {
       const allowed = new Set(["Phạm vi", "Thông tin nhóm", "Lịch gửi tin", "Video", "Ghi chú"]);
-      return groups
+      visibleGroups = groups
         .map(([section, fields]) => [section, fields.filter((field) => allowed.has(section))] as [string, FieldConfig[]])
         .filter(([, fields]) => fields.length);
     }
-    return groups;
-  }, [activeLayer, table]);
+    return visibleGroups
+      .map(([section, fields]) => {
+        const nextFields = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key));
+        const sectionName = fields.every((field) => fieldIsAdvanced(table.key, field.key)) ? "Advanced" : section;
+        return [sectionName, nextFields] as [string, FieldConfig[]];
+      })
+      .filter(([, fields]) => fields.length);
+  }, [activeLayer, showAdvancedFields, table]);
   const menuConfigRows = useMemo(() => {
     const map = new Map<string, Row>();
     for (const row of scopedConfigRows) {
@@ -2334,6 +2387,15 @@ export default function HomePage() {
               </button>
             ) : null}
           </div>
+        </section>
+
+        <section className="scope-breadcrumb" aria-label="Phạm vi vận hành hiện tại">
+          {scopeCrumbs.map((crumb) => (
+            <span key={crumb.label}>
+              <b>{crumb.label}</b>
+              {crumb.value}
+            </span>
+          ))}
         </section>
 
         <section className="workflow-mode-bar" aria-label="Chế độ làm việc">
@@ -3315,6 +3377,11 @@ export default function HomePage() {
                   <ShieldCheck size={28} />
                   <strong>{emptyState.title}</strong>
                   <span>{emptyState.body}</span>
+                  <ol>
+                    {emptyState.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
                   {!readOnlyTable ? (
                   <button type="button" className="primary" onClick={startCreate}>
                     <Plus size={16} />
@@ -3331,11 +3398,25 @@ export default function HomePage() {
               {Object.keys(draft).length ? (
               <form onSubmit={save}>
                 <div className="editor-title">
-                  <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
-                  <button type="button" className="icon-button" onClick={closeFocusedPanel}>
-                    <X size={17} />
-                  </button>
+                  <div>
+                    <span className="eyebrow">Form vận hành</span>
+                    <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
+                  </div>
+                  <div className="editor-title-actions">
+                    <button type="button" className={showAdvancedFields ? "secondary active" : "secondary"} onClick={() => setShowAdvancedFields((value) => !value)}>
+                      <SlidersHorizontal size={16} />
+                      Advanced
+                    </button>
+                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
+                      <X size={17} />
+                    </button>
+                  </div>
                 </div>
+                {!showAdvancedFields ? (
+                  <div className="advanced-hint">
+                    Đang ẩn field kỹ thuật như ID, timestamp, JSON settings và raw config key.
+                  </div>
+                ) : null}
                 <div className="fields">
                   {editorFieldGroups.map(([section, fields]) => (
                     <section className="field-section" key={section}>
@@ -3445,9 +3526,15 @@ export default function HomePage() {
                     <span className="eyebrow">Buồng điều khiển vận hành</span>
                     <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
                   </div>
-                  <button type="button" className="icon-button" onClick={closeFocusedPanel}>
-                    <X size={17} />
-                  </button>
+                  <div className="editor-title-actions">
+                    <button type="button" className={showAdvancedFields ? "secondary active" : "secondary"} onClick={() => setShowAdvancedFields((value) => !value)}>
+                      <SlidersHorizontal size={16} />
+                      Advanced
+                    </button>
+                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
+                      <X size={17} />
+                    </button>
+                  </div>
                 </div>
                 <h3>{titleFor(selected, table)}</h3>
                 <p>{readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả cho mục này."}</p>
@@ -3500,6 +3587,20 @@ export default function HomePage() {
                     ))}
                   </div>
                 </section>
+                {showAdvancedFields && !readOnlyTable ? (
+                  <section className="inspector-section advanced-section">
+                    <h4>Advanced</h4>
+                    <div className="inspector-grid">
+                      {advancedDetailRows(selected, table).map((item) => (
+                        <span key={item.key}>
+                          <b>{item.label}</b>
+                          {item.value}
+                        </span>
+                      ))}
+                      {!advancedDetailRows(selected, table).length ? <span>Không có field kỹ thuật trong mục này.</span> : null}
+                    </div>
+                  </section>
+                ) : null}
                 {!readOnlyTable ? (
                 <>
                 <section className="inspector-section">
