@@ -1671,6 +1671,64 @@ nav button:hover {
   color: var(--accent-dark);
 }
 
+.audit-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.audit-console h3 {
+  margin: 4px 0;
+  font-size: 20px;
+}
+
+.audit-console p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.audit-console-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(86px, auto));
+  gap: 8px;
+}
+
+.audit-console-stats span {
+  min-width: 88px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.audit-console-stats b {
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.audit-console-stats .critical b {
+  color: var(--danger);
+}
+
+.audit-console-stats .warning b {
+  color: #b54708;
+}
+
 .scam-inbox {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2905,7 +2963,8 @@ button.primary:hover,
 
 .data-card.audit-card {
   grid-template-columns: minmax(0, 1fr);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid #2563eb;
+  background: #fbfdff;
 }
 
 .data-card.scam-report-card {
@@ -2928,7 +2987,7 @@ button.primary:hover,
   grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   border: 1px solid #e7edf3;
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid #2563eb;
   border-radius: 10px;
   padding: 14px;
 }
@@ -3211,6 +3270,59 @@ button.primary:hover,
   margin-bottom: 3px;
   color: var(--text);
   font-size: 11px;
+}
+
+.audit-log-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  padding-left: 18px;
+}
+
+.audit-marker {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.audit-log-row.critical .audit-marker {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px rgba(180, 35, 24, 0.12);
+}
+
+.audit-log-row.warning .audit-marker {
+  background: #f79009;
+  box-shadow: 0 0 0 4px rgba(247, 144, 9, 0.14);
+}
+
+.audit-log-row.info .audit-marker {
+  background: #2e90fa;
+}
+
+.audit-log-row span:not(.audit-marker) {
+  min-width: 0;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px 10px;
+  color: #425466;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.audit-log-row b {
+  display: block;
+  color: #1d4ed8;
+  font-size: 11px;
+  margin-bottom: 3px;
 }
 
 .card-actions {
@@ -3873,6 +3985,8 @@ textarea:focus {
   .dashboard-strip,
   .bot-context,
   .command-center,
+  .audit-console,
+  .audit-console-stats,
   .scam-inbox,
   .production-readiness,
   .readiness-grid,
@@ -3903,7 +4017,8 @@ textarea:focus {
   }
 
   .scam-report-facts,
-  .scam-review-detail .scam-review-facts {
+  .scam-review-detail .scam-review-facts,
+  .audit-log-row {
     grid-template-columns: 1fr;
   }
 

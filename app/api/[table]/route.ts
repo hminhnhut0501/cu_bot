@@ -195,7 +195,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     const search = request.nextUrl.searchParams.get("search")?.trim();
     const supabaseAdmin = getSupabaseAdmin();
-    let query = dynamicTable(supabaseAdmin, params.table).select("*").order("id", { ascending: true });
+    let query = dynamicTable(supabaseAdmin, params.table)
+      .select("*")
+      .order(params.table === "audit_logs" ? "created_at" : "id", { ascending: params.table !== "audit_logs" });
     query = applyScopeFilters(query, config, request);
     if (search) {
       const searchFields = config.fields.filter((field) => field.type === "text" || field.type === "textarea").slice(0, 5);

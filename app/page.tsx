@@ -753,13 +753,37 @@ function auditLogRows(row: Row) {
   ];
 }
 
+function auditLogEssentials(row: Row) {
+  const details = parseDetails(row.details);
+  const content = details.message || details.text || details.content || details.deleted_text || details.raw || row.details;
+  return [
+    { label: "Người thực hiện", value: displayValue(row.actor_user_id || details.actor_user_id || details.actor_username) },
+    { label: "Đối tượng", value: displayValue(row.target_user_id || details.target_user_id || details.target_username) },
+    { label: "Group/Kênh", value: displayValue(row.chat_id || details.chat_id || details.group_id) },
+    { label: "Nội dung", value: displayValue(content) }
+  ];
+}
+
+function auditLogSeverity(row: Row) {
+  const action = String(row.action || "").toLowerCase();
+  if (["ban", "kick", "mute", "scam_report_confirmed"].includes(action)) {
+    return "critical";
+  }
+  if (["delete_message", "warn", "scam_report_rejected"].includes(action)) {
+    return "warning";
+  }
+  if (["module_update", "role_update", "title_update"].includes(action)) {
+    return "info";
+  }
+  return "neutral";
+}
+
 function auditLogSummary(row: Row) {
   const details = auditLogRows(row);
   const time = details.find((item) => item.label === "Thời gian")?.value;
   const actor = details.find((item) => item.label === "Người thực hiện")?.value;
   const target = details.find((item) => item.label === "Đối tượng")?.value;
-  const content = details.find((item) => item.label === "Nội dung")?.value;
-  return `Lúc ${time} · Người thực hiện: ${actor} · Đối tượng: ${target} · Nội dung: ${content}`;
+  return `${time} · ${actor} -> ${target}`;
 }
 
 function metricLabel(key: string) {
@@ -1514,6 +1538,18 @@ export default function HomePage() {
     () => lookups.scamReports.filter((row) => String(row.status || "pending") === "pending").length,
     [lookups.scamReports]
   );
+  const auditStats = useMemo(() => {
+    const sourceRows = table?.key === "audit_logs" ? rows : [];
+    const critical = sourceRows.filter((row) => auditLogSeverity(row) === "critical").length;
+    const warning = sourceRows.filter((row) => auditLogSeverity(row) === "warning").length;
+    const latest = sourceRows[0];
+    return {
+      total: sourceRows.length,
+      critical,
+      warning,
+      latestTime: latest ? formatDateTime(latest.created_at) : "Chưa có log"
+    };
+  }, [rows, table?.key]);
   const selectedGroupProtection = useMemo(() => {
     const row = selectedGroupRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedGroup) || null;
     if (!row) {
@@ -3209,6 +3245,22 @@ export default function HomePage() {
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
 
+        {table.key === "audit_logs" ? (
+          <section className="audit-console">
+            <div>
+              <span className="eyebrow">Operational audit</span>
+              <h3>Nhật ký mới nhất nằm trên đầu</h3>
+              <p>Danh sách chỉ hiện thời gian, hành động, người thực hiện, đối tượng và group. Mở inspector khi cần xem nội dung/raw details.</p>
+            </div>
+            <div className="audit-console-stats">
+              <span><b>{auditStats.total}</b>Tổng log</span>
+              <span className="critical"><b>{auditStats.critical}</b>Nghiêm trọng</span>
+              <span className="warning"><b>{auditStats.warning}</b>Cần chú ý</span>
+              <span><b>{auditStats.latestTime}</b>Mới nhất</span>
+            </div>
+          </section>
+        ) : null}
+
         {table.key === "scam_reports" ? (
           <section className="scam-inbox">
             <div className="scam-inbox-copy">
@@ -3869,8 +3921,9 @@ export default function HomePage() {
                         ))}
                       </div>
                     ) : readOnlyTable ? (
-                      <div className="audit-grid">
-                        {auditLogRows(row).slice(0, 6).map((item) => (
+                      <div className={`audit-log-row ${auditLogSeverity(row)}`}>
+                        <span className="audit-marker" />
+                        {auditLogEssentials(row).slice(0, 4).map((item) => (
                           <span key={item.label}>
                             <b>{item.label}</b>
                             {item.value}
