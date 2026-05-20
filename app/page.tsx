@@ -140,6 +140,12 @@ const GROUP_PRESETS = [
     }
   }
 ];
+const SCHEDULE_STEPS = [
+  { title: "Chọn group", desc: "Xác định group/kênh sẽ nhận tin định kỳ." },
+  { title: "Chọn pool", desc: "Gán message_pool hoặc video_pool đang có nội dung." },
+  { title: "Preview nội dung", desc: "Xem trước vài tin/video bot có thể gửi." },
+  { title: "Đặt giờ", desc: "Lưu daily/video window trên cấu hình group." }
+];
 const bulkTables = new Set(["messages", "keywords", "video_messages", "scam_entities", "domain_blacklist", "link_shorteners", "auto_replies"]);
 const NAV_GROUPS = [
   { label: "Tổng quan", keys: ["bot_metrics", "audit_logs"] },
@@ -1180,6 +1186,22 @@ function dangerousGroupChanges(values: Row) {
   return issues;
 }
 
+function poolRows(rows: Row[], pool: string) {
+  const targetPool = String(pool || "").trim();
+  if (!targetPool) {
+    return [];
+  }
+  return rows.filter((row) => row.enabled !== false && String(row.pool || "").trim() === targetPool);
+}
+
+function poolPreviewText(row: Row, type: "message" | "video") {
+  if (type === "video") {
+    const source = [row.from_chat_id, row.message_id].filter(Boolean).join(" / ");
+    return row.caption || source || "Video chưa có caption/source rõ ràng";
+  }
+  return row.message || row.text || row.content || "Tin nhắn chưa có nội dung";
+}
+
 function splitBulkLines(text: string) {
   return text
     .split(/\r?\n/)
@@ -1456,6 +1478,23 @@ export default function HomePage() {
       warnings
     };
   }, [selectedGroup, selectedGroupRow, table?.key, visibleRows]);
+  const scheduleSubject = useMemo(() => {
+    if (table?.key === "groups" && Object.keys(draft).length) {
+      return draft;
+    }
+    return selectedGroupRow || (table?.key === "groups" ? visibleRows[0] : null) || {};
+  }, [draft, selectedGroupRow, table?.key, visibleRows]);
+  const scheduleMessagePool = String(scheduleSubject.message_pool || messagePools[0] || "");
+  const scheduleVideoPool = String(scheduleSubject.video_pool || videoPools[0] || "");
+  const scheduleMessagePreview = useMemo(() => poolRows(lookups.messages, scheduleMessagePool), [lookups.messages, scheduleMessagePool]);
+  const scheduleVideoPreview = useMemo(() => poolRows(lookups.videos, scheduleVideoPool), [lookups.videos, scheduleVideoPool]);
+  const scheduleIssues = useMemo(() => [
+    !lookups.groups.length ? "Chưa có group/kênh để đặt lịch." : "",
+    !scheduleMessagePool ? "Chưa chọn message pool." : "",
+    scheduleMessagePool && !scheduleMessagePreview.length ? `Pool tin nhắn "${scheduleMessagePool}" đang rỗng hoặc toàn mục tắt.` : "",
+    scheduleSubject.video_enabled && scheduleVideoPool && !scheduleVideoPreview.length ? `Pool video "${scheduleVideoPool}" đang rỗng hoặc toàn mục tắt.` : "",
+    scheduleSubject.daily_enabled === false ? "Gửi tin hằng ngày đang tắt trên group này." : ""
+  ].filter(Boolean), [lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.daily_enabled, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -1952,20 +1991,26 @@ export default function HomePage() {
     if (!groupTable) {
       return;
     }
+    const groupRow = selectedGroup
+      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup)
+      : table?.key === "groups"
+        ? visibleRows[0]
+        : null;
     setActiveLayer("module:automation");
     setActiveModule("automation");
     setActiveKey("groups");
-    setSelected(null);
+    setSelected(groupRow || null);
     setSelectedIds(new Set());
     setDraft({
-      ...emptyValues(groupTable),
+      ...(groupRow ? draftFromRow(groupRow) : emptyValues(groupTable)),
       bot_key: selectedBot || "main",
-      group_id: selectedGroup || "",
+      group_id: selectedGroup || groupRow?.group_id || "",
       daily_enabled: true,
-      daily_window_start: "09:00",
-      daily_window_end: "09:00",
-      send_if_silent: true,
-      message_pool: messagePools[0] || "default",
+      daily_window_start: groupRow?.daily_window_start || "09:00",
+      daily_window_end: groupRow?.daily_window_end || "09:00",
+      send_if_silent: groupRow?.send_if_silent ?? true,
+      message_pool: groupRow?.message_pool || messagePools[0] || "default",
+      video_pool: groupRow?.video_pool || videoPools[0] || "",
       enabled: true
     });
     setBulkOpen(false);
@@ -2275,6 +2320,16 @@ export default function HomePage() {
     setActiveGroupTab(tab);
     setWorkMode("edit");
     setNotice("Đã áp dụng preset vào form. Kiểm tra lại rồi bấm Lưu để cập nhật group.");
+  }
+
+  function goToScheduleContent(tableKey: "messages" | "video_messages") {
+    setActiveLayer("module:automation");
+    setActiveModule("automation");
+    setActiveKey(tableKey);
+    setWorkMode("operate");
+    setSelected(null);
+    setDraft({});
+    setShowAdvancedFields(false);
   }
 
   function startGroupProtectionFlow() {
@@ -2820,17 +2875,80 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "automation" ? (
+          <>
             <section className="module-flow-launcher">
               <div>
-                <span>Workflow nhanh</span>
-                <h3>Gửi tin hẹn giờ cho group</h3>
-                <p>Đi theo một flow duy nhất: chọn bot, chọn group, nhập nội dung, đặt giờ rồi lưu. Không cần tự tìm nhiều bảng kỹ thuật.</p>
+                <span>Phase 3 workflow</span>
+                <h3>Gửi tin định kỳ không cần nhớ bảng Supabase</h3>
+                <p>Chọn group, chọn pool, xem preview nội dung, đặt giờ rồi lưu vào cấu hình group runtime.</p>
               </div>
               <button type="button" className="primary" onClick={startScheduledMessageFlow}>
                 <Plus size={17} />
-                Tạo lịch gửi tin
+                Mở wizard lịch gửi
               </button>
             </section>
+            <section className="schedule-wizard">
+              <div className="schedule-steps">
+                {SCHEDULE_STEPS.map((step, index) => (
+                  <span key={step.title} className={index === 0 || (index === 1 && scheduleMessagePool) || (index === 2 && scheduleMessagePreview.length) ? "done" : ""}>
+                    <b>{index + 1}</b>
+                    <strong>{step.title}</strong>
+                    {step.desc}
+                  </span>
+                ))}
+              </div>
+              <div className="schedule-preview-grid">
+                <article className={scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
+                  <h4>Trạng thái lịch</h4>
+                  <strong>{scheduleIssues.length ? `${scheduleIssues.length} cần xử lý` : "Sẵn sàng lưu"}</strong>
+                  <p>
+                    Group: {scheduleSubject.group_name || scheduleSubject.group_id || selectedGroup || "Chưa chọn"} ·
+                    Giờ: {scheduleSubject.daily_window_start || "09:00"} - {scheduleSubject.daily_window_end || "09:00"}
+                  </p>
+                  {scheduleIssues.length ? (
+                    <ul>
+                      {scheduleIssues.map((issue) => (
+                        <li key={issue}>{issue}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </article>
+                <article className="pool-preview">
+                  <div>
+                    <h4>Pool tin nhắn</h4>
+                    <button type="button" className="ghost" onClick={() => goToScheduleContent("messages")}>Mở kho tin</button>
+                  </div>
+                  <strong>{scheduleMessagePool || "Chưa chọn pool"}</strong>
+                  <p>{scheduleMessagePreview.length} tin đang bật trong pool này</p>
+                  <div className="pool-preview-list">
+                    {scheduleMessagePreview.slice(0, 3).map((row) => (
+                      <span key={row.id || row.message}>{poolPreviewText(row, "message")}</span>
+                    ))}
+                    {!scheduleMessagePreview.length ? <span>Chưa có tin để preview.</span> : null}
+                  </div>
+                </article>
+                <article className="pool-preview">
+                  <div>
+                    <h4>Pool video</h4>
+                    <button type="button" className="ghost" onClick={() => goToScheduleContent("video_messages")}>Mở kho video</button>
+                  </div>
+                  <strong>{scheduleVideoPool || "Chưa chọn pool"}</strong>
+                  <p>{scheduleVideoPreview.length} video đang bật trong pool này</p>
+                  <div className="pool-preview-list">
+                    {scheduleVideoPreview.slice(0, 3).map((row) => (
+                      <span key={row.id || `${row.from_chat_id}-${row.message_id}`}>{poolPreviewText(row, "video")}</span>
+                    ))}
+                    {!scheduleVideoPreview.length ? <span>Chưa có video để preview.</span> : null}
+                  </div>
+                </article>
+              </div>
+              <div className="schedule-actions">
+                <button type="button" className="secondary" onClick={() => goToScheduleContent("messages")}>Thêm tin vào pool</button>
+                <button type="button" className="secondary" onClick={() => goToScheduleContent("video_messages")}>Thêm video vào pool</button>
+                <button type="button" className="primary" onClick={startScheduledMessageFlow}>Đặt giờ trên group</button>
+              </div>
+            </section>
+          </>
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
