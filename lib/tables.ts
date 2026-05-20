@@ -60,7 +60,7 @@ export const TABLES: TableConfig[] = [
   {
     key: "config",
     label: "Cài đặt",
-    description: "Các cài đặt chung: cảnh báo, captcha, bio link, thời gian xóa tin.",
+    description: "Cài đặt hệ thống dùng chung. Cài đặt riêng của module được quản lý trong từng module.",
     titleField: "key",
     summaryFields: ["bot_key", "value", "enabled"],
     fields: [botKey, { key: "key", label: "Mã cài đặt", type: "text", required: true }, { key: "value", label: "Giá trị", type: "textarea" }, enabled, notes]

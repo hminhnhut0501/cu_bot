@@ -1,4 +1,5 @@
 import logging
+import json
 import random
 import re
 import threading
@@ -136,7 +137,14 @@ class ModerationModule(BotModule):
             self.safe_reply(message, "Hãy reply thành viên cần cảnh báo hoặc ghi /warn <user_id>.")
             return
         target_user = getattr(getattr(message, "reply_to_message", None), "from_user", None)
-        count = self.warn_user(message.chat.id, target_id, reason=self.command_reason(message), user=target_user)
+        count = self.warn_user(
+            message.chat.id,
+            target_id,
+            reason=self.command_reason(message),
+            user=target_user,
+            actor_user_id=getattr(message.from_user, "id", ""),
+            trigger="admin_command",
+        )
         self.safe_reply(message, f"Đã cảnh báo user {target_id}. Tổng cảnh báo: {count}.")
 
     def handle_ban_command(self, message):
@@ -144,7 +152,13 @@ class ModerationModule(BotModule):
         if not target_id:
             self.safe_reply(message, "Hãy reply thành viên cần cấm hoặc ghi /ban <user_id>.")
             return
-        self.ban_user(message.chat.id, target_id)
+        self.ban_user(
+            message.chat.id,
+            target_id,
+            reason=self.command_reason(message) or "Admin command",
+            actor_user_id=getattr(message.from_user, "id", ""),
+            trigger="admin_command",
+        )
         self.safe_reply(message, f"Đã cấm user {target_id}.")
 
     def handle_unban_command(self, message):
@@ -155,6 +169,13 @@ class ModerationModule(BotModule):
         try:
             self.bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
             self.state.reset_warnings(message.chat.id, target_id)
+            self.audit(
+                message.chat.id,
+                "unban",
+                target_user_id=target_id,
+                actor_user_id=getattr(message.from_user, "id", ""),
+                details=self.audit_details(reason="Admin command", trigger="admin_command"),
+            )
             self.safe_reply(message, f"Đã bỏ cấm user {target_id}.")
         except Exception as exc:
             self.safe_reply(message, f"Không thể bỏ cấm: {exc}")
@@ -224,7 +245,14 @@ class ModerationModule(BotModule):
 
         if self.detect_bio_link(message.chat.id, message.from_user):
             if self.setting_bool(message.chat.id, "bio_link_delete_message", True):
-                self.delete_violation_message(message, "bio_link")
+                bio = self.get_user_bio(message.from_user.id)
+                self.delete_violation_message(
+                    message,
+                    "bio_link",
+                    reason_label="Bio có link Telegram",
+                    bio_link=self.extract_bio_link(bio),
+                    bio_text=self.truncate_text(bio, 500),
+                )
             return
         if self.detect_duplicate_message(message):
             return
@@ -262,7 +290,7 @@ class ModerationModule(BotModule):
         count = self.state.add_user_message(message.chat.id, message.from_user.id, window)
         if count <= limit:
             return False
-        self.delete_violation_message(message, "spam")
+        self.delete_violation_message(message, "spam", reason_label="Spam quá ngưỡng")
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
@@ -284,7 +312,7 @@ class ModerationModule(BotModule):
         if count < limit:
             return False
 
-        self.delete_violation_message(message, "duplicate_message")
+        self.delete_violation_message(message, "duplicate_message", reason_label="Tin nhắn trùng lặp nhiều lần")
         action = self.setting(message.chat.id, "duplicate_message_action", "warn")
         reason = self.setting(
             message.chat.id,
@@ -321,11 +349,11 @@ class ModerationModule(BotModule):
         if count <= limit:
             return False
 
-        self.delete_violation_message(message, f"{content_type}_spam")
+        self.delete_violation_message(message, f"{content_type}_spam", reason_label=f"Gửi quá nhiều {content_type}")
         action = self.setting(message.chat.id, "media_spam_action", "restrict")
         reason = f"Gửi quá nhiều {content_type} trong thời gian ngắn."
         if action == "restrict":
-            self.restrict_user_for_spam(message.chat.id, message.from_user.id)
+            self.restrict_user_for_spam(message.chat.id, message.from_user.id, reason=reason, trigger=f"{content_type}_spam")
             self.notify_temporary_restrict(message.chat.id, message.from_user, reason)
             return True
 
@@ -345,8 +373,16 @@ class ModerationModule(BotModule):
             matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
             if matched:
                 action = row.get("action") or "warn"
-                self.delete_violation_message(message, f"keyword:{keyword}:before_{action}")
-                self.apply_action(message, action, row.get("reason") or "Từ khóa cấm.")
+                reason = row.get("reason") or "Từ khóa cấm."
+                self.delete_violation_message(
+                    message,
+                    f"keyword:{keyword}:before_{action}",
+                    reason_label=reason,
+                    matched_keyword=keyword,
+                    match_type=match_type,
+                    rule_action=action,
+                )
+                self.apply_action(message, action, reason, trigger="keyword")
                 return True
         return False
 
@@ -362,15 +398,29 @@ class ModerationModule(BotModule):
                 blocked = (row.get("domain") or "").lower().strip()
                 if blocked and (domain == blocked or domain.endswith("." + blocked)):
                     action = row.get("action") or "delete"
-                    self.delete_violation_message(message, f"domain:{domain}:before_{action}")
-                    self.apply_action(message, action, row.get("notes") or "Link scam/phishing bị chặn.")
+                    reason = row.get("notes") or "Link scam/phishing bị chặn."
+                    self.delete_violation_message(
+                        message,
+                        f"domain:{domain}:before_{action}",
+                        reason_label=reason,
+                        blocked_domain=domain,
+                        rule_action=action,
+                    )
+                    self.apply_action(message, action, reason, trigger="domain_blacklist")
                     return True
             for row in self.store.enabled_rows("link_shorteners"):
                 blocked = (row.get("domain") or "").lower().strip()
                 if blocked and (domain == blocked or domain.endswith("." + blocked)):
                     action = row.get("action") or "warn"
-                    self.delete_violation_message(message, f"shortener:{domain}:before_{action}")
-                    self.apply_action(message, action, row.get("notes") or "Không dùng link rút gọn trong nhóm.")
+                    reason = row.get("notes") or "Không dùng link rút gọn trong nhóm."
+                    self.delete_violation_message(
+                        message,
+                        f"shortener:{domain}:before_{action}",
+                        reason_label=reason,
+                        blocked_domain=domain,
+                        rule_action=action,
+                    )
+                    self.apply_action(message, action, reason, trigger="link_shortener")
                     return True
         return False
 
@@ -392,9 +442,9 @@ class ModerationModule(BotModule):
         )
         if not forwarded:
             return False
-        self.delete_violation_message(message, "forwarded_message")
+        self.delete_violation_message(message, "forwarded_message", reason_label="Tin nhắn được forward", **self.forward_audit_details(message))
         reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
-        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason)
+        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason, trigger="forwarded_message")
         return True
 
     def detect_inline_keyboard(self, message):
@@ -403,8 +453,8 @@ class ModerationModule(BotModule):
         markup = getattr(message, "reply_markup", None)
         if not markup or not getattr(markup, "keyboard", None) and not getattr(markup, "inline_keyboard", None):
             return False
-        self.delete_violation_message(message, "inline_keyboard")
-        self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.")
+        self.delete_violation_message(message, "inline_keyboard", reason_label="Tin nhắn có nút bấm")
+        self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.", trigger="inline_keyboard")
         return True
 
     def detect_bio_link(self, chat_id, user, force=False, notify=True):
@@ -424,7 +474,8 @@ class ModerationModule(BotModule):
                 return cached
 
         bio = self.get_user_bio(user.id)
-        has_link = bool(bio and self.BIO_LINK_PATTERN.search(bio))
+        bio_link = self.extract_bio_link(bio)
+        has_link = bool(bio_link)
         self.state.set_bio_scan(chat_id, user.id, has_link)
         if not has_link:
             return False
@@ -516,7 +567,7 @@ class ModerationModule(BotModule):
         name = full_name or getattr(user, "username", None) or str(user.id)
         return f'<a href="tg://user?id={user.id}">{escape(str(name))}</a>'
 
-    def restrict_user_for_spam(self, chat_id, user_id):
+    def restrict_user_for_spam(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule"):
         seconds = self.setting_int(chat_id, "spam_restrict_seconds", 300)
         until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
         permissions = telebot.types.ChatPermissions(can_send_messages=False)
@@ -527,6 +578,18 @@ class ModerationModule(BotModule):
                 until_date=until_date,
                 permissions=permissions,
                 use_independent_chat_permissions=True,
+            )
+            self.audit(
+                chat_id,
+                "restrict",
+                target_user_id=user_id,
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                details=self.audit_details(
+                    reason=reason or "Tạm cấm chat theo luật tự động",
+                    seconds=seconds,
+                    until_date=until_date.isoformat() if until_date else "",
+                    trigger=trigger,
+                ),
             )
         except Exception as exc:
             LOGGER.warning("Cannot restrict spammer %s in %s: %s", user_id, chat_id, exc)
@@ -557,34 +620,91 @@ class ModerationModule(BotModule):
         timer.daemon = True
         timer.start()
 
-    def delete_violation_message(self, message, reason):
-        deleted = self.safe_delete(message, reason)
+    def extract_bio_link(self, bio):
+        match = self.BIO_LINK_PATTERN.search(bio or "")
+        return match.group(0) if match else ""
+
+    def truncate_text(self, value, limit=1200):
+        text = str(value or "")
+        return text if len(text) <= limit else f"{text[:limit]}..."
+
+    def actor_for_system(self):
+        return "bot"
+
+    def audit_details(self, **values):
+        cleaned = {key: value for key, value in values.items() if value not in (None, "")}
+        return json.dumps(cleaned, ensure_ascii=False)
+
+    def message_audit_details(self, message, reason, **extra):
+        user = getattr(message, "from_user", None)
+        text = self.message_text(message) or getattr(message, "caption", "") or ""
+        return self.audit_details(
+            reason=extra.pop("reason_label", None) or reason,
+            deleted_text=self.truncate_text(text),
+            message_id=getattr(message, "message_id", ""),
+            message_type=getattr(message, "content_type", ""),
+            from_user_id=getattr(user, "id", ""),
+            from_username=getattr(user, "username", ""),
+            from_name=" ".join(
+                part for part in (
+                    getattr(user, "first_name", ""),
+                    getattr(user, "last_name", ""),
+                )
+                if part
+            ),
+            **extra,
+        )
+
+    def forward_audit_details(self, message):
+        forward_chat = getattr(message, "forward_from_chat", None)
+        forward_user = getattr(message, "forward_from", None)
+        origin = getattr(message, "forward_origin", None)
+        return {
+            "forward_from_user_id": getattr(forward_user, "id", ""),
+            "forward_from_username": getattr(forward_user, "username", ""),
+            "forward_from_chat_id": getattr(forward_chat, "id", ""),
+            "forward_from_chat_title": getattr(forward_chat, "title", ""),
+            "forward_sender_name": getattr(message, "forward_sender_name", ""),
+            "forward_origin_type": getattr(origin, "type", ""),
+        }
+
+    def delete_violation_message(self, message, reason, **details):
+        deleted = self.safe_delete(message, reason, audit_details=self.message_audit_details(message, reason, **details))
         retry_seconds = self.setting_int(message.chat.id, "violation_delete_retry_seconds", 2)
         if not deleted and retry_seconds > 0:
             self.delete_later(message.chat.id, message.message_id, retry_seconds, f"{reason}:retry")
 
-    def apply_action(self, message, action, reason):
+    def apply_action(self, message, action, reason, trigger="automatic_rule"):
         action = (action or "warn").strip().lower()
         if action in {"delete", "remove"}:
             return
         if action == "ban":
-            self.ban_user(message.chat.id, message.from_user.id)
+            self.ban_user(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
             return
         if action in {"mute", "restrict"}:
-            self.restrict_user_for_spam(message.chat.id, message.from_user.id)
+            self.restrict_user_for_spam(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
             self.notify_temporary_restrict(message.chat.id, message.from_user, reason)
             return
         if action == "kick":
-            self.kick_user(message.chat.id, message.from_user.id)
+            self.kick_user(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
             return
         if action == "warn":
-            self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user)
+            self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user, trigger=trigger)
 
-    def warn_user(self, chat_id, user_id, reason="", user=None):
+    def warn_user(self, chat_id, user_id, reason="", user=None, actor_user_id="", trigger="automatic_rule"):
         count = self.state.add_warning(chat_id, user_id)
         ban_after = self.setting_int(chat_id, "ban_after_warnings", 3)
+        details = self.audit_details(reason=reason, warning_count=count, warning_limit=ban_after, trigger=trigger)
         if ban_after and count >= ban_after:
-            self.ban_user(chat_id, user_id)
+            self.ban_user(
+                chat_id,
+                user_id,
+                reason=reason or "Đạt giới hạn cảnh báo",
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                trigger=trigger,
+                warning_count=count,
+                warning_limit=ban_after,
+            )
             return count
 
         text = self.setting(chat_id, "warning_text", "Cảnh báo {mention}: {reason} ({count}/{limit})")
@@ -609,31 +729,64 @@ class ModerationModule(BotModule):
                 self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
         except Exception as exc:
             LOGGER.warning("Cannot send warning in %s: %s", chat_id, exc)
+        self.audit(
+            chat_id,
+            "warn",
+            target_user_id=user_id,
+            actor_user_id=actor_user_id or self.actor_for_system(),
+            details=details,
+        )
         return count
 
-    def ban_user(self, chat_id, user_id):
+    def ban_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule", warning_count=None, warning_limit=None):
         try:
             seconds = self.setting_int(chat_id, "ban_seconds", 0)
             until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
             self.bot.ban_chat_member(chat_id, user_id, until_date=until_date)
             self.state.reset_warnings(chat_id, user_id)
-            self.audit(chat_id, "ban", target_user_id=user_id, details=f"seconds={seconds}")
+            self.audit(
+                chat_id,
+                "ban",
+                target_user_id=user_id,
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                details=self.audit_details(
+                    reason=reason or "Ban theo luật tự động",
+                    seconds=seconds,
+                    until_date=until_date.isoformat() if until_date else "",
+                    trigger=trigger,
+                    warning_count=warning_count,
+                    warning_limit=warning_limit,
+                ),
+            )
         except Exception as exc:
             LOGGER.warning("Cannot ban %s in %s: %s", user_id, chat_id, exc)
 
-    def kick_user(self, chat_id, user_id):
+    def kick_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule"):
         try:
             self.bot.ban_chat_member(chat_id, user_id)
             self.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
             self.state.reset_warnings(chat_id, user_id)
-            self.audit(chat_id, "kick", target_user_id=user_id)
+            self.audit(
+                chat_id,
+                "kick",
+                target_user_id=user_id,
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                details=self.audit_details(reason=reason or "Kick theo luật tự động", trigger=trigger),
+            )
         except Exception as exc:
             LOGGER.warning("Cannot kick %s in %s: %s", user_id, chat_id, exc)
 
-    def safe_delete(self, message, reason="unknown"):
+    def safe_delete(self, message, reason="unknown", audit_details=""):
+        user = getattr(message, "from_user", None)
         try:
             self.bot.delete_message(message.chat.id, message.message_id)
-            self.audit(message.chat.id, "delete_message", target_user_id=getattr(message.from_user, "id", ""), details=reason)
+            self.audit(
+                message.chat.id,
+                "delete_message",
+                target_user_id=getattr(user, "id", ""),
+                actor_user_id=self.actor_for_system(),
+                details=audit_details or self.message_audit_details(message, reason),
+            )
             LOGGER.info(
                 "Deleted message: chat_id=%s message_id=%s content_type=%s reason=%s",
                 message.chat.id,

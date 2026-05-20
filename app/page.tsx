@@ -90,6 +90,12 @@ type EmptyStateConfig = {
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
 const GROUP_TAB_ORDER = ["Thông tin", "Kiểm duyệt", "Chống spam", "Lịch gửi tin", "Video", "Menu bot", "Nội dung", "Ghi chú", "Advanced"];
+const GROUP_BASE_SECTIONS = new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]);
+const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
+  moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Chống spam", "Ghi chú", "Advanced"]),
+  automation: new Set(["Thông tin nhóm", "Thông tin", "Lịch gửi tin", "Video", "Ghi chú", "Advanced"]),
+  menu_policy: new Set(["Thông tin nhóm", "Thông tin", "Menu bot", "Nội dung", "Ghi chú", "Advanced"])
+};
 const GROUP_TAB_LABELS: Record<string, string> = {
   "Thông tin nhóm": "Thông tin",
   "Thông tin": "Thông tin",
@@ -247,9 +253,9 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
     steps: ["Sửa chỉ số thủ công ở danh sách bên dưới", "Dùng period today/week/month/all_time", "Các module sau sẽ tự ghi thêm metric"]
   },
   config: {
-    title: "Cài đặt chung",
-    body: "Các text, menu, thời gian xóa tin, cảnh báo và fallback nên đặt ở đây thay vì sửa code.",
-    steps: ["key là mã cấu hình", "value là nội dung", "Tắt enabled nếu muốn bỏ qua"]
+    title: "Cài đặt hệ thống",
+    body: "Chỉ quản lý các cấu hình dùng chung toàn bot/CP. Cài đặt module nằm ngay trong module tương ứng để tránh trùng chỗ.",
+    steps: ["Global ở Cài đặt hệ thống", "Module ở trang module", "Group override ở flow của module"]
   }
 };
 const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "check", "report"];
@@ -480,6 +486,15 @@ const MODULE_TABLE_OWNER: Record<string, string> = {
   member_roles: "members"
 };
 const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
+const SYSTEM_CONFIG_SECTIONS = [
+  {
+    title: "Cài đặt hệ thống",
+    desc: "Chỉ giữ các cài đặt dùng chung toàn CP/toàn bot. Cài đặt module đã được chuyển về từng module.",
+    icon: SlidersHorizontal,
+    tone: "main",
+    keys: [] as string[]
+  }
+];
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
   policy_text: "Nội quy gửi kèm khi thành viên bấm nút Quy định hoặc gọi lệnh liên quan.",
   show_policy_button: "Bật/tắt nút Quy định xuất hiện dưới tin nhắn /start.",
@@ -738,29 +753,121 @@ function parseDetails(value: unknown) {
   }
 }
 
+function auditLegacyReason(value: unknown) {
+  const raw = String(value || "");
+  if (!raw) {
+    return "";
+  }
+  if (raw === "bio_link") {
+    return "Bio có link Telegram";
+  }
+  if (raw === "forwarded_message") {
+    return "Tin nhắn được forward";
+  }
+  if (raw === "inline_keyboard") {
+    return "Tin nhắn có nút bấm";
+  }
+  if (raw === "duplicate_message") {
+    return "Tin nhắn trùng lặp nhiều lần";
+  }
+  if (raw === "spam") {
+    return "Spam quá ngưỡng";
+  }
+  if (raw.startsWith("keyword:")) {
+    const [, keyword, action] = raw.match(/^keyword:(.*):before_(.*)$/) || [];
+    return keyword ? `Từ khóa cấm: ${keyword}${action ? `, xử lý: ${action}` : ""}` : raw;
+  }
+  if (raw.startsWith("domain:")) {
+    const [, domain, action] = raw.match(/^domain:(.*):before_(.*)$/) || [];
+    return domain ? `Domain bị chặn: ${domain}${action ? `, xử lý: ${action}` : ""}` : raw;
+  }
+  if (raw.startsWith("shortener:")) {
+    const [, domain, action] = raw.match(/^shortener:(.*):before_(.*)$/) || [];
+    return domain ? `Link rút gọn bị chặn: ${domain}${action ? `, xử lý: ${action}` : ""}` : raw;
+  }
+  if (raw.startsWith("seconds=")) {
+    return `Thời lượng: ${raw.replace("seconds=", "")} giây`;
+  }
+  return raw;
+}
+
+function isAutomaticAudit(row: Row) {
+  return ["delete_message", "ban", "kick", "warn", "restrict", "verify_success"].includes(String(row.action || "").toLowerCase());
+}
+
+function auditActor(row: Row, details: Record<string, unknown>) {
+  const actor = row.actor_user_id || details.actor_user_id || details.actor_username;
+  if (actor) {
+    return displayValue(actor);
+  }
+  return isAutomaticAudit(row) ? "Bot tự động" : "Chưa đặt";
+}
+
+function auditReason(row: Row, details: Record<string, unknown>) {
+  return displayValue(details.reason || details.trigger_reason || auditLegacyReason(details.raw || row.details));
+}
+
+function auditDeletedContent(row: Row, details: Record<string, unknown>) {
+  return displayValue(details.deleted_text || details.message || details.text || details.content || (row.action === "delete_message" ? "" : details.raw || row.details));
+}
+
+function auditLogSpecificRows(row: Row, details: Record<string, unknown>) {
+  const rows: { label: string; value: string }[] = [];
+  if (details.deleted_text || details.message || details.text || details.content) {
+    rows.push({ label: "Tin đã xóa", value: auditDeletedContent(row, details) });
+  }
+  if (details.bio_link) {
+    rows.push({ label: "Bio link", value: displayValue(details.bio_link) });
+  }
+  if (details.bio_text) {
+    rows.push({ label: "Bio hiện tại", value: displayValue(details.bio_text) });
+  }
+  if (details.matched_keyword) {
+    rows.push({ label: "Từ khóa", value: displayValue(details.matched_keyword) });
+  }
+  if (details.blocked_domain) {
+    rows.push({ label: "Domain", value: displayValue(details.blocked_domain) });
+  }
+  if (details.rule_action) {
+    rows.push({ label: "Luật xử lý", value: displayValue(details.rule_action) });
+  }
+  if (details.forward_from_chat_title || details.forward_from_chat_id || details.forward_sender_name || details.forward_from_username) {
+    rows.push({
+      label: "Nguồn forward",
+      value: displayValue(details.forward_from_chat_title || details.forward_sender_name || details.forward_from_username || details.forward_from_chat_id)
+    });
+  }
+  if (details.warning_count || details.warning_limit) {
+    rows.push({ label: "Cảnh báo", value: `${displayValue(details.warning_count)}/${displayValue(details.warning_limit)}` });
+  }
+  return rows;
+}
+
 function auditLogRows(row: Row) {
   const details = parseDetails(row.details);
-  const content = details.message || details.text || details.content || details.deleted_text || details.raw || row.details;
-  const duration = details.duration || details.duration_seconds || details.until || details.restrict_seconds || details.ban_seconds;
-  return [
+  const duration = details.duration || details.duration_seconds || details.until || details.restrict_seconds || details.ban_seconds || details.seconds;
+  const baseRows = [
     { label: "Thời gian", value: formatDateTime(row.created_at || details.created_at) },
     { label: "Hành động", value: actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] }) },
-    { label: "Người thực hiện", value: displayValue(row.actor_user_id || details.actor_user_id || details.actor_username) },
+    { label: "Người thực hiện", value: auditActor(row, details) },
     { label: "Đối tượng", value: displayValue(row.target_user_id || details.target_user_id || details.target_username) },
     { label: "Group/Kênh", value: displayValue(row.chat_id || details.chat_id || details.group_id) },
     { label: "Thời lượng", value: duration ? configDisplayValue({ key: "duration_seconds", value: duration }) : "Không áp dụng" },
-    { label: "Nội dung", value: displayValue(content) }
+    { label: "Lý do", value: auditReason(row, details) }
   ];
+  const specificRows = auditLogSpecificRows(row, details);
+  return specificRows.length ? [...baseRows, ...specificRows] : [...baseRows, { label: "Chi tiết gốc", value: displayValue(details.raw || row.details) }];
 }
 
 function auditLogEssentials(row: Row) {
   const details = parseDetails(row.details);
-  const content = details.message || details.text || details.content || details.deleted_text || details.raw || row.details;
+  const specificRows = auditLogSpecificRows(row, details);
+  const primaryDetail = specificRows.find((item) => ["Bio link", "Từ khóa", "Domain", "Tin đã xóa"].includes(item.label));
   return [
-    { label: "Người thực hiện", value: displayValue(row.actor_user_id || details.actor_user_id || details.actor_username) },
+    { label: "Người thực hiện", value: auditActor(row, details) },
     { label: "Đối tượng", value: displayValue(row.target_user_id || details.target_user_id || details.target_username) },
-    { label: "Group/Kênh", value: displayValue(row.chat_id || details.chat_id || details.group_id) },
-    { label: "Nội dung", value: displayValue(content) }
+    { label: "Lý do", value: auditReason(row, details) },
+    primaryDetail || { label: "Group/Kênh", value: displayValue(row.chat_id || details.chat_id || details.group_id) }
   ];
 }
 
@@ -1230,6 +1337,14 @@ function groupTabLabel(section: string) {
   return GROUP_TAB_LABELS[section] || section;
 }
 
+function allowedGroupSectionsForLayer(activeLayer: string) {
+  if (!activeLayer.startsWith("module:")) {
+    return GROUP_BASE_SECTIONS;
+  }
+  const moduleKey = activeLayer.replace("module:", "");
+  return GROUP_MODULE_SECTIONS[moduleKey] || GROUP_BASE_SECTIONS;
+}
+
 function dangerousGroupChanges(values: Row) {
   const issues: string[] = [];
   if (values.enabled === false) {
@@ -1615,8 +1730,12 @@ export default function HomePage() {
     return visibleRows;
   }, [activeLayer, configScopeModule, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
-    const usedKeys = new Set(CONFIG_SECTIONS.flatMap((section) => section.keys));
-    const baseTabs = CONFIG_SECTIONS.map((section) => ({
+    if (activeLayer === "settings") {
+      return SYSTEM_CONFIG_SECTIONS.map((section) => ({ ...section, rows: scopedConfigRows }));
+    }
+    const sections = activeLayer === "settings" ? SYSTEM_CONFIG_SECTIONS : CONFIG_SECTIONS;
+    const usedKeys = new Set(sections.flatMap((section) => section.keys));
+    const baseTabs = sections.map((section) => ({
       ...section,
       rows: scopedConfigRows.filter((row) => section.keys.includes(String(row.key || "")))
     }));
@@ -2050,7 +2169,6 @@ export default function HomePage() {
     }
     setActiveConfigTab(configTabs[0]?.title || "");
   }, [activeConfigTab, configTabs, table?.key]);
-
   useEffect(() => {
     const currentLayer = sidebarLayers.find((layer) => layer.key === activeLayer);
     if (currentLayer && layerContainsTable(currentLayer, activeKey)) {
@@ -2643,8 +2761,12 @@ export default function HomePage() {
     if (table?.key !== "groups") {
       return [];
     }
+    const allowedSections = allowedGroupSectionsForLayer(activeLayer);
     const labels = new Map<string, { key: string; label: string; count: number }>();
     for (const [section, fields] of groupedFields(table)) {
+      if (!allowedSections.has(section)) {
+        continue;
+      }
       const label = groupTabLabel(section);
       const visibleCount = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key)).length;
       const current = labels.get(label);
@@ -2655,7 +2777,15 @@ export default function HomePage() {
       .filter((label, index, all) => all.indexOf(label) === index)
       .map((label) => labels.get(label) || { key: label, label, count: 0 })
       .filter((tab) => tab.count || tab.label === "Advanced");
-  }, [showAdvancedFields, table]);
+  }, [activeLayer, showAdvancedFields, table]);
+  useEffect(() => {
+    if (table?.key !== "groups" || !groupEditorTabs.length) {
+      return;
+    }
+    if (!groupEditorTabs.some((tab) => tab.label === activeGroupTab)) {
+      setActiveGroupTab(groupEditorTabs[0].label);
+    }
+  }, [activeGroupTab, groupEditorTabs, table?.key]);
   const editorFieldGroups = useMemo(() => {
     if (!table) {
       return [];
@@ -2663,10 +2793,7 @@ export default function HomePage() {
     const groups = groupedFields(table);
     let visibleGroups = groups;
     if (table.key === "groups") {
-      visibleGroups = groups.filter(([section]) => groupTabLabel(section) === activeGroupTab);
-    }
-    if (activeLayer === "module:automation" && table.key === "groups") {
-      const allowed = new Set(["Phạm vi", "Thông tin nhóm", "Lịch gửi tin", "Video", "Ghi chú"]);
+      const allowed = allowedGroupSectionsForLayer(activeLayer);
       visibleGroups = groups
         .map(([section, fields]) => [section, fields.filter((field) => allowed.has(section))] as [string, FieldConfig[]])
         .filter(([section]) => groupTabLabel(section) === activeGroupTab)
