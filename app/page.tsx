@@ -48,6 +48,14 @@ type BulkDefaults = {
 type Meta = {
   tables: TableConfig[];
   passwordRequired: boolean;
+  envStatus?: {
+    supabaseUrl: boolean;
+    serviceRoleKey: boolean;
+    cpPassword: boolean;
+    botToken: boolean;
+    botKey: boolean;
+    runtimeMode: string;
+  };
 };
 type Lookups = {
   bots: Row[];
@@ -55,6 +63,7 @@ type Lookups = {
   messages: Row[];
   videos: Row[];
   moduleSettings: Row[];
+  scamReports: Row[];
 };
 type CommandInsight = {
   severity: "critical" | "high" | "warning" | "info" | "healthy";
@@ -1225,6 +1234,18 @@ function poolRows(rows: Row[], pool: string) {
   return rows.filter((row) => row.enabled !== false && String(row.pool || "").trim() === targetPool);
 }
 
+function uniquePoolCounts(rows: Row[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const pool = String(row.pool || "").trim();
+    if (!pool || row.enabled === false) {
+      continue;
+    }
+    counts.set(pool, (counts.get(pool) || 0) + 1);
+  }
+  return counts;
+}
+
 function poolPreviewText(row: Row, type: "message" | "video") {
   if (type === "video") {
     const source = [row.from_chat_id, row.message_id].filter(Boolean).join(" / ");
@@ -1417,7 +1438,7 @@ export default function HomePage() {
   const [activeGroupTab, setActiveGroupTab] = useState("Thông tin");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -1437,6 +1458,8 @@ export default function HomePage() {
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
   const messagePools = useMemo(() => uniqueValues(lookups.messages, "pool"), [lookups.messages]);
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
+  const messagePoolCounts = useMemo(() => uniquePoolCounts(lookups.messages), [lookups.messages]);
+  const videoPoolCounts = useMemo(() => uniquePoolCounts(lookups.videos), [lookups.videos]);
   const activeGuide = useMemo(() => {
     if (activeLayer === "module:automation" && table?.key === "groups") {
       return {
@@ -1487,6 +1510,10 @@ export default function HomePage() {
       rejected: sourceRows.filter((row) => row.status === "rejected").length
     };
   }, [rows, table?.key]);
+  const pendingScamReports = useMemo(
+    () => lookups.scamReports.filter((row) => String(row.status || "pending") === "pending").length,
+    [lookups.scamReports]
+  );
   const selectedGroupProtection = useMemo(() => {
     const row = selectedGroupRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedGroup) || null;
     if (!row) {
@@ -1586,6 +1613,11 @@ export default function HomePage() {
   const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
   const setupChecklist = useMemo(() => [
     {
+      label: "Env CP sẵn sàng",
+      done: Boolean(meta?.envStatus?.supabaseUrl && meta?.envStatus?.serviceRoleKey && meta?.envStatus?.cpPassword),
+      detail: meta?.envStatus ? `Supabase: ${meta.envStatus.supabaseUrl && meta.envStatus.serviceRoleKey ? "đủ" : "thiếu"} · CP password: ${meta.envStatus.cpPassword ? "có" : "thiếu"}` : "Chưa đọc được trạng thái env"
+    },
+    {
       label: "Bot đã bật",
       done: Boolean(currentBot && currentBot.enabled !== false && currentBot.status !== "paused"),
       detail: currentBot ? `${currentBot.name || currentBot.bot_key} đang ${currentBot.enabled === false || currentBot.status === "paused" ? "tắt/paused" : "sẵn sàng"}` : "Chưa chọn hoặc chưa có bot trong CP"
@@ -1604,8 +1636,13 @@ export default function HomePage() {
       label: "Pool nội dung khả dụng",
       done: Boolean(messagePools.length || videoPools.length),
       detail: messagePools.length || videoPools.length ? `${messagePools.length} pool tin nhắn, ${videoPools.length} pool video` : "Chưa có pool message/video cho automation"
+    },
+    {
+      label: "Scam inbox sạch",
+      done: pendingScamReports === 0,
+      detail: pendingScamReports ? `${pendingScamReports} report đang chờ duyệt` : "Không có report scam pending"
     }
-  ], [currentBot, lookups.groups.length, messagePools.length, moduleRows.length, selectedGroup, selectedGroupRow, videoPools.length]);
+  ], [currentBot, lookups.groups.length, messagePools.length, meta?.envStatus, moduleRows.length, pendingScamReports, selectedGroup, selectedGroupRow, videoPools.length]);
   const setupIssues = useMemo(() => setupChecklist.filter((item) => !item.done), [setupChecklist]);
   const moduleState = useMemo(() => {
     const map = new Map<string, Row>();
@@ -1651,9 +1688,19 @@ export default function HomePage() {
     const disabledBots = lookups.bots.filter((bot) => bot.enabled === false || bot.status === "paused").length;
     const scopedGroups = lookups.groups.filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot);
     const offModules = moduleRows.filter((row) => row.enabled === false).length;
+    const groupsMissingMessagePool = scopedGroups.filter((group) => group.daily_enabled !== false && group.message_pool && !messagePoolCounts.has(String(group.message_pool))).length;
+    const groupsMissingVideoPool = scopedGroups.filter((group) => group.video_enabled === true && group.video_pool && !videoPoolCounts.has(String(group.video_pool))).length;
+    const envMissing = [
+      meta?.envStatus && !meta.envStatus.supabaseUrl,
+      meta?.envStatus && !meta.envStatus.serviceRoleKey,
+      meta?.envStatus && !meta.envStatus.cpPassword
+    ].filter(Boolean).length;
     const missingSetup = [
       scopedGroups.length === 0,
-      moduleRows.length === 0
+      moduleRows.length === 0,
+      groupsMissingMessagePool > 0,
+      groupsMissingVideoPool > 0,
+      envMissing > 0
     ].filter(Boolean).length;
     return {
       activeBots,
@@ -1661,10 +1708,14 @@ export default function HomePage() {
       groups: scopedGroups.length,
       enabledModules: moduleRows.filter((row) => row.enabled !== false).length,
       offModules,
+      pendingScamReports,
+      groupsMissingMessagePool,
+      groupsMissingVideoPool,
+      envMissing,
       missingSetup,
-      issues: disabledBots + missingSetup
+      issues: disabledBots + missingSetup + pendingScamReports
     };
-  }, [lookups.bots, lookups.groups, moduleRows, selectedBot]);
+  }, [lookups.bots, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
   const commandInsights = useMemo<CommandInsight[]>(() => {
     const insights: CommandInsight[] = [];
     if (healthSummary.disabledBots) {
@@ -1693,11 +1744,22 @@ export default function HomePage() {
       insights.push({
         severity: "info",
         title: `${healthSummary.missingSetup} bước setup còn thiếu`,
-        body: "Hoàn tất group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
+        body: "Hoàn tất env, group, tin nhắn/pool và module để hệ thống chạy ổn định hơn.",
         impact: "Automation có thể chưa chạy cho đến khi hoàn tất setup.",
         action: "Setup nhanh",
         targetLayer: "modules",
         targetTable: "module_settings"
+      });
+    }
+    if (healthSummary.pendingScamReports) {
+      insights.push({
+        severity: "warning",
+        title: `${healthSummary.pendingScamReports} report scam chờ duyệt`,
+        body: "Có báo cáo scam pending cần admin xác nhận hoặc từ chối để dữ liệu tra cứu sạch hơn.",
+        impact: "User có thể chưa được cảnh báo đúng nếu report hợp lệ chưa được xác nhận.",
+        action: "Duyệt scam",
+        targetLayer: "module:anti_scam",
+        targetTable: "scam_reports"
       });
     }
     if (!insights.length) {
@@ -1717,6 +1779,7 @@ export default function HomePage() {
     { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module đang hoạt động trên ${healthSummary.groups} nhóm` },
     { severity: "info", text: `${visibleRows.length} ${table?.label || "mục"} trong phạm vi hiện tại` },
     { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} vấn đề vận hành cần kiểm tra` : "Chưa phát hiện lỗi nghiêm trọng" },
+    { severity: healthSummary.pendingScamReports ? "warning" : "info", text: healthSummary.pendingScamReports ? `${healthSummary.pendingScamReports} report scam đang chờ duyệt` : "Không có report scam pending trong scope" },
     { severity: "info", text: healthSummary.offModules ? `${healthSummary.offModules} module tùy chọn đang ẩn khỏi sidebar` : "Các module đã bật đang hiện trên sidebar" }
   ], [healthSummary, table?.label, visibleRows.length]);
   const quickFilters = useMemo(() => {
@@ -1834,22 +1897,24 @@ export default function HomePage() {
   async function loadLookups() {
     try {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
         api(`/api/messages${scopedBotQuery}`),
         api(`/api/video_messages${scopedBotQuery}`),
-        api(`/api/module_settings${scopedBotQuery}`)
+        api(`/api/module_settings${scopedBotQuery}`),
+        api(`/api/scam_reports${scopedBotQuery}`)
       ]);
       setLookups({
         bots: botsPayload.rows || [],
         groups: groupsPayload.rows || [],
         messages: messagesPayload.rows || [],
         videos: videosPayload.rows || [],
-        moduleSettings: modulePayload.rows || []
+        moduleSettings: modulePayload.rows || [],
+        scamReports: scamReportsPayload.rows || []
       });
     } catch {
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
     }
   }
 
@@ -2814,6 +2879,29 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="production-readiness">
+          <div>
+            <span className="eyebrow">Production readiness</span>
+            <h3>Kiểm tra nền deploy</h3>
+            <p>CP đọc trực tiếp trạng thái env public/server-side và dữ liệu vận hành trong scope hiện tại.</p>
+          </div>
+          <div className="readiness-grid">
+            {[
+              { label: "Supabase URL", ok: meta.envStatus?.supabaseUrl },
+              { label: "Service role key", ok: meta.envStatus?.serviceRoleKey },
+              { label: "CP password", ok: meta.envStatus?.cpPassword },
+              { label: "Bot token env", ok: meta.envStatus?.botToken },
+              { label: "Bot key env", ok: meta.envStatus?.botKey },
+              { label: "Runtime", ok: true, value: meta.envStatus?.runtimeMode || "unknown" }
+            ].map((item) => (
+              <span key={item.label} className={item.ok ? "ok" : "warn"}>
+                <b>{item.label}</b>
+                {item.value || (item.ok ? "OK" : "Thiếu")}
+              </span>
+            ))}
+          </div>
+        </section>
+
         <section className="status-dashboard">
           <article className={healthSummary.disabledBots ? "status-card warning" : "status-card ok"}>
             <span>Bot đang online</span>
@@ -2833,7 +2921,7 @@ export default function HomePage() {
           <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
             <span>Việc cần xử lý</span>
             <strong>{healthSummary.issues}</strong>
-            <p>{healthSummary.issues ? "Có bot offline hoặc thiếu group/module nền" : "Không có lỗi vận hành bắt buộc"}</p>
+            <p>{healthSummary.issues ? "Có env/setup/pending review cần kiểm tra" : "Không có lỗi vận hành bắt buộc"}</p>
           </article>
         </section>
         </>

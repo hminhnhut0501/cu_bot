@@ -345,6 +345,64 @@ nav button:hover {
   margin-bottom: 16px;
 }
 
+.production-readiness {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 16px;
+  border: 1px solid #d9e0e8;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.production-readiness h3 {
+  margin: 3px 0 4px;
+  font-size: 20px;
+}
+
+.production-readiness p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.readiness-grid span {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e7edf3;
+  border-radius: 9px;
+  background: #f8fafc;
+  color: var(--muted);
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.readiness-grid span.ok {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.readiness-grid span.warn {
+  border-color: #fedf89;
+  background: #fffcf5;
+  color: #b54708;
+}
+
+.readiness-grid b {
+  color: var(--text);
+}
+
 .ops-task-board {
   display: grid;
   gap: 14px;
@@ -3816,6 +3874,8 @@ textarea:focus {
   .bot-context,
   .command-center,
   .scam-inbox,
+  .production-readiness,
+  .readiness-grid,
   .ops-task-grid,
   .status-dashboard,
   .hero-panel,
