@@ -2554,6 +2554,12 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
+      if (table.key === "config" && activeLayer === "module:moderation") {
+        const fallbackRow = selected || { key: draft.key || "", value: draft.value ?? "", enabled: true };
+        await saveRowValues(fallbackRow, draft);
+        setWorkMode("operate");
+        return;
+      }
       if (selected?.id && !(table.key === "config" && isVirtualConfigRow(selected))) {
         await api(`/api/${table.key}`, {
           method: "PATCH",
@@ -2884,6 +2890,7 @@ export default function HomePage() {
     setActiveKey("config");
     setSelected(null);
     setDraft({});
+    setActiveConfigTab("Kiểm duyệt tự động");
     setActiveGroupTab("Thông tin");
     setShowAdvancedFields(false);
     setWorkMode("operate");
@@ -3526,7 +3533,7 @@ export default function HomePage() {
               <strong>{selectedGroupProtection.enabledChecks}/{selectedGroupProtection.totalChecks}</strong>
               <span>{selectedGroupProtection.ready ? "Protection đủ điều kiện nền" : selectedGroupProtection.warnings[0]}</span>
             </div>
-            <button type="button" className="primary" onClick={() => { setActiveKey("config"); setWorkMode("operate"); }}>
+            <button type="button" className="primary" onClick={startGroupProtectionFlow}>
               <ShieldCheck size={17} />
               Mở cài đặt module
             </button>
