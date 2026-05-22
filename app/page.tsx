@@ -92,11 +92,12 @@ type ToastState = {
   message: string;
 };
 
-const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
+const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
   "moderation_enabled",
   "delete_system_messages",
   "delete_forwarded_messages",
+  "allow_automatic_forwards",
   "delete_inline_keyboard_messages",
   "delete_messages_from_bots",
   "remove_unknown_bots",
@@ -138,6 +139,7 @@ const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   moderation_enabled: "true",
   delete_system_messages: "true",
   delete_forwarded_messages: "true",
+  allow_automatic_forwards: "true",
   delete_inline_keyboard_messages: "true",
   delete_messages_from_bots: "true",
   remove_unknown_bots: "true",
@@ -305,6 +307,7 @@ const CONFIG_LABELS: Record<string, string> = {
   scam_review_channel_id: "Channel duyệt báo cáo scam",
   delete_system_messages: "Xóa tin hệ thống",
   delete_forwarded_messages: "Chặn tin forward",
+  allow_automatic_forwards: "Cho phép forward tự động",
   delete_inline_keyboard_messages: "Chặn bài có nút bấm",
   delete_messages_from_bots: "Chặn bot lạ gửi tin",
   remove_unknown_bots: "Tự kick bot lạ",
@@ -382,7 +385,7 @@ const CONFIG_SECTIONS = [
     desc: "Các công tắc chặn nội dung thường gặp trong group.",
     icon: ShieldCheck,
     tone: "security",
-    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
   },
   {
     title: "Spam, cảnh báo & ban",
@@ -443,7 +446,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
   },
   {
     key: "menu_policy",
@@ -566,6 +569,7 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   start_fallback_text: "Tin nhắn dự phòng khi /start không có nội dung riêng.",
   delete_system_messages: "Tự xóa tin join/leave/pin và các tin hệ thống.",
   delete_forwarded_messages: "Chặn tin nhắn forward từ nơi khác.",
+  allow_automatic_forwards: "Cho phép giữ lại tin auto-forward từ channel liên kết vào group.",
   delete_inline_keyboard_messages: "Chặn bài có nút bấm inline đáng ngờ.",
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",

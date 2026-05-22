@@ -66,6 +66,7 @@ class ModerationModule(BotModule):
         "moderation_enabled",
         "delete_system_messages",
         "delete_forwarded_messages",
+        "allow_automatic_forwards",
         "delete_inline_keyboard_messages",
         "delete_messages_from_bots",
         "remove_unknown_bots",
@@ -344,11 +345,18 @@ class ModerationModule(BotModule):
     def handle_group_message(self, message):
         if not self.moderation_enabled(message.chat.id):
             return
+        if self.is_automatic_forward_allowed(message):
+            self.state.mark_activity(message.chat.id)
+            return
         if self.handle_verification_answer(message):
+            return
+        if self.is_anonymous_admin_message(message):
+            self.state.mark_activity(message.chat.id)
             return
         if self.detect_forward(message):
             return
-        if self.is_anonymous_admin_message(message):
+        from_user = getattr(message, "from_user", None)
+        if not from_user:
             self.state.mark_activity(message.chat.id)
             return
         if getattr(message.from_user, "is_bot", False):
@@ -554,6 +562,8 @@ class ModerationModule(BotModule):
     def detect_forward(self, message):
         if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
             return False
+        if self.is_automatic_forward_allowed(message):
+            return False
         forwarded, forward_flags = self.forward_detection_flags(message)
         if not forwarded:
             return False
@@ -594,6 +604,9 @@ class ModerationModule(BotModule):
         ):
             flags.append("quote")
         return bool(flags), flags
+
+    def is_automatic_forward_allowed(self, message):
+        return bool(getattr(message, "is_automatic_forward", False)) and self.setting_bool(message.chat.id, "allow_automatic_forwards", True)
 
     def detect_inline_keyboard(self, message):
         if not self.setting_bool(message.chat.id, "delete_inline_keyboard_messages", True):
