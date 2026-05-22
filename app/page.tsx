@@ -108,6 +108,32 @@ const CONFIG_BOOLEAN_KEYS = new Set([
   "send_on_boot",
   "send_if_silent",
 ]);
+const CONFIG_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  delete: [
+    { value: "delete", label: "Xóa tin" },
+    { value: "warn", label: "Cảnh báo" },
+    { value: "restrict", label: "Hạn chế chat" },
+    { value: "ban", label: "Ban khỏi nhóm" }
+  ],
+  warn: [
+    { value: "warn", label: "Cảnh báo" },
+    { value: "delete", label: "Xóa tin" },
+    { value: "restrict", label: "Hạn chế chat" },
+    { value: "ban", label: "Ban khỏi nhóm" }
+  ],
+  restrict: [
+    { value: "restrict", label: "Hạn chế chat" },
+    { value: "warn", label: "Cảnh báo" },
+    { value: "delete", label: "Xóa tin" },
+    { value: "ban", label: "Ban khỏi nhóm" }
+  ],
+  ban: [
+    { value: "ban", label: "Ban khỏi nhóm" },
+    { value: "warn", label: "Cảnh báo" },
+    { value: "delete", label: "Xóa tin" },
+    { value: "restrict", label: "Hạn chế chat" }
+  ]
+};
 const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   moderation_enabled: "true",
   delete_system_messages: "true",
@@ -806,6 +832,36 @@ function configFieldHint(key: string) {
     return "Đây là lý do cố định, không cần placeholder.";
   }
   return "";
+}
+
+function configEditorKind(key: string) {
+  if (CONFIG_BOOLEAN_KEYS.has(key)) {
+    return "boolean";
+  }
+  if (key.endsWith("_action")) {
+    return "select";
+  }
+  if (
+    key.endsWith("_seconds") ||
+    key.endsWith("_count") ||
+    key.endsWith("_messages") ||
+    ["ban_after_warnings", "ban_seconds", "spam_max_messages", "duplicate_message_max_count", "media_spam_max_messages"].includes(key)
+  ) {
+    return "number";
+  }
+  if (
+    key.endsWith("_text") ||
+    key.includes("reason") ||
+    key.includes("commands") ||
+    ["policy_text", "start_fallback_text", "help_menu_title", "scam_review_channel_text"].includes(key)
+  ) {
+    return "textarea";
+  }
+  return "text";
+}
+
+function configSelectOptions(key: string) {
+  return key.endsWith("_action") ? CONFIG_SELECT_OPTIONS.warn : [];
 }
 
 function friendlySaveError(error: unknown) {
@@ -4066,7 +4122,7 @@ export default function HomePage() {
                       <X size={17} />
                     </button>
                   </div>
-                  {String(draft.value ?? "").trim().toLowerCase() === "true" || String(draft.value ?? "").trim().toLowerCase() === "false" ? (
+                  {configEditorKind(String(draft.key || "")) === "boolean" ? (
                     <label className="checkbox-field">
                       <span>Bật giá trị này</span>
                       <input
@@ -4075,21 +4131,43 @@ export default function HomePage() {
                         onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
                       />
                     </label>
+                  ) : configEditorKind(String(draft.key || "")) === "select" ? (
+                    <label>
+                      <span>Chọn giá trị</span>
+                      <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
+                        {configSelectOptions(String(draft.key || "")).map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <small>{configFieldHint(String(draft.key || "")) || "Chọn một giá trị cố định thay vì nhập tay."}</small>
+                    </label>
+                  ) : configEditorKind(String(draft.key || "")) === "number" ? (
+                    <label>
+                      <span>Giá trị số</span>
+                      <input
+                        type="number"
+                        value={String(draft.value ?? "")}
+                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                      />
+                      <small>{fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
+                    </label>
                   ) : (
                     <label>
                       <span>Nội dung / giá trị</span>
-                              <textarea
-                                value={draft.value ?? ""}
-                                onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                                rows={String(draft.value || "").length > 120 ? 6 : 3}
-                              />
-                              {configPlaceholders(String(draft.key || "")).length ? (
-                                <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                              ) : configFieldHint(String(draft.key || "")) ? (
-                                <small>{configFieldHint(String(draft.key || ""))}</small>
-                              ) : null}
-                            </label>
-                          )}
+                      <textarea
+                        value={draft.value ?? ""}
+                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                        rows={String(draft.value || "").length > 120 ? 6 : 3}
+                      />
+                      {configPlaceholders(String(draft.key || "")).length ? (
+                        <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
+                      ) : configFieldHint(String(draft.key || "")) ? (
+                        <small>{configFieldHint(String(draft.key || ""))}</small>
+                      ) : null}
+                    </label>
+                  )}
                   <label className="checkbox-field">
                     <span>Kích hoạt cấu hình này</span>
                     <input
@@ -4153,6 +4231,7 @@ export default function HomePage() {
                     const editing = selected?.id === row.id && Object.keys(draft).length > 0;
                     const booleanValue = isConfigBoolean(row);
                     const valueOn = String(row.value).toLowerCase() === "true";
+                    const editorKind = configEditorKind(String(row.key || ""));
                     return (
                       <article className={`setting-tile ${editing ? "editing" : ""} ${row.enabled === false ? "disabled" : ""}`} key={row.id || row.key}>
                         <div className="setting-top">
@@ -4180,7 +4259,7 @@ export default function HomePage() {
 
                         {editing ? (
                           <form className="setting-edit" onSubmit={save}>
-                            {booleanValue ? (
+                            {editorKind === "boolean" ? (
                               <label className="checkbox-field">
                                 <span>Bật chức năng này</span>
                                 <input
@@ -4188,6 +4267,28 @@ export default function HomePage() {
                                   checked={String(draft.value).toLowerCase() === "true"}
                                   onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
                                 />
+                              </label>
+                            ) : editorKind === "select" ? (
+                              <label>
+                                <span>Chọn giá trị</span>
+                                <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
+                                  {configSelectOptions(String(row.key || "")).map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <small>{configFieldHint(String(row.key || "")) || "Chọn một giá trị cố định thay vì nhập tay."}</small>
+                              </label>
+                            ) : editorKind === "number" ? (
+                              <label>
+                                <span>Giá trị số</span>
+                                <input
+                                  type="number"
+                                  value={String(draft.value ?? "")}
+                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                                />
+                                <small>{fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
                               </label>
                             ) : (
                               <label>
