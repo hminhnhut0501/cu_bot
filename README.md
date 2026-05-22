@@ -145,6 +145,8 @@ If the `groups` table is empty or missing, moderation runs in every group. Sched
 
 Moderation features such as system-message cleanup, spam filtering, keyword filtering, bot cleanup, forwarded-post cleanup, and bio scanning run in every group by default when the bot is admin. Use `groups.moderation_enabled=false` only if you want to disable moderation for a specific group. Most moderation overrides now live in `groups`, not `config`. Scheduled messages and scheduled videos still require group IDs in `groups`.
 
+If your live Supabase project is still on an older schema, run `docs/supabase/migrations/20260522_add_groups_moderation_columns.sql` before saving group moderation settings.
+
 ### `config`
 
 | key | value | enabled |

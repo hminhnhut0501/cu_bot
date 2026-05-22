@@ -1935,6 +1935,38 @@ button.primary:hover,
   color: var(--success);
 }
 
+.floating-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 80;
+  min-width: 260px;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid;
+  box-shadow: var(--shadow-deep);
+  backdrop-filter: blur(10px);
+}
+
+.floating-toast.success {
+  border-color: #abefc6;
+  background: rgba(236, 253, 243, 0.96);
+  color: var(--success);
+}
+
+.floating-toast.error {
+  border-color: #fecdca;
+  background: rgba(255, 243, 242, 0.98);
+  color: var(--danger);
+}
+
+.floating-toast.info {
+  border-color: #c7d7fe;
+  background: rgba(239, 246, 255, 0.98);
+  color: var(--blue);
+}
+
 .usage-guide {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 0.8fr);

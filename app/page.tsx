@@ -87,8 +87,14 @@ type EmptyStateConfig = {
   steps: string[];
 };
 
+type ToastState = {
+  type: "success" | "error" | "info";
+  message: string;
+};
+
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
+  "moderation_enabled",
   "delete_system_messages",
   "delete_forwarded_messages",
   "delete_inline_keyboard_messages",
@@ -103,21 +109,49 @@ const CONFIG_BOOLEAN_KEYS = new Set([
   "send_if_silent",
 ]);
 const CONFIG_DEFAULT_VALUES: Record<string, string> = {
+  moderation_enabled: "true",
+  delete_system_messages: "true",
+  delete_forwarded_messages: "true",
+  delete_inline_keyboard_messages: "true",
+  delete_messages_from_bots: "true",
+  remove_unknown_bots: "true",
+  exempt_admins: "true",
+  spam_max_messages: "6",
+  spam_window_seconds: "12",
+  spam_action: "warn",
+  spam_restrict_seconds: "300",
+  forward_action: "warn",
+  inline_keyboard_action: "warn",
+  ban_after_warnings: "3",
+  ban_seconds: "0",
   warning_text: "{mention} cảnh báo vi phạm: {reason}\nSố lần cảnh báo: {count}/{limit}\nVui lòng dừng lại để tránh bị khóa hoặc ban.",
   forward_warning_reason: "Không cho phép chia sẻ Story/forward/trích dẫn nội dung từ nguồn bên ngoài vào nhóm.",
   forward_warning_text: "{mention} bạn đang gửi nội dung chuyển tiếp từ nguồn ngoài.\nLý do: {reason}\nCảnh báo: {count}/{limit}\nTiếp tục vi phạm sẽ bị xử lý mạnh hơn.",
   spam_restrict_text: "{mention} đã bị tạm khóa chat vì vi phạm: {reason}\nNếu cần hỗ trợ, liên hệ admin và chờ mở lại quyền chat.",
+  warning_notice_delete_seconds: "180",
+  forward_warning_delete_seconds: "180",
+  spam_notice_delete_seconds: "30",
+  violation_delete_retry_seconds: "2",
+  duplicate_message_enabled: "true",
+  duplicate_message_max_count: "3",
+  duplicate_message_window_seconds: "600",
+  duplicate_message_action: "warn",
+  duplicate_message_reason: "Không gửi lặp lại cùng một nội dung hoặc sticker.",
+  media_spam_max_messages: "3",
+  media_spam_window_seconds: "10",
+  media_spam_action: "restrict",
+  scan_bio_links: "true",
+  bio_link_delete_message: "true",
+  bio_link_restrict_seconds: "0",
+  bio_scan_cache_seconds: "3600",
   bio_link_warning_text: "{mention} bio của bạn đang chứa link.\nVui lòng gỡ link trong bio rồi nhắn admin để được mở chat lại.",
-  warning_notice_delete_seconds: "90",
-  forward_warning_delete_seconds: "120",
-  spam_notice_delete_seconds: "45",
   bio_link_notice_delete_seconds: "60",
 };
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
 const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Luật spam", "Tin bot gửi", "Bio/link", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
 const GROUP_BASE_SECTIONS = new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]);
 const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
-  moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Luật spam", "Mẫu tin kiểm duyệt", "Bio, link & cảnh báo", "Ghi chú", "Advanced"]),
+  moderation: new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]),
   automation: new Set(["Thông tin nhóm", "Thông tin", "Lịch gửi tin", "Video", "Ghi chú", "Advanced"]),
   menu_policy: new Set(["Thông tin nhóm", "Thông tin", "Menu bot", "Nội dung", "Ghi chú", "Advanced"])
 };
@@ -135,131 +169,6 @@ const GROUP_TAB_LABELS: Record<string, string> = {
   "Ghi chú": "Ghi chú",
   Advanced: "Kỹ thuật"
 };
-const GROUP_MODERATION_DEFAULT_VALUES: Record<string, string | number | boolean> = {
-  moderation_enabled: true,
-  delete_system_messages: true,
-  delete_forwarded_messages: true,
-  delete_inline_keyboard_messages: true,
-  delete_messages_from_bots: true,
-  remove_unknown_bots: true,
-  exempt_admins: true,
-  spam_max_messages: 6,
-  spam_window_seconds: 12,
-  spam_action: "warn",
-  spam_restrict_seconds: 300,
-  forward_action: "warn",
-  inline_keyboard_action: "warn",
-  ban_after_warnings: 3,
-  duplicate_message_enabled: true,
-  duplicate_message_max_count: 3,
-  duplicate_message_window_seconds: 600,
-  duplicate_message_action: "warn",
-  duplicate_message_reason: "Không gửi lặp lại cùng một nội dung hoặc sticker.",
-  warning_text: "{mention} cảnh báo vi phạm: {reason}\nSố lần cảnh báo: {count}/{limit}\nVui lòng dừng lại để tránh bị khóa hoặc ban.",
-  forward_warning_reason: "Không được forward Story, forward hoặc quote nội dung từ nguồn bên ngoài vào group.",
-  forward_warning_text: "{mention} bạn đang gửi nội dung từ nguồn bên ngoài.\nLý do: {reason}\nCảnh báo: {count}/{limit}\nTiếp tục vi phạm sẽ bị xử lý mạnh hơn.",
-  spam_restrict_text: "{mention} đã bị tạm khóa chat vì vi phạm: {reason}\nNếu cần hỗ trợ, liên hệ admin và chờ mở lại quyền chat.",
-  warning_notice_delete_seconds: 180,
-  forward_warning_delete_seconds: 180,
-  spam_notice_delete_seconds: 30,
-  scan_bio_links: true,
-  bio_link_delete_message: true,
-  bio_link_restrict_seconds: 0,
-  bio_scan_cache_seconds: 3600,
-  bio_link_warning_text: "{mention} bio của bạn đang chứa link.\nVui lòng gỡ link trong bio rồi nhắn admin để được mở chat lại.",
-  bio_link_notice_delete_seconds: 30
-};
-const GROUP_PRESETS = [
-  {
-    key: "basic_spam",
-    title: "Chống spam cơ bản",
-    desc: "Warn + xóa tin vi phạm, tự ẩn cảnh báo và quét bio/link.",
-    values: {
-      moderation_enabled: true,
-      delete_system_messages: true,
-      delete_forwarded_messages: true,
-      delete_inline_keyboard_messages: true,
-      delete_messages_from_bots: true,
-      remove_unknown_bots: true,
-      exempt_admins: true,
-      spam_max_messages: 5,
-      spam_window_seconds: 30,
-      spam_action: "warn",
-      forward_action: "warn",
-      inline_keyboard_action: "warn",
-      ban_after_warnings: 3,
-      warning_text: GROUP_MODERATION_DEFAULT_VALUES.warning_text,
-      forward_warning_reason: GROUP_MODERATION_DEFAULT_VALUES.forward_warning_reason,
-      forward_warning_text: GROUP_MODERATION_DEFAULT_VALUES.forward_warning_text,
-      spam_restrict_text: GROUP_MODERATION_DEFAULT_VALUES.spam_restrict_text,
-      warning_notice_delete_seconds: 180,
-      forward_warning_delete_seconds: 180,
-      spam_notice_delete_seconds: 30,
-      scan_bio_links: true,
-      bio_link_delete_message: true,
-      bio_link_restrict_seconds: 0,
-      bio_scan_cache_seconds: 3600,
-      bio_link_warning_text: GROUP_MODERATION_DEFAULT_VALUES.bio_link_warning_text,
-      bio_link_notice_delete_seconds: 30,
-      duplicate_message_enabled: true,
-      duplicate_message_action: "warn",
-      duplicate_message_reason: GROUP_MODERATION_DEFAULT_VALUES.duplicate_message_reason,
-      enabled: true
-    }
-  },
-  {
-    key: "strict_links",
-    title: "Chặn quảng cáo mạnh",
-    desc: "Xóa forward/bio/link, siết spam và thu gọn cảnh báo sau khi xử lý.",
-    values: {
-      moderation_enabled: true,
-      spam_max_messages: 3,
-      spam_window_seconds: 20,
-      spam_action: "ban",
-      forward_action: "delete",
-      inline_keyboard_action: "delete",
-      delete_forwarded_messages: true,
-      delete_inline_keyboard_messages: true,
-      delete_messages_from_bots: true,
-      remove_unknown_bots: true,
-      scan_bio_links: true,
-      bio_link_delete_message: true,
-      bio_link_restrict_seconds: 0,
-      bio_scan_cache_seconds: 3600,
-      bio_link_warning_text: GROUP_MODERATION_DEFAULT_VALUES.bio_link_warning_text,
-      bio_link_notice_delete_seconds: 30,
-      enabled: true
-    }
-  },
-  {
-    key: "safe_mode",
-    title: "Safe mode",
-    desc: "Chỉ warn + xóa tin vi phạm, không ban/kick tự động.",
-    values: {
-      moderation_enabled: true,
-      delete_system_messages: true,
-      delete_forwarded_messages: true,
-      delete_inline_keyboard_messages: true,
-      delete_messages_from_bots: true,
-      exempt_admins: true,
-      spam_action: "warn",
-      forward_action: "warn",
-      inline_keyboard_action: "warn",
-      ban_after_warnings: 5,
-      remove_unknown_bots: false,
-      warning_notice_delete_seconds: 120,
-      forward_warning_delete_seconds: 120,
-      spam_notice_delete_seconds: 30,
-      scan_bio_links: true,
-      bio_link_delete_message: true,
-      bio_link_restrict_seconds: 0,
-      bio_scan_cache_seconds: 3600,
-      bio_link_warning_text: GROUP_MODERATION_DEFAULT_VALUES.bio_link_warning_text,
-      bio_link_notice_delete_seconds: 30,
-      enabled: true
-    }
-  }
-];
 const SCHEDULE_STEPS = [
   { title: "Chọn group", desc: "Xác định group/kênh sẽ nhận tin định kỳ." },
   { title: "Chọn pool", desc: "Gán message_pool hoặc video_pool đang có nội dung." },
@@ -365,6 +274,7 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
 };
 const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "check", "report"];
 const CONFIG_LABELS: Record<string, string> = {
+  moderation_enabled: "Bật kiểm duyệt",
   policy_text: "Nội quy nhóm",
   scam_review_channel_id: "Channel duyệt báo cáo scam",
   delete_system_messages: "Xóa tin hệ thống",
@@ -399,6 +309,9 @@ const CONFIG_LABELS: Record<string, string> = {
   forward_warning_delete_seconds: "Tự xóa cảnh báo forward",
   spam_notice_delete_seconds: "Tự xóa thông báo spam",
   violation_delete_retry_seconds: "Thử xóa lại tin vi phạm",
+  media_spam_max_messages: "Số media spam tối đa",
+  media_spam_window_seconds: "Khung thời gian media spam",
+  media_spam_action: "Xử lý media spam",
   duplicate_message_enabled: "Chặn tin/sticker lặp lại",
   duplicate_message_max_count: "Số lần lặp tối đa",
   duplicate_message_window_seconds: "Thời gian kiểm tra lặp",
@@ -443,14 +356,14 @@ const CONFIG_SECTIONS = [
     desc: "Các công tắc chặn nội dung thường gặp trong group.",
     icon: ShieldCheck,
     tone: "security",
-    keys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
   },
   {
     title: "Spam, cảnh báo & ban",
     desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
     icon: SlidersHorizontal,
     tone: "security",
-    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "violation_delete_retry_seconds"]
+    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
   },
   {
     title: "Mẫu tin kiểm duyệt",
@@ -504,7 +417,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
   },
   {
     key: "menu_policy",
@@ -617,6 +530,7 @@ const SYSTEM_CONFIG_SECTIONS = [
   }
 ];
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
+  moderation_enabled: "Bật/tắt toàn bộ luật kiểm duyệt cho module moderation.",
   policy_text: "Nội quy gửi kèm khi thành viên bấm nút Quy định hoặc gọi lệnh liên quan.",
   show_policy_button: "Bật/tắt nút Quy định xuất hiện dưới tin nhắn /start.",
   policy_button_text: "Tên hiển thị của nút Quy định trong Telegram.",
@@ -646,6 +560,9 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   forward_warning_delete_seconds: "Sau bao lâu bot tự xóa cảnh báo khi user gửi tin forward.",
   spam_notice_delete_seconds: "Sau bao lâu bot tự xóa thông báo spam.",
   violation_delete_retry_seconds: "Nếu xóa tin vi phạm lần đầu lỗi, bot chờ số giây này rồi thử xóa lại.",
+  media_spam_max_messages: "Số tin media (ảnh/video/sticker) tối đa trong một khung thời gian trước khi xử lý.",
+  media_spam_window_seconds: "Khung thời gian tính media spam, đơn vị giây.",
+  media_spam_action: "Hành động khi user spam media: delete/warn/restrict/ban.",
   duplicate_message_enabled: "Bật để bot phát hiện user gửi cùng một tin nhắn hoặc cùng một sticker nhiều lần.",
   duplicate_message_max_count: "Số lần trùng nội dung/sticker được phép trong khung thời gian trước khi xử lý.",
   duplicate_message_window_seconds: "Khung thời gian tính lặp. Ví dụ 600 giây là 10 phút.",
@@ -807,6 +724,24 @@ function materializeConfigRows(rows: Row[], expectedKeys: string[], botKey: stri
   return [...virtualRows, ...extras];
 }
 
+function readSettingsObject(settings: unknown) {
+  if (!settings) {
+    return {} as Record<string, unknown>;
+  }
+  if (typeof settings === "string") {
+    try {
+      const parsed = JSON.parse(settings);
+      return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof settings === "object") {
+    return settings as Record<string, unknown>;
+  }
+  return {};
+}
+
 function isVirtualConfigRow(row: Row) {
   return String(row.id || "").startsWith("virtual:");
 }
@@ -873,6 +808,17 @@ function configFieldHint(key: string) {
   return "";
 }
 
+function friendlySaveError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "Không thể lưu.");
+  if (message.includes("bio_link_delete_message") && message.includes("schema cache")) {
+    return "DB còn thiếu cột bio_link_delete_message trong groups. Chạy migration docs/supabase/migrations/20260522_add_groups_moderation_columns.sql rồi thử lưu lại.";
+  }
+  if (message.includes("schema cache") && message.includes("groups")) {
+    return "Schema nhóm chưa khớp với UI. Hãy chạy migration groups mới trong docs/supabase.";
+  }
+  return message || "Không thể lưu.";
+}
+
 function fieldUnitHint(field: FieldConfig) {
   const key = field.key;
   if (field.type === "number") {
@@ -882,11 +828,11 @@ function fieldUnitHint(field: FieldConfig) {
     if (key.endsWith("_seconds")) {
       return "Đơn vị: giây. 300 = 5 phút, 3600 = 1 giờ.";
     }
-    if (["spam_max_messages", "duplicate_message_max_count", "ban_after_warnings"].includes(key)) {
+    if (["spam_max_messages", "duplicate_message_max_count", "ban_after_warnings", "media_spam_max_messages"].includes(key)) {
       return "Đơn vị: số lần / số tin.";
     }
   }
-  if (["spam_action", "forward_action", "inline_keyboard_action", "duplicate_message_action"].includes(key)) {
+  if (["spam_action", "forward_action", "inline_keyboard_action", "duplicate_message_action", "media_spam_action"].includes(key)) {
     return "warn = xóa tin vi phạm + cảnh báo.";
   }
   if (["forward_warning_reason", "duplicate_message_reason"].includes(key)) {
@@ -908,16 +854,6 @@ function fieldUnitHint(field: FieldConfig) {
     return "Cache quét bio theo giây. 3600 = 1 giờ.";
   }
   return "";
-}
-
-function mergeWithDefaults(base: Row, defaults: Record<string, string | number | boolean>) {
-  const merged: Row = { ...defaults, ...base };
-  for (const [key, value] of Object.entries(defaults)) {
-    if (merged[key] === "" || merged[key] === null || merged[key] === undefined) {
-      merged[key] = value;
-    }
-  }
-  return merged;
 }
 
 function fieldByKey(table: TableConfig, key: string) {
@@ -1777,6 +1713,7 @@ export default function HomePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
@@ -1795,6 +1732,14 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
+
+  useEffect(() => {
+    if (!toast) {
+      return;
+    }
+    const timer = window.setTimeout(() => setToast(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("cu_bot_cp_password") || "";
@@ -1934,9 +1879,23 @@ export default function HomePage() {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
     return MODULE_HUBS.find((module) => module.key === moduleKey);
   }, [activeLayer]);
+  const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
   const scopedConfigRows = useMemo(() => {
     if (table?.key !== "config") {
       return visibleRows;
+    }
+    if (activeLayer === "module:moderation") {
+      const moderationRow = moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "moderation");
+      const settings = readSettingsObject(moderationRow?.settings);
+      return (configScopeModule?.configKeys || []).map((key) => ({
+        id: moderationRow?.id ? `module-setting:${moderationRow.id}:${key}` : `module-setting:new:${selectedBot || "main"}:${key}`,
+        bot_key: selectedBot || "main",
+        key,
+        value: settings[key] ?? CONFIG_DEFAULT_VALUES[key] ?? "",
+        enabled: true,
+        notes: "Cấu hình module moderation áp dụng mặc định cho toàn bộ group.",
+        __virtual: true
+      }));
     }
     if (activeLayer === "settings") {
       return visibleRows.filter((row) => !MODULE_CONFIG_KEYS.has(String(row.key || "")));
@@ -1949,7 +1908,7 @@ export default function HomePage() {
       );
     }
     return visibleRows;
-  }, [activeLayer, configScopeModule, selectedBot, table?.key, visibleRows]);
+  }, [activeLayer, configScopeModule, moduleRows, selectedBot, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
     if (activeLayer === "settings") {
       return scopedConfigRows.length
@@ -1988,7 +1947,6 @@ export default function HomePage() {
     return Object.entries(groups);
   }, [dashboardRows]);
   const activeModuleHub = useMemo(() => MODULE_HUBS.find((module) => module.key === activeModule) || MODULE_HUBS[0], [activeModule]);
-  const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
   const setupChecklist = useMemo(() => [
     {
       label: "Env CP sẵn sàng",
@@ -2185,7 +2143,7 @@ export default function HomePage() {
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
   }, [rows, scamInboxStats.confirmed, scamInboxStats.pending, scamInboxStats.rejected, table]);
   const commandItems = useMemo(() => [
-    { title: "Khôi phục protection", hint: "Mở module đang tắt và khôi phục bảo vệ", action: () => goToInsight({ targetLayer: "modules", targetTable: "module_settings" }) },
+    { title: "Khôi phục protection", hint: "Mở module kiểm duyệt để chỉnh luật chung", action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "config" }) },
     { title: "Kiểm tra quyền bot", hint: "Xem nhóm, quyền admin và bot được phép", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
     { title: "Áp dụng preset chống scam", hint: "Mở workflow từ khóa và domain nguy hiểm", action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "keywords" }) },
     { title: "Mở logs runtime", hint: "Kiểm tra nhật ký và hoạt động gần đây", action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" }) },
@@ -2204,11 +2162,11 @@ export default function HomePage() {
     },
     {
       title: "Bảo vệ group",
-      desc: "Đi thẳng tới group, spam action, keyword, domain và bot allowlist.",
+      desc: "Đi thẳng tới module kiểm duyệt rồi áp dụng cho tất cả group.",
       meta: `${healthSummary.groups} group trong phạm vi`,
       icon: ShieldCheck,
       tone: healthSummary.groups ? "healthy" : "warning",
-      action: () => startGroupProtectionFlow()
+      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "config" })
     },
     {
       title: "Gửi tin định kỳ",
@@ -2270,6 +2228,10 @@ export default function HomePage() {
       throw new Error(payload.error || "Yêu cầu thất bại.");
     }
     return payload;
+  }
+
+  function flashToast(message: string, type: ToastState["type"] = "success") {
+    setToast({ message, type });
   }
 
   async function loadLookups() {
@@ -2471,7 +2433,7 @@ export default function HomePage() {
         nextDraft.chat_id = selectedGroup;
       }
     }
-    setDraft(table.key === "groups" ? mergeWithDefaults(nextDraft, GROUP_MODERATION_DEFAULT_VALUES) : nextDraft);
+    setDraft(nextDraft);
     setWorkMode("edit");
     setShowAdvancedFields(false);
     setActiveGroupTab("Thông tin");
@@ -2530,11 +2492,14 @@ export default function HomePage() {
         body: JSON.stringify({ rows: parsed })
       });
       setNotice(`Đã thêm ${parsed.length} mục.`);
+      flashToast(`Đã thêm ${parsed.length} mục.`);
       setBulkText("");
       setBulkOpen(false);
       await loadRows(search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể nhập hàng loạt.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2542,7 +2507,7 @@ export default function HomePage() {
 
   function startEdit(row: Row) {
     setSelected(row);
-    setDraft(table?.key === "groups" ? mergeWithDefaults(draftFromRow(row), GROUP_MODERATION_DEFAULT_VALUES) : draftFromRow(row));
+    setDraft(draftFromRow(row));
     setWorkMode("edit");
     setShowAdvancedFields(false);
     setActiveGroupTab("Thông tin");
@@ -2601,13 +2566,16 @@ export default function HomePage() {
         });
       }
       setNotice("Đã lưu thay đổi.");
+      flashToast("Đã lưu thay đổi.");
       await loadRows(search);
       setWorkMode(activeLayer === "overview" ? "overview" : "operate");
       if (table.key === "bots") {
         await loadLookups();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lưu.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2621,6 +2589,46 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
+      if (table.key === "config" && activeLayer === "module:moderation") {
+        const key = String(values.key || row.key || "").trim();
+        if (!key) {
+          throw new Error("Thiếu key cấu hình moderation.");
+        }
+        const moderationRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "moderation");
+        const nextSettings = {
+          ...readSettingsObject(moderationRow?.settings),
+          [key]: values.value
+        };
+        if (moderationRow?.id) {
+          await api("/api/module_settings", {
+            method: "PATCH",
+            body: JSON.stringify({
+              id: moderationRow.id,
+              values: {
+                ...moderationRow,
+                settings: nextSettings
+              }
+            })
+          });
+        } else {
+          await api("/api/module_settings", {
+            method: "POST",
+            body: JSON.stringify({
+              bot_key: selectedBot || "main",
+              module_key: "moderation",
+              module_name: "Kiểm duyệt tự động",
+              category: "Kiểm duyệt tự động",
+              settings: nextSettings,
+              enabled: true
+            })
+          });
+        }
+        setNotice("Đã lưu cấu hình module kiểm duyệt.");
+        flashToast("Đã lưu cấu hình module kiểm duyệt.");
+        await loadLookups();
+        await loadRows(search);
+        return;
+      }
       if (table.key === "config" && isVirtualConfigRow(row)) {
         await api(`/api/${table.key}`, {
           method: "POST",
@@ -2633,9 +2641,12 @@ export default function HomePage() {
         });
       }
       setNotice("Đã lưu thay đổi.");
+      flashToast("Đã lưu thay đổi.");
       await loadRows(search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lưu.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2656,7 +2667,9 @@ export default function HomePage() {
       }
       await loadLookups();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể lưu.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2713,9 +2726,12 @@ export default function HomePage() {
       });
       await writeAuditLog("scam_report_confirmed", row, { evidence: row.evidence || "" });
       setNotice("Đã xác nhận report và tạo dữ liệu scam.");
+      flashToast("Đã xác nhận report và tạo dữ liệu scam.");
       await loadRows(search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể xác nhận báo cáo scam.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2732,9 +2748,12 @@ export default function HomePage() {
       });
       await writeAuditLog("scam_report_rejected", row, { admin_note: row.admin_note || "" });
       setNotice("Đã đánh dấu báo cáo là từ chối.");
+      flashToast("Đã đánh dấu báo cáo là từ chối.");
       await loadRows(search);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể từ chối báo cáo scam.");
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
     } finally {
       setSaving(false);
     }
@@ -2849,16 +2868,6 @@ export default function HomePage() {
     }));
   }
 
-  function applyGroupPreset(values: Row, tab = "Bảo vệ group") {
-    setDraft((current) => ({
-      ...mergeWithDefaults(current, GROUP_MODERATION_DEFAULT_VALUES),
-      ...values
-    }));
-    setActiveGroupTab(tab);
-    setWorkMode("edit");
-    setNotice("Đã áp dụng preset vào form. Kiểm tra lại rồi bấm Lưu để cập nhật group.");
-  }
-
   function goToScheduleContent(tableKey: "messages" | "video_messages") {
     setActiveLayer("module:automation");
     setActiveModule("automation");
@@ -2870,29 +2879,15 @@ export default function HomePage() {
   }
 
   function startGroupProtectionFlow() {
-    const groupTable = meta?.tables.find((item) => item.key === "groups");
-    if (!groupTable) {
-      return;
-    }
-    const groupRow = selectedGroup
-      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup)
-      : visibleRows.find((row) => table?.key === "groups");
     setActiveLayer("module:moderation");
     setActiveModule("moderation");
-    setActiveKey("groups");
-    setSelected(groupRow || null);
-    setDraft(
-      mergeWithDefaults(groupRow ? draftFromRow(groupRow) : {
-        ...emptyValues(groupTable),
-        bot_key: selectedBot || "main",
-        group_id: selectedGroup || "",
-        enabled: true
-      }, GROUP_MODERATION_DEFAULT_VALUES)
-    );
-    setActiveGroupTab("Bảo vệ group");
+    setActiveKey("config");
+    setSelected(null);
+    setDraft({});
+    setActiveGroupTab("Thông tin");
     setShowAdvancedFields(false);
-    setWorkMode("edit");
-    setNotice("Flow Bảo vệ group đã mở. Các mẫu tin, bio/link và luật spam đều nằm trong setup group này.");
+    setWorkMode("operate");
+    setNotice("Flow module kiểm duyệt đã mở. Luật chung áp dụng cho toàn bộ group.");
   }
 
   function toggleSelected(id: unknown) {
@@ -3523,17 +3518,17 @@ export default function HomePage() {
         {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
           <section className="protection-flow-launcher">
             <div>
-              <span>Flow bảo vệ group</span>
-              <h3>Chọn group, bật luật, test tin nhắn, rồi xem logs</h3>
-              <p>Flow này gom cấu hình group, spam action, keyword/domain và audit log vào một đường đi rõ ràng.</p>
+              <span>Flow bảo vệ module</span>
+              <h3>Cài luật 1 lần cho toàn bộ group, rồi test và xem logs</h3>
+              <p>Cài spam/bio/link/mẫu cảnh báo trong module. Group chỉ còn phạm vi hoạt động và lịch gửi.</p>
             </div>
             <div className="protection-score">
               <strong>{selectedGroupProtection.enabledChecks}/{selectedGroupProtection.totalChecks}</strong>
               <span>{selectedGroupProtection.ready ? "Protection đủ điều kiện nền" : selectedGroupProtection.warnings[0]}</span>
             </div>
-            <button type="button" className="primary" onClick={startGroupProtectionFlow}>
+            <button type="button" className="primary" onClick={() => { setActiveKey("config"); setWorkMode("operate"); }}>
               <ShieldCheck size={17} />
-              Mở flow bảo vệ
+              Mở cài đặt module
             </button>
           </section>
         ) : null}
@@ -3601,6 +3596,7 @@ export default function HomePage() {
 
         {error ? <div className="alert error">{error}</div> : null}
         {notice ? <div className="alert success">{notice}</div> : null}
+        {toast ? <div className={`floating-toast ${toast.type}`}>{toast.message}</div> : null}
 
         {table.key === "audit_logs" ? (
           <section className="audit-console">
@@ -4110,17 +4106,6 @@ export default function HomePage() {
           </section>
         ) : table.key === "config" ? (
           <section className="config-center">
-            {activeLayer === "module:moderation" ? (
-              <section className="config-closed-state">
-                <ShieldCheck size={28} />
-                <strong>Moderation được cấu hình trong group</strong>
-                <span>Từ nay phần moderation chỉ chỉnh trong setup group. Không dùng module default nữa để tránh trùng chỗ.</span>
-                <button type="button" className="primary" onClick={() => startGroupProtectionFlow()}>
-                  Mở setup group
-                </button>
-              </section>
-            ) : null}
-            {activeLayer !== "module:moderation" ? (
               <>
             <div className="config-tabs" aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
@@ -4264,7 +4249,6 @@ export default function HomePage() {
               </section>
             ) : null}
               </>
-            ) : null}
           </section>
         ) : (
         <div className={`content-grid ${hasFocusedPanel ? "focus-mode" : ""} ${workMode === "edit" ? "edit-mode" : ""}`}>
@@ -4416,27 +4400,13 @@ export default function HomePage() {
                     </div>
                     <div className="group-scope-callout">
                       <strong>Đây là setup cho group đang chọn.</strong>
-                      <span>Luật spam, mẫu tin, ban/mute và bio/link đều chỉnh ngay trong group này. Không cần đi qua module default.</span>
+                      <span>Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.</span>
                     </div>
                     <div className="group-legend" aria-label="Ghi chú nhanh">
                       <span>Giây: 300 = 5 phút</span>
                       <span>0 = tắt / vĩnh viễn / không tự xóa</span>
                       <span>warn = xóa tin vi phạm + cảnh báo</span>
                     </div>
-                    {activeGroupTab === "Bảo vệ group" || activeGroupTab === "Luật spam" ? (
-                      <section className="group-presets">
-                        <div>
-                          <h4>Preset nhanh</h4>
-                          <p>Chạm để điền sẵn form. Vẫn cần bấm Lưu sau khi kiểm tra lại.</p>
-                        </div>
-                        {GROUP_PRESETS.map((preset) => (
-                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, "Bảo vệ group")}>
-                            <strong>{preset.title}</strong>
-                            <span>{preset.desc}</span>
-                          </button>
-                        ))}
-                      </section>
-                    ) : null}
                   </>
                 ) : null}
                 <div className="fields">

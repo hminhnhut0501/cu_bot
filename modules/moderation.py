@@ -62,6 +62,46 @@ MESSAGE_CONTENT_TYPES = [
 
 
 class ModerationModule(BotModule):
+    MODULE_SETTING_KEYS = {
+        "moderation_enabled",
+        "delete_system_messages",
+        "delete_forwarded_messages",
+        "delete_inline_keyboard_messages",
+        "delete_messages_from_bots",
+        "remove_unknown_bots",
+        "exempt_admins",
+        "spam_max_messages",
+        "spam_window_seconds",
+        "spam_action",
+        "spam_restrict_seconds",
+        "forward_action",
+        "inline_keyboard_action",
+        "ban_after_warnings",
+        "ban_seconds",
+        "warning_text",
+        "forward_warning_reason",
+        "forward_warning_text",
+        "spam_restrict_text",
+        "warning_notice_delete_seconds",
+        "forward_warning_delete_seconds",
+        "spam_notice_delete_seconds",
+        "violation_delete_retry_seconds",
+        "duplicate_message_enabled",
+        "duplicate_message_max_count",
+        "duplicate_message_window_seconds",
+        "duplicate_message_action",
+        "duplicate_message_reason",
+        "scan_bio_links",
+        "bio_link_delete_message",
+        "bio_link_restrict_seconds",
+        "bio_scan_cache_seconds",
+        "bio_link_warning_text",
+        "bio_link_notice_delete_seconds",
+        "media_spam_max_messages",
+        "media_spam_window_seconds",
+        "media_spam_action",
+    }
+
     name = "moderation"
     priority = 10
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
@@ -1061,10 +1101,29 @@ class ModerationModule(BotModule):
         return {}
 
     def setting(self, chat_id, key, default=None):
+        if key in self.MODULE_SETTING_KEYS:
+            module_value = self.module_setting(key)
+            if module_value not in (None, ""):
+                return module_value
         row = self.group_row(chat_id)
         if row.get(key) not in (None, ""):
             return row.get(key)
         return self.store.value(key, default)
+
+    def module_setting(self, key):
+        for row in self.store.enabled_rows("module_settings"):
+            if (row.get("module_key") or "").strip().lower() != "moderation":
+                continue
+            settings = row.get("settings")
+            if isinstance(settings, str):
+                try:
+                    settings = json.loads(settings)
+                except Exception:
+                    settings = {}
+            if isinstance(settings, dict):
+                return settings.get(key)
+            return None
+        return None
 
     def setting_bool(self, chat_id, key, default=False):
         return as_bool(self.setting(chat_id, key, default), default)
