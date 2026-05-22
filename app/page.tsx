@@ -102,8 +102,19 @@ const CONFIG_BOOLEAN_KEYS = new Set([
   "send_on_boot",
   "send_if_silent",
 ]);
+const CONFIG_DEFAULT_VALUES: Record<string, string> = {
+  warning_text: "{mention} cảnh báo vi phạm: {reason}\nSố lần cảnh báo: {count}/{limit}\nVui lòng dừng lại để tránh bị khóa hoặc ban.",
+  forward_warning_reason: "Không cho phép chia sẻ Story/forward/trích dẫn nội dung từ nguồn bên ngoài vào nhóm.",
+  forward_warning_text: "{mention} bạn đang gửi nội dung chuyển tiếp từ nguồn ngoài.\nLý do: {reason}\nCảnh báo: {count}/{limit}\nTiếp tục vi phạm sẽ bị xử lý mạnh hơn.",
+  spam_restrict_text: "{mention} đã bị tạm khóa chat vì vi phạm: {reason}\nNếu cần hỗ trợ, liên hệ admin và chờ mở lại quyền chat.",
+  bio_link_warning_text: "{mention} bio của bạn đang chứa link.\nVui lòng gỡ link trong bio rồi nhắn admin để được mở chat lại.",
+  warning_notice_delete_seconds: "90",
+  forward_warning_delete_seconds: "120",
+  spam_notice_delete_seconds: "45",
+  bio_link_notice_delete_seconds: "60",
+};
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
-const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Spam & ban", "Mẫu tin", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
+const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Luật spam", "Tin bot gửi", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
 const GROUP_BASE_SECTIONS = new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]);
 const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
   moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Chống spam", "Mẫu tin kiểm duyệt", "Ghi chú", "Advanced"]),
@@ -114,8 +125,8 @@ const GROUP_TAB_LABELS: Record<string, string> = {
   "Thông tin nhóm": "Thông tin",
   "Thông tin": "Thông tin",
   "Kiểm duyệt": "Bảo vệ group",
-  "Chống spam": "Spam & ban",
-  "Mẫu tin kiểm duyệt": "Mẫu tin",
+  "Chống spam": "Luật spam",
+  "Mẫu tin kiểm duyệt": "Tin bot gửi",
   "Lịch gửi tin": "Lịch gửi",
   Video: "Video",
   "Menu bot": "Menu riêng",
@@ -708,9 +719,9 @@ function materializeConfigRows(rows: Row[], expectedKeys: string[], botKey: stri
     id: `virtual:${botKey}:${key}`,
     bot_key: botKey,
     key,
-    value: "",
+    value: CONFIG_DEFAULT_VALUES[key] ?? "",
     enabled: true,
-    notes: "",
+    notes: "Mặc định gợi ý. Bấm Lưu để tạo cấu hình thật.",
     __virtual: true
   });
   const extras = rows.filter((row) => !expectedKeys.includes(String(row.key || "")));
@@ -767,6 +778,20 @@ function configValueCaption(row: Row) {
     return "Trạng thái giá trị";
   }
   return "Giá trị hiện tại";
+}
+
+function configPlaceholders(key: string) {
+  if (["warning_text", "forward_warning_text", "spam_restrict_text", "bio_link_warning_text"].includes(key)) {
+    return ["{mention}", "{reason}", "{count}", "{limit}", "{user_id}"];
+  }
+  return [];
+}
+
+function configFieldHint(key: string) {
+  if (["forward_warning_reason", "duplicate_message_reason"].includes(key)) {
+    return "Đây là lý do cố định, không cần placeholder.";
+  }
+  return "";
 }
 
 function fieldByKey(table: TableConfig, key: string) {
@@ -2738,10 +2763,10 @@ export default function HomePage() {
       exempt_admins: true,
       spam_action: "warn"
     });
-    setActiveGroupTab("Bảo vệ group");
+    setActiveGroupTab("Luật spam");
     setShowAdvancedFields(false);
     setWorkMode("edit");
-    setNotice("Flow Bảo vệ group đã mở. Chọn preset, kiểm tra tab Spam & ban/Test luật rồi lưu.");
+    setNotice("Flow Bảo vệ group đã mở. Chọn preset, kiểm tra tab Luật spam/Tin bot gửi rồi lưu.");
   }
 
   function toggleSelected(id: unknown) {
@@ -3924,13 +3949,18 @@ export default function HomePage() {
                   ) : (
                     <label>
                       <span>Nội dung / giá trị</span>
-                      <textarea
-                        value={draft.value ?? ""}
-                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                        rows={String(draft.value || "").length > 120 ? 6 : 3}
-                      />
-                    </label>
-                  )}
+                              <textarea
+                                value={draft.value ?? ""}
+                                onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
+                                rows={String(draft.value || "").length > 120 ? 6 : 3}
+                              />
+                              {configPlaceholders(String(draft.key || "")).length ? (
+                                <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
+                              ) : configFieldHint(String(draft.key || "")) ? (
+                                <small>{configFieldHint(String(draft.key || ""))}</small>
+                              ) : null}
+                            </label>
+                          )}
                   <label className="checkbox-field">
                     <span>Kích hoạt cấu hình này</span>
                     <input
@@ -3954,6 +3984,18 @@ export default function HomePage() {
           </section>
         ) : table.key === "config" ? (
           <section className="config-center">
+            {activeLayer === "module:moderation" ? (
+              <section className="config-closed-state">
+                <ShieldCheck size={28} />
+                <strong>Moderation được cấu hình trong group</strong>
+                <span>Từ nay phần moderation chỉ chỉnh trong setup group. Không dùng module default nữa để tránh trùng chỗ.</span>
+                <button type="button" className="primary" onClick={() => startGroupProtectionFlow()}>
+                  Mở setup group
+                </button>
+              </section>
+            ) : null}
+            {activeLayer !== "module:moderation" ? (
+              <>
             <div className="config-tabs" aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
                 const TabIcon = section.icon;
@@ -4037,6 +4079,11 @@ export default function HomePage() {
                                   onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                                   rows={String(draft.value || "").length > 120 ? 6 : 3}
                                 />
+                                {configPlaceholders(String(draft.key || "")).length ? (
+                                  <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
+                                ) : configFieldHint(String(draft.key || "")) ? (
+                                  <small>{configFieldHint(String(draft.key || ""))}</small>
+                                ) : null}
                               </label>
                             )}
                             <label className="checkbox-field">
@@ -4089,6 +4136,8 @@ export default function HomePage() {
                 <strong>Advanced config đang được thu gọn</strong>
                 <span>Chọn một nhóm cài đặt phía trên khi cần sửa sâu. Mặc định CP chỉ hiển thị trạng thái và hành động chính.</span>
               </section>
+            ) : null}
+              </>
             ) : null}
           </section>
         ) : (
@@ -4240,17 +4289,17 @@ export default function HomePage() {
                       ))}
                     </div>
                     <div className="group-scope-callout">
-                      <strong>Đây là override theo group.</strong>
-                      <span>Muốn đổi mặc định chung cho mọi group, mở module tương ứng ở sidebar. Còn form này chỉ áp dụng cho group đang chọn.</span>
+                      <strong>Đây là setup cho group đang chọn.</strong>
+                      <span>Luật spam, mẫu tin, ban/mute và bio link đều chỉnh ngay trong group này. Không cần đi qua module default.</span>
                     </div>
-                    {activeGroupTab === "Bảo vệ group" || activeGroupTab === "Spam & ban" ? (
+                    {activeGroupTab === "Bảo vệ group" || activeGroupTab === "Luật spam" ? (
                       <section className="group-presets">
                         <div>
                           <h4>Preset nhanh</h4>
                           <p>Áp dụng vào form hiện tại, sau đó vẫn cần bấm Lưu.</p>
                         </div>
                         {GROUP_PRESETS.map((preset) => (
-                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, preset.key === "safe_mode" ? "Spam & ban" : "Bảo vệ group")}>
+                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, preset.key === "safe_mode" ? "Luật spam" : "Bảo vệ group")}>
                             <strong>{preset.title}</strong>
                             <span>{preset.desc}</span>
                           </button>
@@ -4276,6 +4325,9 @@ export default function HomePage() {
                                 placeholder={field.placeholder}
                                 rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
                               />
+                              {configPlaceholders(field.key).length ? (
+                                <small>Placeholder: {configPlaceholders(field.key).join(" · ")}</small>
+                              ) : null}
                               {commandField(field) ? (
                                 <div className="command-picks">
                                   {COMMAND_OPTIONS.map((command) => {
