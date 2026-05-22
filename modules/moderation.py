@@ -57,6 +57,7 @@ MESSAGE_CONTENT_TYPES = [
     "dice",
     "poll",
     "venue",
+    "story",
 ]
 
 
@@ -504,16 +505,46 @@ class ModerationModule(BotModule):
     def detect_forward(self, message):
         if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
             return False
-        forwarded = any(
-            getattr(message, attr, None)
-            for attr in ("forward_from", "forward_from_chat", "forward_sender_name", "forward_origin", "forward_date", "is_automatic_forward", "forward_signature")
-        )
+        forwarded, forward_flags = self.forward_detection_flags(message)
         if not forwarded:
             return False
-        self.delete_violation_message(message, "forwarded_message", reason_label="Tin nhắn được forward", **self.forward_audit_details(message))
+        self.delete_violation_message(
+            message,
+            "forwarded_message",
+            reason_label="Tin nhắn được forward",
+            **self.forward_audit_details(message, forward_flags),
+        )
         reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
         self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason, trigger="forwarded_message")
         return True
+
+    def forward_detection_flags(self, message):
+        flags = []
+        for attr in (
+            "forward_from",
+            "forward_from_chat",
+            "forward_sender_name",
+            "forward_date",
+            "is_automatic_forward",
+            "forward_signature",
+            "forward_from_message_id",
+        ):
+            if getattr(message, attr, None):
+                flags.append(attr)
+        if getattr(message, "forward_origin", None):
+            flags.append("forward_origin")
+        if getattr(message, "story", None):
+            flags.append("story")
+        if getattr(message, "external_reply", None):
+            flags.append("external_reply")
+        quote = getattr(message, "quote", None)
+        if quote and (
+            getattr(quote, "text", None)
+            or getattr(quote, "position", None) is not None
+            or getattr(quote, "is_manual", None) is not None
+        ):
+            flags.append("quote")
+        return bool(flags), flags
 
     def detect_inline_keyboard(self, message):
         if not self.setting_bool(message.chat.id, "delete_inline_keyboard_messages", True):
@@ -696,6 +727,16 @@ class ModerationModule(BotModule):
         text = str(value or "")
         return text if len(text) <= limit else f"{text[:limit]}..."
 
+    def audit_scalar(self, value):
+        if value in (None, ""):
+            return ""
+        if hasattr(value, "isoformat"):
+            try:
+                return value.isoformat()
+            except Exception:
+                return str(value)
+        return value
+
     def actor_for_system(self):
         return "bot"
 
@@ -723,19 +764,44 @@ class ModerationModule(BotModule):
             **extra,
         )
 
-    def forward_audit_details(self, message):
+    def forward_audit_details(self, message, forward_flags=None):
         forward_chat = getattr(message, "forward_from_chat", None)
         forward_user = getattr(message, "forward_from", None)
         origin = getattr(message, "forward_origin", None)
+        story = getattr(message, "story", None)
+        story_chat = getattr(story, "chat", None)
+        external_reply = getattr(message, "external_reply", None)
+        quote = getattr(message, "quote", None)
         return {
+            "forward_detected": "true",
+            "forward_flags": ",".join(forward_flags or []),
             "forward_from_user_id": getattr(forward_user, "id", ""),
             "forward_from_username": getattr(forward_user, "username", ""),
             "forward_from_chat_id": getattr(forward_chat, "id", ""),
             "forward_from_chat_title": getattr(forward_chat, "title", ""),
             "forward_sender_name": getattr(message, "forward_sender_name", ""),
             "forward_origin_type": getattr(origin, "type", ""),
-            "forward_date": getattr(message, "forward_date", ""),
+            "forward_origin_chat_id": getattr(getattr(origin, "chat", None), "id", ""),
+            "forward_origin_chat_title": getattr(getattr(origin, "chat", None), "title", ""),
+            "forward_origin_message_id": getattr(origin, "message_id", ""),
+            "forward_origin_sender_user_id": getattr(getattr(origin, "sender_user", None), "id", ""),
+            "forward_origin_sender_chat_id": getattr(getattr(origin, "sender_chat", None), "id", ""),
+            "forward_date": self.audit_scalar(getattr(message, "forward_date", "")),
             "is_automatic_forward": getattr(message, "is_automatic_forward", ""),
+            "story_id": getattr(story, "id", ""),
+            "story_date": self.audit_scalar(getattr(story, "date", "")),
+            "story_chat_id": getattr(story_chat, "id", ""),
+            "story_chat_title": getattr(story_chat, "title", ""),
+            "story_chat_username": getattr(story_chat, "username", ""),
+            "external_reply_present": "true" if external_reply else "",
+            "external_reply_chat_id": getattr(getattr(external_reply, "chat", None), "id", ""),
+            "external_reply_chat_title": getattr(getattr(external_reply, "chat", None), "title", ""),
+            "external_reply_message_id": getattr(external_reply, "message_id", ""),
+            "external_reply_origin_chat_id": getattr(getattr(getattr(external_reply, "origin", None), "chat", None), "id", ""),
+            "external_reply_origin_message_id": getattr(getattr(external_reply, "origin", None), "message_id", ""),
+            "quote_present": "true" if quote else "",
+            "quote_text": self.truncate_text(getattr(quote, "text", ""), 350),
+            "quote_position": getattr(quote, "position", ""),
         }
 
     def delete_violation_message(self, message, reason, **details):

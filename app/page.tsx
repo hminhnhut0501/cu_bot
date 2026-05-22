@@ -88,11 +88,25 @@ type EmptyStateConfig = {
 };
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
+const CONFIG_BOOLEAN_KEYS = new Set([
+  "delete_system_messages",
+  "delete_forwarded_messages",
+  "delete_inline_keyboard_messages",
+  "delete_messages_from_bots",
+  "remove_unknown_bots",
+  "exempt_admins",
+  "scan_bio_links",
+  "bio_link_delete_message",
+  "duplicate_message_enabled",
+  "show_policy_button",
+  "send_on_boot",
+  "send_if_silent",
+]);
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
-const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Spam & ban", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
+const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Spam & ban", "Mẫu tin", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
 const GROUP_BASE_SECTIONS = new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]);
 const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
-  moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Chống spam", "Ghi chú", "Advanced"]),
+  moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Chống spam", "Mẫu tin kiểm duyệt", "Ghi chú", "Advanced"]),
   automation: new Set(["Thông tin nhóm", "Thông tin", "Lịch gửi tin", "Video", "Ghi chú", "Advanced"]),
   menu_policy: new Set(["Thông tin nhóm", "Thông tin", "Menu bot", "Nội dung", "Ghi chú", "Advanced"])
 };
@@ -101,6 +115,7 @@ const GROUP_TAB_LABELS: Record<string, string> = {
   "Thông tin": "Thông tin",
   "Kiểm duyệt": "Bảo vệ group",
   "Chống spam": "Spam & ban",
+  "Mẫu tin kiểm duyệt": "Mẫu tin",
   "Lịch gửi tin": "Lịch gửi",
   Video: "Video",
   "Menu bot": "Menu riêng",
@@ -278,9 +293,18 @@ const CONFIG_LABELS: Record<string, string> = {
   help_menu_commands: "Menu trong /help",
   help_menu_title: "Tiêu đề menu /help",
   start_fallback_text: "Tin /start khi chưa có nội dung",
+  spam_max_messages: "Số tin spam tối đa",
+  spam_window_seconds: "Khung thời gian spam",
   spam_action: "Cách xử lý spam",
   spam_restrict_seconds: "Thời gian mute khi spam",
+  forward_action: "Cách xử lý forward",
+  inline_keyboard_action: "Cách xử lý bài có nút bấm",
+  ban_after_warnings: "Ban sau số cảnh báo",
   ban_seconds: "Thời gian ban",
+  warning_text: "Mẫu cảnh báo chung",
+  forward_warning_reason: "Lý do cảnh báo forward",
+  forward_warning_text: "Mẫu cảnh báo forward",
+  spam_restrict_text: "Mẫu tin khi mute tạm",
   warning_notice_delete_seconds: "Tự xóa tin cảnh báo",
   forward_warning_delete_seconds: "Tự xóa cảnh báo forward",
   spam_notice_delete_seconds: "Tự xóa thông báo spam",
@@ -336,14 +360,21 @@ const CONFIG_SECTIONS = [
     desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
     icon: SlidersHorizontal,
     tone: "security",
-    keys: ["spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason"]
+    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "violation_delete_retry_seconds"]
+  },
+  {
+    title: "Mẫu tin kiểm duyệt",
+    desc: "Các tin bot gửi ra khi cảnh báo spam, forward, mute tạm hoặc phát hiện bio có link.",
+    icon: MessageSquare,
+    tone: "content",
+    keys: ["warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
   },
   {
     title: "Bio, link & cảnh báo",
     desc: "Quét link trong bio, xóa tin vi phạm và nội dung cảnh báo.",
     icon: Archive,
     tone: "scam",
-    keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds"]
   },
   {
     title: "Captcha & verify",
@@ -383,7 +414,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_action", "spam_restrict_seconds", "ban_seconds", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    configKeys: ["delete_system_messages", "delete_forwarded_messages", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
   },
   {
     key: "menu_policy",
@@ -509,9 +540,18 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
   exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
+  spam_max_messages: "Bao nhiêu tin nhắn trong một khung thời gian sẽ bị coi là spam.",
+  spam_window_seconds: "Khung thời gian để đếm spam. Ví dụ 15 nghĩa là 15 giây.",
   spam_action: "Hành động mặc định khi user spam: warn để cảnh báo, mute để khóa chat tạm, ban để chặn khỏi nhóm.",
   spam_restrict_seconds: "Số giây mute/restrict user khi spam. Ví dụ 300 là 5 phút.",
+  forward_action: "Hành động khi user forward nội dung vào group. Nên dùng warn hoặc delete trước khi siết lên ban.",
+  inline_keyboard_action: "Hành động khi user gửi bài có nút bấm inline đáng ngờ.",
+  ban_after_warnings: "Bao nhiêu lần cảnh báo thì nâng lên ban tự động.",
   ban_seconds: "Số giây ban user. Đặt 0 nghĩa là ban vĩnh viễn.",
+  warning_text: "Tin bot gửi khi user bị cảnh báo chung. Có thể dùng {mention}, {reason}, {count}, {limit}.",
+  forward_warning_reason: "Lý do nội bộ gắn vào cảnh báo forward và nhật ký audit.",
+  forward_warning_text: "Tin bot gửi khi user bị cảnh báo vì forward. Có thể dùng {mention}, {reason}, {count}, {limit}.",
+  spam_restrict_text: "Tin bot gửi khi user bị mute/restrict tạm thời. Có thể dùng {mention}, {reason}, {user_id}.",
   warning_notice_delete_seconds: "Sau bao lâu bot tự xóa tin cảnh báo chung để group đỡ rác.",
   forward_warning_delete_seconds: "Sau bao lâu bot tự xóa cảnh báo khi user gửi tin forward.",
   spam_notice_delete_seconds: "Sau bao lâu bot tự xóa thông báo spam.",
@@ -651,8 +691,34 @@ function configDescription(row: Row) {
 }
 
 function isConfigBoolean(row: Row) {
+  const key = String(row.key || "");
+  if (CONFIG_BOOLEAN_KEYS.has(key)) {
+    return true;
+  }
   const value = String(row.value ?? "").trim().toLowerCase();
   return ["true", "false"].includes(value);
+}
+
+function materializeConfigRows(rows: Row[], expectedKeys: string[], botKey: string) {
+  const rowMap = new Map<string, Row>();
+  for (const row of rows) {
+    rowMap.set(String(row.key || ""), row);
+  }
+  const virtualRows = expectedKeys.map((key) => rowMap.get(key) || {
+    id: `virtual:${botKey}:${key}`,
+    bot_key: botKey,
+    key,
+    value: "",
+    enabled: true,
+    notes: "",
+    __virtual: true
+  });
+  const extras = rows.filter((row) => !expectedKeys.includes(String(row.key || "")));
+  return [...virtualRows, ...extras];
+}
+
+function isVirtualConfigRow(row: Row) {
+  return String(row.id || "").startsWith("virtual:");
 }
 
 function configDisplayValue(row: Row) {
@@ -1725,10 +1791,14 @@ export default function HomePage() {
       return visibleRows.filter((row) => !MODULE_CONFIG_KEYS.has(String(row.key || "")));
     }
     if (configScopeModule?.configKeys?.length) {
-      return visibleRows.filter((row) => configScopeModule.configKeys?.includes(String(row.key || "")));
+      return materializeConfigRows(
+        visibleRows.filter((row) => configScopeModule.configKeys?.includes(String(row.key || ""))),
+        configScopeModule.configKeys,
+        selectedBot || "main"
+      );
     }
     return visibleRows;
-  }, [activeLayer, configScopeModule, table?.key, visibleRows]);
+  }, [activeLayer, configScopeModule, selectedBot, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
     if (activeLayer === "settings") {
       return scopedConfigRows.length
@@ -2368,7 +2438,7 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      if (selected?.id) {
+      if (selected?.id && !(table.key === "config" && isVirtualConfigRow(selected))) {
         await api(`/api/${table.key}`, {
           method: "PATCH",
           body: JSON.stringify({ id: selected.id, values: draft })
@@ -2400,10 +2470,17 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      await api(`/api/${table.key}`, {
-        method: "PATCH",
-        body: JSON.stringify({ id: row.id, values })
-      });
+      if (table.key === "config" && isVirtualConfigRow(row)) {
+        await api(`/api/${table.key}`, {
+          method: "POST",
+          body: JSON.stringify(values)
+        });
+      } else {
+        await api(`/api/${table.key}`, {
+          method: "PATCH",
+          body: JSON.stringify({ id: row.id, values })
+        });
+      }
       setNotice("Đã lưu thay đổi.");
       await loadRows(search);
     } catch (err) {
