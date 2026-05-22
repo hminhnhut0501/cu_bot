@@ -107,6 +107,15 @@ class ModerationModule(BotModule):
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
     URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
 
+    def is_enabled(self):
+        return self.module_enabled("moderation", True)
+
+    def module_enabled(self, module_key, default=True):
+        for row in self.store.rows("module_settings"):
+            if (row.get("module_key") or "").strip() == module_key:
+                return as_bool(row.get("enabled"), default)
+        return default
+
     def register(self):
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.active(self.handle_service_message))
         self.bot.my_chat_member_handler()(self.active(self.handle_my_chat_member))
@@ -1111,7 +1120,7 @@ class ModerationModule(BotModule):
         return self.store.value(key, default)
 
     def module_setting(self, key):
-        for row in self.store.enabled_rows("module_settings"):
+        for row in self.store.rows("module_settings"):
             if (row.get("module_key") or "").strip().lower() != "moderation":
                 continue
             settings = row.get("settings")
