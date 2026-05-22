@@ -230,6 +230,8 @@ class ModerationModule(BotModule):
             return
         if self.handle_verification_answer(message):
             return
+        if self.detect_forward(message):
+            return
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
@@ -438,7 +440,7 @@ class ModerationModule(BotModule):
             return False
         forwarded = any(
             getattr(message, attr, None)
-            for attr in ("forward_from", "forward_from_chat", "forward_sender_name", "forward_origin")
+            for attr in ("forward_from", "forward_from_chat", "forward_sender_name", "forward_origin", "forward_date", "is_automatic_forward", "forward_signature")
         )
         if not forwarded:
             return False
@@ -666,6 +668,8 @@ class ModerationModule(BotModule):
             "forward_from_chat_title": getattr(forward_chat, "title", ""),
             "forward_sender_name": getattr(message, "forward_sender_name", ""),
             "forward_origin_type": getattr(origin, "type", ""),
+            "forward_date": getattr(message, "forward_date", ""),
+            "is_automatic_forward": getattr(message, "is_automatic_forward", ""),
         }
 
     def delete_violation_message(self, message, reason, **details):
