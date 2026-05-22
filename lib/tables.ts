@@ -44,7 +44,7 @@ export const TABLES: TableConfig[] = [
   {
     key: "module_settings",
     label: "Module",
-    description: "Bật/tắt và cấu hình các module quản trị, bảo mật, tương tác, vận hành.",
+    description: "Bật/tắt module và chỉnh mặc định của từng module. Các override theo group sẽ nằm ở bảng group.",
     titleField: "module_name",
     summaryFields: ["bot_key", "category", "module_key", "enabled"],
     fields: [
@@ -60,7 +60,7 @@ export const TABLES: TableConfig[] = [
   {
     key: "config",
     label: "Cài đặt",
-    description: "Cài đặt hệ thống dùng chung. Cài đặt riêng của module được quản lý trong từng module.",
+    description: "Cài đặt dùng chung toàn bot/CP. Nếu một field có thể chỉnh theo module hoặc theo group, nó sẽ không ưu tiên đặt ở đây.",
     titleField: "key",
     summaryFields: ["bot_key", "value", "enabled"],
     fields: [botKey, { key: "key", label: "Mã cài đặt", type: "text", required: true }, { key: "value", label: "Giá trị", type: "textarea" }, enabled, notes]
@@ -68,7 +68,7 @@ export const TABLES: TableConfig[] = [
   {
     key: "groups",
     label: "Nhóm",
-    description: "Quản lý group Telegram, chống spam và lịch gửi nội dung.",
+    description: "Override theo từng group: luật kiểm duyệt, lịch gửi, menu riêng và nội dung riêng.",
     titleField: "group_name",
     summaryFields: ["bot_key", "group_id", "daily_enabled", "spam_action"],
     fields: [

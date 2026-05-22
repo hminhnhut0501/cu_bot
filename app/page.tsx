@@ -220,7 +220,7 @@ const SYSTEM_LAYERS = [
     key: "settings",
     title: "Cài đặt hệ thống",
     shortTitle: "Cài đặt hệ thống",
-    desc: "Cài đặt chung toàn CP. Cài đặt riêng của module sẽ nằm trong module tương ứng.",
+    desc: "Chỉ còn các key dùng chung thật sự. Phần lớn cài đặt đã chuyển vào module hoặc override theo group.",
     icon: SlidersHorizontal,
     tone: "content",
     tables: ["config"]
@@ -488,8 +488,8 @@ const MODULE_TABLE_OWNER: Record<string, string> = {
 const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
 const SYSTEM_CONFIG_SECTIONS = [
   {
-    title: "Cài đặt hệ thống",
-    desc: "Chỉ giữ các cài đặt dùng chung toàn CP/toàn bot. Cài đặt module đã được chuyển về từng module.",
+    title: "Cài đặt dùng chung",
+    desc: "Chỉ hiện các key thật sự chia sẻ toàn bot. Nếu một field cần chỉnh theo module hoặc theo group, nó sẽ không nằm ở đây.",
     icon: SlidersHorizontal,
     tone: "main",
     keys: [] as string[]
@@ -1731,9 +1731,11 @@ export default function HomePage() {
   }, [activeLayer, configScopeModule, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
     if (activeLayer === "settings") {
-      return SYSTEM_CONFIG_SECTIONS.map((section) => ({ ...section, rows: scopedConfigRows }));
+      return scopedConfigRows.length
+        ? SYSTEM_CONFIG_SECTIONS.map((section) => ({ ...section, rows: scopedConfigRows }))
+        : [];
     }
-    const sections = activeLayer === "settings" ? SYSTEM_CONFIG_SECTIONS : CONFIG_SECTIONS;
+    const sections = CONFIG_SECTIONS;
     const usedKeys = new Set(sections.flatMap((section) => section.keys));
     const baseTabs = sections.map((section) => ({
       ...section,
@@ -1752,7 +1754,7 @@ export default function HomePage() {
       });
     }
     return tabs;
-  }, [scopedConfigRows]);
+  }, [activeLayer, scopedConfigRows]);
   const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab), [activeConfigTab, configTabs]);
   const ActiveConfigIcon = activeConfigSection?.icon;
   const metricGroups = useMemo(() => {
@@ -3997,7 +3999,14 @@ export default function HomePage() {
                 </div>
               </section>
             ) : null}
-            {!activeConfigSection ? (
+            {!activeConfigSection && activeLayer === "settings" ? (
+              <section className="config-closed-state">
+                <SlidersHorizontal size={28} />
+                <strong>Không còn cài đặt toàn cục cần chỉnh ở đây</strong>
+                <span>Global đã được thu gọn để tránh trùng với module và group. Muốn đổi mặc định, mở module tương ứng; muốn đổi theo group, mở group đó.</span>
+              </section>
+            ) : null}
+            {!activeConfigSection && activeLayer !== "settings" ? (
               <section className="config-closed-state">
                 <SlidersHorizontal size={28} />
                 <strong>Advanced config đang được thu gọn</strong>
