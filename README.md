@@ -137,13 +137,13 @@ These prevent a temporary Telegram `409 Conflict` during Render redeploy overlap
 
 ### `groups`
 
-| group_id | enabled | daily_enabled | daily_window_start | daily_window_end | send_if_silent | message_pool | video_enabled | video_window_start | video_window_end | video_pool | spam_max_messages | spam_window_seconds |
+| group_id | enabled | moderation_enabled | daily_enabled | daily_window_start | daily_window_end | send_if_silent | message_pool | video_enabled | video_window_start | video_window_end | video_pool | spam_max_messages | spam_window_seconds |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| -1001234567890 | true | true | 20:00 | 23:59 | false | default | true | 21:00 | 23:00 | default | 6 | 12 |
+| -1001234567890 | true | true | true | 20:00 | 23:59 | false | default | true | 21:00 | 23:00 | default | 6 | 12 |
 
 If the `groups` table is empty or missing, moderation runs in every group. Scheduled posts need `groups`.
 
-Moderation features such as system-message cleanup, spam filtering, keyword filtering, bot cleanup, forwarded-post cleanup, and bio scanning run in every group by default when the bot is admin. Use `groups.moderation_enabled=false` only if you want to disable moderation for a specific group. Scheduled messages and scheduled videos still require group IDs in `groups`.
+Moderation features such as system-message cleanup, spam filtering, keyword filtering, bot cleanup, forwarded-post cleanup, and bio scanning run in every group by default when the bot is admin. Use `groups.moderation_enabled=false` only if you want to disable moderation for a specific group. Most moderation overrides now live in `groups`, not `config`. Scheduled messages and scheduled videos still require group IDs in `groups`.
 
 ### `config`
 
