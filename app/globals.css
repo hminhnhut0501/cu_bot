@@ -3375,6 +3375,8 @@ button.primary:hover,
   bottom: 24px;
   z-index: 70;
   width: min(620px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(217, 224, 232, 0.9);
   border-radius: 14px;
@@ -3383,6 +3385,10 @@ button.primary:hover,
 }
 
 .editor-panel form {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
   padding: 16px;
 }
 
@@ -3394,7 +3400,11 @@ button.primary:hover,
 }
 
 .inspector-shell {
-  display: grid;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
   gap: 18px;
   padding: 22px;
 }
@@ -3786,8 +3796,30 @@ button.primary:hover,
   line-height: 1.35;
 }
 
+.group-scope-callout {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  padding: 12px;
+}
+
+.group-scope-callout strong {
+  color: #1d4ed8;
+  font-size: 13px;
+}
+
+.group-scope-callout span {
+  color: #425466;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .fields {
-  max-height: calc(100vh - 260px);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding-right: 4px;
 }

@@ -68,6 +68,7 @@ class ModerationModule(BotModule):
 
     def register(self):
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.active(self.handle_service_message))
+        self.bot.my_chat_member_handler()(self.active(self.handle_my_chat_member))
         self.bot.message_handler(commands=["policy", "rules", "quydinh", "noiquy"])(self.active(self.handle_policy))
         self.bot.message_handler(commands=["warn", "canhbao"])(self.active(self.admin_only(self.handle_warn_command)))
         self.bot.message_handler(commands=["ban", "cam"])(self.active(self.admin_only(self.handle_ban_command)))
@@ -107,6 +108,71 @@ class ModerationModule(BotModule):
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
+
+    def handle_my_chat_member(self, update):
+        chat = getattr(update, "chat", None)
+        new_member = getattr(update, "new_chat_member", None)
+        old_member = getattr(update, "old_chat_member", None)
+        if not chat or not new_member:
+            return
+
+        bot_user = self.bot.get_me()
+        member_user = getattr(new_member, "user", None)
+        if not member_user or getattr(member_user, "id", None) != getattr(bot_user, "id", None):
+            return
+
+        chat_type = getattr(chat, "type", "")
+        if chat_type not in {"group", "supergroup", "channel"}:
+            return
+
+        status = (getattr(new_member, "status", "") or "").strip().lower()
+        old_status = (getattr(old_member, "status", "") or "").strip().lower()
+        if status not in {"member", "administrator", "restricted"} and old_status in {"left", "kicked"}:
+            return
+
+        self.sync_discovered_group(chat, status=status, old_status=old_status)
+
+    def sync_discovered_group(self, chat, status="", old_status=""):
+        group_id = str(getattr(chat, "id", "") or "").strip()
+        if not group_id:
+            return
+
+        group_name = (
+            getattr(chat, "title", None)
+            or getattr(chat, "username", None)
+            or getattr(chat, "first_name", None)
+            or group_id
+        )
+        note = f"Auto-discovered from my_chat_member ({old_status or 'unknown'} -> {status or 'unknown'})."
+
+        try:
+            existing = None
+            for row in self.store.rows("groups"):
+                row_group_id = str(row.get("group_id") or row.get("chat_id") or "").strip()
+                if row_group_id == group_id and (row.get("bot_key") or self.settings.bot_key) == self.settings.bot_key:
+                    existing = row
+                    break
+
+            payload = {
+                "bot_key": self.settings.bot_key,
+                "group_id": group_id,
+                "group_name": group_name,
+                "notes": note,
+            }
+
+            if existing:
+                updates = {}
+                if group_name and group_name != existing.get("group_name"):
+                    updates["group_name"] = group_name
+                if note and note != existing.get("notes"):
+                    updates["notes"] = note
+                if updates:
+                    self.store.update("groups", existing["id"], updates)
+            else:
+                payload["enabled"] = True
+                self.store.insert("groups", payload)
+        except Exception as exc:
+            LOGGER.warning("Cannot sync discovered group %s: %s", group_id, exc)
 
     def handle_new_members(self, message):
         for user in message.new_chat_members or []:

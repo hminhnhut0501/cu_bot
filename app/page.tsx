@@ -89,7 +89,7 @@ type EmptyStateConfig = {
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages"]);
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
-const GROUP_TAB_ORDER = ["Thông tin", "Kiểm duyệt", "Chống spam", "Lịch gửi tin", "Video", "Menu bot", "Nội dung", "Ghi chú", "Advanced"];
+const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Spam & ban", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
 const GROUP_BASE_SECTIONS = new Set(["Thông tin nhóm", "Thông tin", "Ghi chú", "Advanced"]);
 const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
   moderation: new Set(["Thông tin nhóm", "Thông tin", "Kiểm duyệt", "Chống spam", "Ghi chú", "Advanced"]),
@@ -99,14 +99,14 @@ const GROUP_MODULE_SECTIONS: Record<string, Set<string>> = {
 const GROUP_TAB_LABELS: Record<string, string> = {
   "Thông tin nhóm": "Thông tin",
   "Thông tin": "Thông tin",
-  "Kiểm duyệt": "Kiểm duyệt",
-  "Chống spam": "Spam",
-  "Lịch gửi tin": "Lịch gửi tin",
+  "Kiểm duyệt": "Bảo vệ group",
+  "Chống spam": "Spam & ban",
+  "Lịch gửi tin": "Lịch gửi",
   Video: "Video",
-  "Menu bot": "Menu/Nội quy",
-  "Nội dung": "Menu/Nội quy",
-  "Ghi chú": "Advanced",
-  Advanced: "Advanced"
+  "Menu bot": "Menu riêng",
+  "Nội dung": "Nội dung riêng",
+  "Ghi chú": "Ghi chú",
+  Advanced: "Kỹ thuật"
 };
 const GROUP_PRESETS = [
   {
@@ -2285,7 +2285,7 @@ export default function HomePage() {
     setBulkOpen(false);
     setWorkMode("edit");
     setShowAdvancedFields(false);
-    setActiveGroupTab("Lịch gửi tin");
+    setActiveGroupTab("Lịch gửi");
     setNotice("Flow random tin hẹn giờ đã mở. Chọn group, chọn Nhóm nội dung, đặt giờ rồi lưu.");
   }
 
@@ -2619,7 +2619,7 @@ export default function HomePage() {
     }));
   }
 
-  function applyGroupPreset(values: Row, tab = "Kiểm duyệt") {
+  function applyGroupPreset(values: Row, tab = "Bảo vệ group") {
     setDraft((current) => ({
       ...current,
       ...values
@@ -2659,10 +2659,10 @@ export default function HomePage() {
       exempt_admins: true,
       spam_action: "warn"
     });
-    setActiveGroupTab("Kiểm duyệt");
+    setActiveGroupTab("Bảo vệ group");
     setShowAdvancedFields(false);
     setWorkMode("edit");
-    setNotice("Flow Bảo vệ group đã mở. Chọn preset, kiểm tra tab Spam/Test luật rồi lưu.");
+    setNotice("Flow Bảo vệ group đã mở. Chọn preset, kiểm tra tab Spam & ban/Test luật rồi lưu.");
   }
 
   function toggleSelected(id: unknown) {
@@ -2776,7 +2776,7 @@ export default function HomePage() {
       .map((section) => groupTabLabel(section))
       .filter((label, index, all) => all.indexOf(label) === index)
       .map((label) => labels.get(label) || { key: label, label, count: 0 })
-      .filter((tab) => tab.count || tab.label === "Advanced");
+      .filter((tab) => tab.count || tab.label === "Kỹ thuật");
   }, [activeLayer, showAdvancedFields, table]);
   useEffect(() => {
     if (table?.key !== "groups" || !groupEditorTabs.length) {
@@ -2799,13 +2799,13 @@ export default function HomePage() {
         .filter(([section]) => groupTabLabel(section) === activeGroupTab)
         .filter(([, fields]) => fields.length);
     }
-    if (table.key === "groups" && activeGroupTab === "Advanced") {
+    if (table.key === "groups" && activeGroupTab === "Kỹ thuật") {
       visibleGroups = groups.filter(([section]) => ["Ghi chú", "Advanced"].includes(section));
     }
     return sortGroupFieldGroups(visibleGroups)
       .map(([section, fields]) => {
         const nextFields = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key));
-        const sectionName = fields.every((field) => fieldIsAdvanced(table.key, field.key)) ? "Advanced" : section;
+        const sectionName = fields.every((field) => fieldIsAdvanced(table.key, field.key)) ? groupTabLabel("Advanced") : groupTabLabel(section);
         return [sectionName, nextFields] as [string, FieldConfig[]];
       })
       .filter(([, fields]) => fields.length);
@@ -4143,7 +4143,7 @@ export default function HomePage() {
                           className={activeGroupTab === tab.label ? "active" : ""}
                           onClick={() => {
                             setActiveGroupTab(tab.label);
-                            if (tab.label === "Advanced") {
+                            if (tab.label === "Kỹ thuật") {
                               setShowAdvancedFields(true);
                             }
                           }}
@@ -4153,14 +4153,18 @@ export default function HomePage() {
                         </button>
                       ))}
                     </div>
-                    {activeGroupTab === "Kiểm duyệt" || activeGroupTab === "Spam" ? (
+                    <div className="group-scope-callout">
+                      <strong>Đây là override theo group.</strong>
+                      <span>Muốn đổi mặc định chung cho mọi group, mở module tương ứng ở sidebar. Còn form này chỉ áp dụng cho group đang chọn.</span>
+                    </div>
+                    {activeGroupTab === "Bảo vệ group" || activeGroupTab === "Spam & ban" ? (
                       <section className="group-presets">
                         <div>
                           <h4>Preset nhanh</h4>
                           <p>Áp dụng vào form hiện tại, sau đó vẫn cần bấm Lưu.</p>
                         </div>
                         {GROUP_PRESETS.map((preset) => (
-                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, preset.key === "safe_mode" ? "Spam" : "Kiểm duyệt")}>
+                          <button key={preset.key} type="button" onClick={() => applyGroupPreset(preset.values, preset.key === "safe_mode" ? "Spam & ban" : "Bảo vệ group")}>
                             <strong>{preset.title}</strong>
                             <span>{preset.desc}</span>
                           </button>
