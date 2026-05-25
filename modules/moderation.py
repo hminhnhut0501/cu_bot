@@ -574,7 +574,20 @@ class ModerationModule(BotModule):
             **self.forward_audit_details(message, forward_flags),
         )
         reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
-        self.apply_action(message, self.setting(message.chat.id, "forward_action", "warn"), reason, trigger="forwarded_message")
+        action = (self.setting(message.chat.id, "forward_action", "warn") or "warn").strip().lower()
+        if action in {"delete", "remove"}:
+            ban_after = self.setting_int(message.chat.id, "ban_after_warnings", 3)
+            if ban_after > 0:
+                self.warn_user(
+                    message.chat.id,
+                    message.from_user.id,
+                    reason=reason,
+                    user=message.from_user,
+                    trigger="forwarded_message",
+                    send_notice=False,
+                )
+            return True
+        self.apply_action(message, action, reason, trigger="forwarded_message")
         return True
 
     def forward_detection_flags(self, message):
@@ -889,7 +902,7 @@ class ModerationModule(BotModule):
         if action == "warn":
             self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user, trigger=trigger)
 
-    def warn_user(self, chat_id, user_id, reason="", user=None, actor_user_id="", trigger="automatic_rule"):
+    def warn_user(self, chat_id, user_id, reason="", user=None, actor_user_id="", trigger="automatic_rule", send_notice=True):
         count = self.state.add_warning(chat_id, user_id)
         ban_after = self.setting_int(chat_id, "ban_after_warnings", 3)
         details = self.audit_details(reason=reason, warning_count=count, warning_limit=ban_after, trigger=trigger)
@@ -905,28 +918,29 @@ class ModerationModule(BotModule):
             )
             return count
 
-        text = self.setting(chat_id, "warning_text", "Cảnh báo {mention}: {reason} ({count}/{limit})")
-        if reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm."):
-            text = self.setting(chat_id, "forward_warning_text", text)
-        mention = self.user_mention(user) if user else str(user_id)
-        is_forward_warning = reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
-        try:
-            sent = self.bot.send_message(
-                chat_id,
-                text.format(
-                    mention=mention,
-                    user_id=user_id,
-                    reason=reason,
-                    count=count,
-                    limit=ban_after or "-",
-                ),
-            )
-            delete_after_key = "forward_warning_delete_seconds" if is_forward_warning else "warning_notice_delete_seconds"
-            delete_after = self.setting_int(chat_id, delete_after_key, 180)
-            if delete_after > 0:
-                self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
-        except Exception as exc:
-            LOGGER.warning("Cannot send warning in %s: %s", chat_id, exc)
+        if send_notice:
+            text = self.setting(chat_id, "warning_text", "Cảnh báo {mention}: {reason} ({count}/{limit})")
+            if reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm."):
+                text = self.setting(chat_id, "forward_warning_text", text)
+            mention = self.user_mention(user) if user else str(user_id)
+            is_forward_warning = reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
+            try:
+                sent = self.bot.send_message(
+                    chat_id,
+                    text.format(
+                        mention=mention,
+                        user_id=user_id,
+                        reason=reason,
+                        count=count,
+                        limit=ban_after or "-",
+                    ),
+                )
+                delete_after_key = "forward_warning_delete_seconds" if is_forward_warning else "warning_notice_delete_seconds"
+                delete_after = self.setting_int(chat_id, delete_after_key, 180)
+                if delete_after > 0:
+                    self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
+            except Exception as exc:
+                LOGGER.warning("Cannot send warning in %s: %s", chat_id, exc)
         self.audit(
             chat_id,
             "warn",
