@@ -251,9 +251,9 @@ export const TABLES: TableConfig[] = [
     summaryFields: ["bot_key", "match", "enabled"],
     fields: [
       botKey,
-      { key: "trigger", label: "Câu kích hoạt", type: "text", required: true, section: "Auto reply" },
-      { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex", "exact"], section: "Auto reply" },
-      { key: "reply", label: "Nội dung trả lời", type: "textarea", required: true, section: "Auto reply" },
+      { key: "trigger", label: "Câu kích hoạt", type: "text", required: true, section: "Auto reply", helper: "Ví dụ: gia, support, noiquy. Tránh trigger quá ngắn 1 ký tự." },
+      { key: "match", label: "Cách hiểu câu kích hoạt", type: "select", options: ["smart", "exact", "contains", "regex"], section: "Auto reply", helper: "smart: hiểu theo từ/ngữ cảnh (khuyên dùng) · exact: trùng nguyên câu · contains: có chứa cụm từ · regex: nâng cao." },
+      { key: "reply", label: "Nội dung trả lời", type: "textarea", required: true, section: "Auto reply", helper: "Có thể nhập nhiều mẫu và ngăn bằng || hoặc xuống dòng để bot trả lời ngẫu nhiên." },
       enabled,
       notes
     ]

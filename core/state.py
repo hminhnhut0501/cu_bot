@@ -13,6 +13,8 @@ class RuntimeState:
     warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
     bio_scan_cache: dict[tuple[int, int], tuple[float, bool]] = field(default_factory=dict)
     pending_verifications: dict[tuple[int, int], dict] = field(default_factory=dict)
+    auto_reply_user_cooldown: dict[tuple[int, int, str], float] = field(default_factory=dict)
+    auto_reply_trigger_cooldown: dict[tuple[int, str], float] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
 
     def mark_activity(self, chat_id):
@@ -90,3 +92,18 @@ class RuntimeState:
     def clear_pending_verification(self, chat_id, user_id):
         with self.lock:
             self.pending_verifications.pop((int(chat_id), int(user_id)), None)
+
+    def can_auto_reply(self, chat_id, user_id, trigger_key, user_cooldown_seconds, trigger_cooldown_seconds):
+        now = time()
+        user_key = (int(chat_id), int(user_id), str(trigger_key))
+        trigger_key_scoped = (int(chat_id), str(trigger_key))
+        with self.lock:
+            last_user = self.auto_reply_user_cooldown.get(user_key, 0)
+            if user_cooldown_seconds > 0 and now - last_user < user_cooldown_seconds:
+                return False
+            last_trigger = self.auto_reply_trigger_cooldown.get(trigger_key_scoped, 0)
+            if trigger_cooldown_seconds > 0 and now - last_trigger < trigger_cooldown_seconds:
+                return False
+            self.auto_reply_user_cooldown[user_key] = now
+            self.auto_reply_trigger_cooldown[trigger_key_scoped] = now
+            return True

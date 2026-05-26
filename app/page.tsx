@@ -674,7 +674,7 @@ function emptyValues(table: TableConfig) {
     } else if (field.key === "action") {
       values[field.key] = "delete";
     } else if (field.key === "match") {
-      values[field.key] = "contains";
+      values[field.key] = table.key === "auto_replies" ? "smart" : "contains";
     } else {
       values[field.key] = "";
     }
@@ -1315,13 +1315,37 @@ function rowMatchesRule(row: Row, text: string, key: string) {
   if (!source || !text) {
     return false;
   }
+  const sourceNormalized = normalizedText(source).trim();
+  const textNormalized = normalizedText(text).trim();
+  const tokens = (value: string): string[] => normalizedText(value).match(/[a-z0-9_]+/g) || [];
+  const containsWholeWord = (fullText: string, word: string) => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^a-z0-9_])${escaped}([^a-z0-9_]|$)`, "i").test(fullText);
+  };
   if (matchMode === "regex") {
     return safeRegexMatch(source, text);
   }
   if (matchMode === "exact") {
-    return normalizedText(text).trim() === normalizedText(source).trim();
+    return textNormalized === sourceNormalized;
   }
-  return normalizedText(text).includes(normalizedText(source));
+  if (matchMode === "smart") {
+    const sourceTokens = tokens(source);
+    const textTokens = tokens(text);
+    if (!sourceTokens.length || !textTokens.length) {
+      return false;
+    }
+    if (sourceTokens.length === 1) {
+      return textTokens.includes(sourceTokens[0]);
+    }
+    return textNormalized.includes(sourceNormalized) || sourceTokens.every((token) => textTokens.includes(token));
+  }
+  if (!sourceNormalized) {
+    return false;
+  }
+  if (!sourceNormalized.includes(" ")) {
+    return containsWholeWord(textNormalized, sourceNormalized);
+  }
+  return textNormalized.includes(sourceNormalized);
 }
 
 function extractDomains(text: string) {
@@ -1438,7 +1462,7 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
   if (tableKey === "auto_replies") {
     return {
       title: "Câu hỏi tự trả lời",
-      body: "Tạo cặp Câu kích hoạt -> Nội dung trả lời. Kiểu contains phù hợp cho các câu như giá, support, rule.",
+      body: "Tạo cặp Câu kích hoạt -> Nội dung trả lời. Khuyên dùng kiểu Smart để bot hiểu theo từ khóa/ngữ cảnh và bớt trả lời bừa.",
       icon: Activity,
       chips: [
         { label: "Câu trả lời", value: rows.length },
@@ -1706,8 +1730,8 @@ function parseBulkRows(tableKey: string, text: string, defaults: BulkDefaults): 
 
   if (tableKey === "auto_replies") {
     return lines.map((line): BulkRow => {
-      const [trigger, reply = "", match = defaults.match] = parseDelimited(line);
-      return { bot_key: defaults.bot_key, trigger, reply, match: match || defaults.match, enabled: defaults.enabled };
+      const [trigger, reply = "", match = "smart"] = parseDelimited(line);
+      return { bot_key: defaults.bot_key, trigger, reply, match: match || "smart", enabled: defaults.enabled };
     }).filter((row) => row.trigger && row.reply);
   }
 
@@ -1734,7 +1758,7 @@ function bulkHint(tableKey: string) {
     return "Mỗi dòng là một domain rút gọn. Có thể dùng: domain | delete/warn | ghi chú.";
   }
   if (tableKey === "auto_replies") {
-    return "Mỗi dòng: câu hỏi | nội dung trả lời | contains/exact/regex.";
+    return "Mỗi dòng: câu hỏi | nội dung trả lời | smart/exact/contains/regex. Muốn random nhiều mẫu, ngăn bằng || hoặc xuống dòng.";
   }
   return "";
 }
@@ -3878,9 +3902,19 @@ export default function HomePage() {
                 <label>
                   <span>Kiểu khớp</span>
                   <select value={bulkDefaults.match} onChange={(event) => updateBulkDefault("match", event.target.value)}>
-                    <option value="contains">contains</option>
-                    <option value="exact">exact</option>
-                    <option value="regex">regex</option>
+                    {table.key === "auto_replies" ? (
+                      <>
+                        <option value="smart">Smart (khuyên dùng)</option>
+                        <option value="exact">Trùng nguyên câu</option>
+                        <option value="contains">Có chứa cụm từ</option>
+                        <option value="regex">Nâng cao (regex)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="contains">contains</option>
+                        <option value="regex">regex</option>
+                      </>
+                    )}
                   </select>
                 </label>
               ) : null}
