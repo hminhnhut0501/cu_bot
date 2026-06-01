@@ -155,7 +155,11 @@ class ModerationModule(BotModule):
             message.content_type,
         )
         if self.setting_bool(chat_id, "delete_system_messages", True):
-            self.safe_delete(message, f"service:{message.content_type}")
+            deleted = self.safe_delete(message, f"service:{message.content_type}")
+            if not deleted:
+                retry_seconds = self.setting_int(chat_id, "violation_delete_retry_seconds", 2)
+                if retry_seconds > 0:
+                    self.delete_later(chat_id, message.message_id, retry_seconds, f"service:{message.content_type}:retry")
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
@@ -1016,6 +1020,21 @@ class ModerationModule(BotModule):
                 reason,
                 exc,
             )
+            try:
+                self.audit(
+                    message.chat.id,
+                    "delete_message_failed",
+                    target_user_id=getattr(user, "id", ""),
+                    actor_user_id=self.actor_for_system(),
+                    details=self.audit_details(
+                        reason=reason,
+                        error=str(exc),
+                        message_id=getattr(message, "message_id", ""),
+                        message_type=getattr(message, "content_type", ""),
+                    ),
+                )
+            except Exception:
+                pass
             return False
 
     def start_verification(self, chat_id, user):
