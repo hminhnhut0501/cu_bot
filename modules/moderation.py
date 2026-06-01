@@ -407,10 +407,9 @@ class ModerationModule(BotModule):
         sender_chat = getattr(message, "sender_chat", None)
         if not sender_chat:
             return False
-        if getattr(sender_chat, "id", None) == getattr(message.chat, "id", None):
-            return True
-        sender_type = getattr(sender_chat, "type", "")
-        return sender_type in {"channel", "supergroup", "group"}
+        # Chỉ bỏ qua khi đúng anonymous admin của chính group hiện tại.
+        # Nếu sender_chat là channel/group bên ngoài thì vẫn phải đi qua luồng kiểm duyệt.
+        return getattr(sender_chat, "id", None) == getattr(message.chat, "id", None)
 
     def detect_spam(self, message):
         limit = self.setting_int(message.chat.id, "spam_max_messages", 6)
