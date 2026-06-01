@@ -57,6 +57,24 @@ def start_multi_bot_mode():
     if not rows:
         raise RuntimeError("MULTI_BOT_ENABLED is true but no active bot with bot_token was found in Supabase.")
 
+    token_seen = {}
+    unique_rows = []
+    for row in rows:
+        token = str(row.get("bot_token") or "").strip()
+        if not token:
+            continue
+        if token in token_seen:
+            logging.warning(
+                "Skip bot_key=%s because token is duplicated with bot_key=%s. "
+                "Duplicate token causes Telegram 409 polling conflict.",
+                row.get("bot_key"),
+                token_seen[token],
+            )
+            continue
+        token_seen[token] = row.get("bot_key")
+        unique_rows.append(row)
+    rows = unique_rows
+
     for index, row in enumerate(rows):
         settings = replace(
             base_settings,

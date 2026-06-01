@@ -55,6 +55,8 @@ class BotApplication:
         self.remove_existing_webhook()
 
         first_run = True
+        conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))
+        conflict_retry_max = max(conflict_retry_seconds, 90)
         while True:
             try:
                 self.bot.infinity_polling(
@@ -64,23 +66,53 @@ class BotApplication:
                     logger_level=logging.ERROR,
                 )
                 first_run = False
+                conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))
             except ApiTelegramException as exc:
-                if getattr(exc, "error_code", None) == 409:
+                if self.is_polling_conflict_error(exc):
                     LOGGER.warning(
-                        "Telegram polling conflict. Another instance is still polling. "
-                        "Retrying in %s second(s).",
-                        self.settings.polling_retry_seconds,
+                        "Polling conflict 409 for bot_key=%s: another process is calling getUpdates "
+                        "with the same token. Retrying in %s second(s).",
+                        self.settings.bot_key,
+                        conflict_retry_seconds,
                     )
-                    time.sleep(self.settings.polling_retry_seconds)
+                    time.sleep(conflict_retry_seconds)
+                    conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
+                    self.remove_existing_webhook()
+                    first_run = False
+                    continue
+                raise
+            except Exception as exc:
+                if self.is_polling_conflict_error(exc):
+                    LOGGER.warning(
+                        "Polling conflict detected from generic exception for bot_key=%s. "
+                        "Retrying in %s second(s).",
+                        self.settings.bot_key,
+                        conflict_retry_seconds,
+                    )
+                    time.sleep(conflict_retry_seconds)
+                    conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
+                    self.remove_existing_webhook()
                     first_run = False
                     continue
                 raise
 
     def remove_existing_webhook(self):
         try:
+            # Ưu tiên API mới với drop_pending_updates=False để không mất update khi đổi mode.
+            self.bot.remove_webhook(drop_pending_updates=False)
+            LOGGER.info("Webhook cleared before polling for bot_key=%s.", self.settings.bot_key)
+        except TypeError:
+            # Fallback cho version telebot cũ không hỗ trợ tham số.
             self.bot.remove_webhook()
+            LOGGER.info("Webhook cleared (legacy remove_webhook) for bot_key=%s.", self.settings.bot_key)
         except Exception as exc:
             LOGGER.warning("Cannot remove existing webhook before polling: %s", exc)
+
+    @staticmethod
+    def is_polling_conflict_error(exc):
+        code = getattr(exc, "error_code", None)
+        message = str(exc).lower()
+        return code == 409 or ("terminated by other getupdates request" in message and "conflict" in message)
 
     def _load_modules(self):
         module_classes = []
