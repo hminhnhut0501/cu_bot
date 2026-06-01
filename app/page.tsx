@@ -92,6 +92,12 @@ type ToastState = {
   message: string;
 };
 
+type DeleteFailureAlert = {
+  recentCount: number;
+  latestAt: string;
+  latestReason: string;
+};
+
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
   "moderation_enabled",
@@ -1798,6 +1804,7 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [deleteFailureAlert, setDeleteFailureAlert] = useState<DeleteFailureAlert>({ recentCount: 0, latestAt: "", latestReason: "" });
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
@@ -2133,9 +2140,10 @@ export default function HomePage() {
       groupsMissingVideoPool,
       envMissing,
       missingSetup,
-      issues: disabledBots + missingSetup + pendingScamReports
+      deleteFailures: deleteFailureAlert.recentCount,
+      issues: disabledBots + missingSetup + pendingScamReports + (deleteFailureAlert.recentCount > 0 ? 1 : 0)
     };
-  }, [lookups.bots, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
+  }, [deleteFailureAlert.recentCount, lookups.bots, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
   const commandInsights = useMemo<CommandInsight[]>(() => {
     const insights: CommandInsight[] = [];
     if (healthSummary.disabledBots) {
@@ -2182,6 +2190,17 @@ export default function HomePage() {
         targetTable: "scam_reports"
       });
     }
+    if (healthSummary.deleteFailures) {
+      insights.push({
+        severity: "warning",
+        title: `${healthSummary.deleteFailures} lỗi xóa tin hệ thống gần đây`,
+        body: "Bot đã gặp lỗi khi xóa service message (join/leave/invite). Thường do quyền Delete messages hoặc timing message.",
+        impact: "Group có thể còn sót thông báo join/leave.",
+        action: "Mở nhật ký",
+        targetLayer: "logs",
+        targetTable: "audit_logs"
+      });
+    }
     if (!insights.length) {
       insights.push({
         severity: "healthy",
@@ -2200,6 +2219,7 @@ export default function HomePage() {
     { severity: "info", text: `${visibleRows.length} ${table?.label || "mục"} trong phạm vi hiện tại` },
     { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} vấn đề vận hành cần kiểm tra` : "Chưa phát hiện lỗi nghiêm trọng" },
     { severity: healthSummary.pendingScamReports ? "warning" : "info", text: healthSummary.pendingScamReports ? `${healthSummary.pendingScamReports} report scam đang chờ duyệt` : "Không có report scam pending trong scope" },
+    { severity: healthSummary.deleteFailures ? "warning" : "info", text: healthSummary.deleteFailures ? `${healthSummary.deleteFailures} lỗi xóa service message trong 12h gần đây` : "Không có lỗi xóa service message trong 12h gần đây" },
     { severity: "info", text: healthSummary.offModules ? `${healthSummary.offModules} module tùy chọn đang ẩn khỏi sidebar` : "Các module đã bật đang hiện trên sidebar" }
   ], [healthSummary, table?.label, visibleRows.length]);
   const quickFilters = useMemo(() => {
@@ -2321,6 +2341,8 @@ export default function HomePage() {
   async function loadLookups() {
     try {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
+      const scopedGroupQuery = selectedGroup ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedGroup)}` : "";
+      const auditQuery = `${scopedBotQuery || scopedGroupQuery ? "?" : "?"}search=${encodeURIComponent("delete_message_failed")}${scopedBotQuery ? `&bot_key=${encodeURIComponent(selectedBot)}` : ""}${selectedGroup ? `&group_id=${encodeURIComponent(selectedGroup)}` : ""}`;
       const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
@@ -2329,6 +2351,23 @@ export default function HomePage() {
         api(`/api/module_settings${scopedBotQuery}`),
         api(`/api/scam_reports${scopedBotQuery}`)
       ]);
+      const auditPayload = await api(`/api/audit_logs${auditQuery}`);
+      const deleteFailedRows = (auditPayload.rows || [])
+        .filter((row: Row) => String(row.action || "").toLowerCase() === "delete_message_failed")
+        .slice(0, 300);
+      const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+      const recentDeleteFailures = deleteFailedRows.filter((row: Row) => {
+        const createdAt = Date.parse(String(row.created_at || ""));
+        return Number.isFinite(createdAt) && createdAt >= cutoff;
+      });
+      const latestRow = deleteFailedRows[0];
+      const latestDetails = parseDetails(latestRow?.details);
+      const latestReason = String(latestDetails.error || latestDetails.reason || "");
+      setDeleteFailureAlert({
+        recentCount: recentDeleteFailures.length,
+        latestAt: String(latestRow?.created_at || ""),
+        latestReason
+      });
       setLookups({
         bots: botsPayload.rows || [],
         groups: groupsPayload.rows || [],
@@ -2338,6 +2377,7 @@ export default function HomePage() {
         scamReports: scamReportsPayload.rows || []
       });
     } catch {
+      setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
       setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
     }
   }
@@ -3363,6 +3403,13 @@ export default function HomePage() {
             <span className="eyebrow">Production readiness</span>
             <h3>Kiểm tra nền deploy</h3>
             <p>CP đọc trực tiếp trạng thái env public/server-side và dữ liệu vận hành trong scope hiện tại.</p>
+            {deleteFailureAlert.recentCount ? (
+              <p className="error-inline">
+                Cảnh báo: {deleteFailureAlert.recentCount} lỗi xóa service message trong 12 giờ gần đây.
+                {deleteFailureAlert.latestAt ? ` Lần gần nhất: ${formatDateTime(deleteFailureAlert.latestAt)}.` : ""}
+                {deleteFailureAlert.latestReason ? ` Lý do: ${deleteFailureAlert.latestReason}.` : ""}
+              </p>
+            ) : null}
           </div>
           <div className="readiness-grid">
             {[
@@ -3371,7 +3418,8 @@ export default function HomePage() {
               { label: "CP password", ok: meta.envStatus?.cpPassword },
               { label: "Bot token env", ok: meta.envStatus?.botToken },
               { label: "Bot key env", ok: meta.envStatus?.botKey },
-              { label: "Runtime", ok: true, value: meta.envStatus?.runtimeMode || "unknown" }
+              { label: "Runtime", ok: true, value: meta.envStatus?.runtimeMode || "unknown" },
+              { label: "Delete service msg", ok: deleteFailureAlert.recentCount === 0, value: deleteFailureAlert.recentCount ? `${deleteFailureAlert.recentCount} lỗi/12h` : "OK" }
             ].map((item) => (
               <span key={item.label} className={item.ok ? "ok" : "warn"}>
                 <b>{item.label}</b>

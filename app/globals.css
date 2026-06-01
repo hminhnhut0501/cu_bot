@@ -369,6 +369,17 @@ nav button:hover {
   line-height: 1.45;
 }
 
+.production-readiness .error-inline {
+  margin-top: 10px;
+  border: 1px solid #fecdca;
+  background: #fff4ed;
+  color: #b42318;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .readiness-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
