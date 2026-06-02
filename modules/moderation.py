@@ -239,6 +239,8 @@ class ModerationModule(BotModule):
                     except Exception as exc:
                         LOGGER.warning("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
                 continue
+            if self.admin_exempt(message.chat.id, getattr(user, "id", None)):
+                continue
             self.start_verification(message.chat.id, user)
             self.detect_bio_link(message.chat.id, user)
 
@@ -352,16 +354,19 @@ class ModerationModule(BotModule):
         if self.is_automatic_forward_allowed(message):
             self.state.mark_activity(message.chat.id)
             return
-        if self.handle_verification_answer(message):
-            return
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
-        if self.detect_forward(message):
-            return
         from_user = getattr(message, "from_user", None)
+        if from_user and self.admin_exempt(message.chat.id, from_user.id):
+            self.state.mark_activity(message.chat.id)
+            return
+        if from_user and self.handle_verification_answer(message):
+            return
         if not from_user:
             self.state.mark_activity(message.chat.id)
+            if self.detect_forward(message):
+                return
             return
         if getattr(message.from_user, "is_bot", False):
             if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, message.from_user):
@@ -369,9 +374,6 @@ class ModerationModule(BotModule):
             return
 
         self.state.mark_activity(message.chat.id)
-
-        if self.is_admin(message.chat.id, message.from_user.id) and self.setting_bool(message.chat.id, "exempt_admins", True):
-            return
 
         if self.detect_bio_link(message.chat.id, message.from_user):
             if self.setting_bool(message.chat.id, "bio_link_delete_message", True):
@@ -410,6 +412,11 @@ class ModerationModule(BotModule):
         # Chỉ bỏ qua khi đúng anonymous admin của chính group hiện tại.
         # Nếu sender_chat là channel/group bên ngoài thì vẫn phải đi qua luồng kiểm duyệt.
         return getattr(sender_chat, "id", None) == getattr(message.chat, "id", None)
+
+    def admin_exempt(self, chat_id, user_id):
+        if not user_id or not self.setting_bool(chat_id, "exempt_admins", True):
+            return False
+        return self.is_admin(chat_id, user_id)
 
     def detect_spam(self, message):
         limit = self.setting_int(message.chat.id, "spam_max_messages", 6)
