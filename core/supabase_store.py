@@ -16,6 +16,7 @@ BOT_SCOPED_TABLES = {
     "bot_allowlist",
     "bot_metrics",
     "captcha_questions",
+    "channel_posts",
     "config",
     "domain_blacklist",
     "entertainment_events",

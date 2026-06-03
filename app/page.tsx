@@ -214,7 +214,7 @@ const NAV_GROUPS = [
   { label: "Tổng quan", keys: ["bot_metrics", "audit_logs"] },
   { label: "Bot & nhóm", keys: ["bots", "groups", "module_settings", "config", "admins", "member_roles"] },
   { label: "Bảo mật", keys: ["verification_settings", "captcha_questions", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist"] },
-  { label: "Nội dung", keys: ["messages", "video_messages", "auto_replies", "scheduled_posts"] },
+  { label: "Nội dung", keys: ["messages", "video_messages", "channel_posts", "auto_replies", "scheduled_posts"] },
   { label: "Scam", keys: ["scam_entities", "scam_reports"] },
   { label: "Giải trí", keys: ["entertainment_events", "giveaway_campaigns", "giveaway_entries", "reputation_rules"] }
 ];
@@ -481,8 +481,17 @@ const MODULE_HUBS = [
     desc: "Gửi tin hẹn giờ, video và nhóm nội dung dùng chung.",
     icon: Sparkles,
     tone: "content",
-    tables: ["groups", "messages", "video_messages", "config"],
+    tables: ["groups", "messages", "video_messages", "channel_posts", "config"],
     configKeys: ["send_on_boot", "send_if_silent"]
+  },
+  {
+    key: "channel_publisher",
+    moduleKeys: ["channel_publisher"],
+    title: "Đăng channel",
+    desc: "Soạn bài có nút inline rồi để bot gửi lên channel/group.",
+    icon: MessageSquare,
+    tone: "content",
+    tables: ["channel_posts"]
   },
   {
     key: "auto_reply",
@@ -540,6 +549,7 @@ const MODULE_TABLE_OWNER: Record<string, string> = {
   verification_settings: "verification",
   captcha_questions: "verification",
   scheduled_posts: "automation",
+  channel_posts: "channel_publisher",
   messages: "automation",
   video_messages: "automation",
   auto_replies: "auto_reply",
@@ -673,6 +683,10 @@ function emptyValues(table: TableConfig) {
       values[field.key] = 1;
     } else if (field.key === "settings") {
       values[field.key] = "{}";
+    } else if (field.key === "status" && table.key === "channel_posts") {
+      values[field.key] = "pending";
+    } else if (field.key === "parse_mode") {
+      values[field.key] = "HTML";
     } else if (field.key === "status") {
       values[field.key] = "active";
     } else if (field.key === "role") {
@@ -1416,7 +1430,7 @@ function heroFor(activeKey: string) {
   if (["keywords", "domain_blacklist", "link_shorteners", "verification_settings", "captcha_questions", "bot_allowlist"].includes(activeKey)) {
     return { title: "Trung tâm bảo mật", desc: "Chặn spam, link xấu, captcha và quyền bot bằng các lựa chọn rõ ràng.", icon: ShieldCheck, tone: "security" };
   }
-  if (["messages", "video_messages", "auto_replies", "scheduled_posts"].includes(activeKey)) {
+  if (["messages", "video_messages", "channel_posts", "auto_replies", "scheduled_posts"].includes(activeKey)) {
     return { title: "Trung tâm nội dung", desc: "Quản lý tin nhắn, video, auto reply và lịch gửi theo group.", icon: Sparkles, tone: "content" };
   }
   if (["scam_entities", "scam_reports"].includes(activeKey)) {
@@ -1467,6 +1481,18 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
         { label: "Lịch đang bật", value: rows.filter((row) => row.enabled !== false).length },
         { label: "Group có lịch", value: uniqueValues(rows, "chat_id").length },
         { label: "Đang chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "channel_posts") {
+    return {
+      title: "Đăng bài lên channel",
+      body: "Soạn nội dung, thêm nút inline, đặt trạng thái pending để bot gửi. Kết quả gửi nằm ngay trên từng dòng.",
+      icon: MessageSquare,
+      chips: [
+        { label: "Chờ gửi", value: rows.filter((row) => row.status === "pending").length },
+        { label: "Đã gửi", value: rows.filter((row) => row.status === "sent").length },
+        { label: "Lỗi", value: rows.filter((row) => row.status === "failed").length }
       ]
     };
   }
@@ -1541,6 +1567,12 @@ function emptyStateFor(tableKey: string): EmptyStateConfig {
       body: "Tạo automation đăng bài định kỳ, chọn pool nội dung và giờ chạy.",
       action: "Tạo lịch gửi tin",
       steps: ["Mở flow đúng từ Group", "Chọn message/video pool", "Đặt giờ bắt đầu và kết thúc"]
+    },
+    channel_posts: {
+      title: "Chưa có bài đăng channel",
+      body: "Tạo bài đầu tiên, nhập channel nhận bài và thêm nút inline để bot gửi giống mẫu Telegram.",
+      action: "Tạo bài đăng",
+      steps: ["Nhập @channel hoặc -100...", "Soạn nội dung", "Đặt status pending để gửi"]
     },
     bots: {
       title: "Chưa có bot",

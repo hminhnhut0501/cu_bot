@@ -283,6 +283,28 @@ export const TABLES: TableConfig[] = [
     ]
   },
   {
+    key: "channel_posts",
+    label: "Đăng channel",
+    description: "Soạn bài có nút inline để bot gửi lên channel/group.",
+    titleField: "title",
+    summaryFields: ["bot_key", "target_chat_id", "status", "sent_message_id"],
+    fields: [
+      botKey,
+      { key: "target_chat_id", label: "Channel/Group nhận bài", type: "text", required: true, section: "Bài đăng", helper: "Ví dụ: @hangcuvn hoặc -100... Bot phải là admin của channel/group." },
+      { key: "title", label: "Tên nội bộ", type: "text", section: "Bài đăng", placeholder: "Ví dụ: Xác nhận tham gia" },
+      { key: "content", label: "Nội dung gửi", type: "textarea", required: true, section: "Bài đăng", helper: "Hỗ trợ HTML theo parse mode của bot. Có thể dùng emoji, xuống dòng giống Telegram." },
+      { key: "buttons_text", label: "Nút inline", type: "textarea", section: "Nút inline", helper: "Mỗi dòng là một hàng nút: Tên nút | https://link. Muốn 2 nút cùng hàng: Nút 1 | link || Nút 2 | link." },
+      { key: "parse_mode", label: "Định dạng", type: "select", options: ["HTML", "Markdown", "MarkdownV2"], section: "Cài đặt gửi" },
+      { key: "disable_web_page_preview", label: "Ẩn preview link", type: "boolean", section: "Cài đặt gửi" },
+      { key: "status", label: "Trạng thái gửi", type: "select", options: ["draft", "pending", "sending", "sent", "failed"], section: "Cài đặt gửi", helper: "Đặt pending để bot gửi. Sau khi gửi bot tự đổi thành sent hoặc failed." },
+      { key: "sent_message_id", label: "Message ID đã gửi", type: "text", section: "Kết quả" },
+      { key: "sent_at", label: "Đã gửi lúc", type: "text", section: "Kết quả" },
+      { key: "error", label: "Lỗi gửi", type: "textarea", section: "Kết quả" },
+      enabled,
+      notes
+    ]
+  },
+  {
     key: "video_messages",
     label: "Video",
     description: "Nguồn message video để bot copy ẩn danh.",

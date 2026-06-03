@@ -11,6 +11,7 @@ drop table if exists reputation_events cascade;
 drop table if exists reputation_rules cascade;
 drop table if exists scam_reports cascade;
 drop table if exists scam_entities cascade;
+drop table if exists channel_posts cascade;
 drop table if exists scheduled_posts cascade;
 drop table if exists auto_replies cascade;
 drop table if exists captcha_questions cascade;
@@ -221,6 +222,24 @@ create table scheduled_posts (
   notes text
 );
 
+create table channel_posts (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  target_chat_id text not null,
+  title text,
+  content text not null,
+  buttons_text text,
+  parse_mode text not null default 'HTML',
+  disable_web_page_preview boolean not null default false,
+  status text not null default 'draft',
+  sent_message_id text,
+  sent_at timestamptz,
+  error text,
+  enabled boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 create table video_messages (
   id bigserial primary key,
   bot_key text not null default 'main',
@@ -375,6 +394,7 @@ alter table verification_settings enable row level security;
 alter table captcha_questions enable row level security;
 alter table auto_replies enable row level security;
 alter table scheduled_posts enable row level security;
+alter table channel_posts enable row level security;
 alter table video_messages enable row level security;
 alter table bot_allowlist enable row level security;
 alter table scam_entities enable row level security;
@@ -467,6 +487,7 @@ insert into module_settings (bot_key, module_key, module_name, category, enabled
   ('main', 'leaderboard', 'Bảng xếp hạng tương tác', 'Giải trí', false, '{}'::jsonb, 'Gợi ý module con'),
   ('main', 'analytics', 'Thống kê dashboard', 'Quản trị', true, '{}'::jsonb, null),
   ('main', 'scheduled_posts', 'Đăng bài định kỳ', 'Vận hành', true, '{}'::jsonb, null),
+  ('main', 'channel_publisher', 'Đăng channel', 'Vận hành', true, '{}'::jsonb, 'Soạn bài có nút inline rồi gửi lên channel/group'),
   ('main', 'monetization', 'Kiếm tiền / vận hành', 'Vận hành', false, '{}'::jsonb, null);
 
 insert into admins (bot_key, user_id, chat_id, role, enabled, notes) values
