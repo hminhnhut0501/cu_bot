@@ -17,6 +17,7 @@ import {
   RefreshCcw,
   Save,
   Search,
+  Send,
   ShieldCheck,
   SlidersHorizontal,
   MessageSquare,
@@ -1215,7 +1216,26 @@ function statusText(row: Row) {
   return labels[String(row.status || "")] || "Bật";
 }
 
-function healthState(row: Row) {
+function healthState(row: Row, tableKey = "") {
+  if (tableKey === "channel_posts") {
+    const status = String(row.status || "draft").toLowerCase();
+    if (row.enabled === false) {
+      return { className: "disabled", label: "Đang tắt" };
+    }
+    if (status === "pending") {
+      return { className: "setup", label: "Chờ gửi" };
+    }
+    if (status === "sending") {
+      return { className: "setup", label: "Đang gửi" };
+    }
+    if (status === "sent") {
+      return { className: "healthy", label: "Đã gửi" };
+    }
+    if (status === "failed") {
+      return { className: "error", label: "Lỗi gửi" };
+    }
+    return { className: "setup", label: "Nháp" };
+  }
   if (row.enabled === false || row.status === "paused" || row.status === "closed" || row.status === "rejected") {
     return { className: "disabled", label: "Đang tắt" };
   }
@@ -2840,6 +2860,22 @@ export default function HomePage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function queueChannelPost(row: Row) {
+    if (!row.target_chat_id || !row.content) {
+      const message = "Cần nhập Channel/Group nhận bài và Nội dung gửi trước khi gửi.";
+      setError(message);
+      flashToast(message, "error");
+      return;
+    }
+    await saveTableRowValues("channel_posts", row, {
+      status: "pending",
+      error: "",
+      sent_message_id: "",
+      sent_at: ""
+    });
+    flashToast("Đã đưa bài vào hàng chờ gửi.");
   }
 
   async function writeAuditLog(action: string, row: Row, details: Row = {}) {
@@ -4509,7 +4545,7 @@ export default function HomePage() {
                     <div className="card-title-row">
                       <h3>{titleFor(row, table)}</h3>
                       <div className="card-state">
-                        <span className={`health ${healthState(row).className}`}>{healthState(row).label}</span>
+                        <span className={`health ${healthState(row, table.key).className}`}>{healthState(row, table.key).label}</span>
                         <span className="action-badge">{actionBadge(row, table)}</span>
                       </div>
                     </div>
@@ -4549,6 +4585,11 @@ export default function HomePage() {
                   </button>
                   {!readOnlyTable ? (
                   <div className="card-actions">
+                    {table.key === "channel_posts" && row.status !== "pending" && row.status !== "sending" ? (
+                      <button type="button" title="Gửi bài" disabled={saving} onClick={() => queueChannelPost(row)}>
+                        <Send size={16} />
+                      </button>
+                    ) : null}
                     {table.key === "scam_reports" && row.status !== "confirmed" ? (
                       <button type="button" title="Xác nhận scam" disabled={saving} onClick={() => confirmScamReport(row)}>
                         <ShieldCheck size={16} />
