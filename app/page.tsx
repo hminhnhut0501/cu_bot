@@ -2606,7 +2606,7 @@ export default function HomePage() {
     if (table.key !== "bots" && selectedBot && table.fields.some((field) => field.key === "bot_key")) {
       nextDraft.bot_key = selectedBot;
     }
-    if (selectedGroup) {
+    if (selectedGroup && table.key !== "groups") {
       if (table.fields.some((field) => field.key === "group_id")) {
         nextDraft.group_id = selectedGroup;
       }
@@ -2617,7 +2617,7 @@ export default function HomePage() {
     setDraft(nextDraft);
     setWorkMode("edit");
     setShowAdvancedFields(false);
-    setActiveGroupTab("Thông tin");
+    setActiveGroupTab(table.key === "groups" ? "Nhóm" : "Thông tin");
     setNotice("");
   }
 
@@ -3142,6 +3142,9 @@ export default function HomePage() {
   function lookupOptionsForField(field: FieldConfig) {
     if (field.key === "bot_key") {
       return lookups.bots.map((bot) => ({ value: String(bot.bot_key || ""), label: String(bot.name || bot.bot_key || "") })).filter((item) => item.value);
+    }
+    if (table?.key === "groups" && field.key === "group_id") {
+      return [];
     }
     if (field.key === "group_id" || field.key === "chat_id") {
       return lookups.groups

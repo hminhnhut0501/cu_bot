@@ -73,7 +73,7 @@ export const TABLES: TableConfig[] = [
     summaryFields: ["bot_key", "group_id", "daily_enabled", "video_enabled"],
     fields: [
       botKey,
-      { key: "group_id", label: "Group ID", type: "text", required: true, placeholder: "-100...", section: "Thông tin nhóm" },
+      { key: "group_id", label: "Group/Channel ID", type: "text", required: true, placeholder: "-1001234567890 hoặc @channel_username", section: "Thông tin nhóm", helper: "Nhập ID thật của group/kênh. Group private thường có dạng -100..., channel public có thể dùng @username." },
       { key: "group_name", label: "Tên nhóm", type: "text", section: "Thông tin nhóm" },
       enabled,
       { key: "daily_enabled", label: "Gửi tin hằng ngày", type: "boolean", section: "Lịch gửi tin" },
