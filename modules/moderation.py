@@ -502,7 +502,8 @@ class ModerationModule(BotModule):
             return False
         normalized = normalize_text(text)
         for row in self.store.enabled_rows("keywords"):
-            keyword = normalize_text(row.get("keyword") or row.get("word"))
+            raw_keyword = row.get("keyword") or row.get("word")
+            keyword = normalize_text(raw_keyword)
             if not keyword:
                 continue
             match_type = (row.get("match") or "contains").strip().lower()
@@ -515,6 +516,8 @@ class ModerationModule(BotModule):
                     f"keyword:{keyword}:before_{action}",
                     reason_label=reason,
                     matched_keyword=keyword,
+                    matched_keyword_raw=raw_keyword,
+                    keyword_rule_id=row.get("id"),
                     match_type=match_type,
                     rule_action=action,
                 )

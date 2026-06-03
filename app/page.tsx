@@ -1042,7 +1042,12 @@ function auditLogSpecificRows(row: Row, details: Record<string, unknown>) {
     rows.push({ label: "Bio hiện tại", value: displayValue(details.bio_text) });
   }
   if (details.matched_keyword) {
-    rows.push({ label: "Từ khóa", value: displayValue(details.matched_keyword) });
+    const keywordParts = [
+      displayValue(details.matched_keyword_raw || details.matched_keyword),
+      details.match_type ? `kiểu: ${displayValue(details.match_type)}` : "",
+      details.keyword_rule_id ? `rule #${displayValue(details.keyword_rule_id)}` : ""
+    ].filter(Boolean);
+    rows.push({ label: "Từ khóa", value: keywordParts.join(" · ") });
   }
   if (details.blocked_domain) {
     rows.push({ label: "Domain", value: displayValue(details.blocked_domain) });
@@ -1081,7 +1086,7 @@ function auditLogRows(row: Row) {
 function auditLogEssentials(row: Row) {
   const details = parseDetails(row.details);
   const specificRows = auditLogSpecificRows(row, details);
-  const primaryDetail = specificRows.find((item) => ["Bio link", "Từ khóa", "Domain", "Tin đã xóa"].includes(item.label));
+  const primaryDetail = specificRows.find((item) => ["Từ khóa", "Bio link", "Domain", "Nguồn forward", "Tin đã xóa"].includes(item.label));
   return [
     { label: "Người thực hiện", value: auditActor(row, details) },
     { label: "Đối tượng", value: displayValue(row.target_user_id || details.target_user_id || details.target_username) },
