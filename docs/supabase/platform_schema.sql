@@ -12,6 +12,7 @@ drop table if exists reputation_rules cascade;
 drop table if exists scam_reports cascade;
 drop table if exists scam_entities cascade;
 drop table if exists channel_posts cascade;
+drop table if exists channel_post_events cascade;
 drop table if exists scheduled_posts cascade;
 drop table if exists auto_replies cascade;
 drop table if exists captcha_questions cascade;
@@ -234,9 +235,28 @@ create table channel_posts (
   status text not null default 'draft',
   sent_message_id text,
   sent_at timestamptz,
+  scheduled_at timestamptz,
+  delete_at timestamptz,
+  deleted_at timestamptz,
+  updated_at timestamptz not null default now(),
+  attempt_count integer not null default 0,
+  last_attempt_at timestamptz,
+  created_by text,
+  deleted_by text,
+  error_code text,
   error text,
   enabled boolean not null default true,
   notes text,
+  created_at timestamptz not null default now()
+);
+
+create table channel_post_events (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  channel_post_id bigint references channel_posts(id) on delete cascade,
+  event_type text not null,
+  message text,
+  details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -395,6 +415,7 @@ alter table captcha_questions enable row level security;
 alter table auto_replies enable row level security;
 alter table scheduled_posts enable row level security;
 alter table channel_posts enable row level security;
+alter table channel_post_events enable row level security;
 alter table video_messages enable row level security;
 alter table bot_allowlist enable row level security;
 alter table scam_entities enable row level security;

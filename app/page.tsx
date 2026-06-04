@@ -6,15 +6,21 @@ import {
   Archive,
   BarChart3,
   Bot,
+  CalendarClock,
   Check,
   CheckSquare,
+  Clock3,
+  ClipboardList,
   Database,
   Edit3,
+  Eye,
   Gift,
+  History,
   Loader2,
   Plus,
   Power,
   RefreshCcw,
+  RotateCcw,
   Save,
   Search,
   Send,
@@ -25,10 +31,12 @@ import {
   Users,
   Sparkles,
   Trash2,
+  Wrench,
   X
 } from "lucide-react";
 
 import { FieldConfig, TableConfig } from "@/lib/tables";
+import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
@@ -98,6 +106,9 @@ type DeleteFailureAlert = {
   latestAt: string;
   latestReason: string;
 };
+
+type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
+type ChannelButtonDraft = { label: string; url: string; row: number };
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
@@ -222,57 +233,73 @@ const NAV_GROUPS = [
 const SYSTEM_LAYERS = [
   {
     key: "overview",
-    title: "Tổng quan",
-    shortTitle: "Tổng quan",
-    desc: "Xem nhanh bot nào đang chạy, module nào cần xử lý và hành động tiếp theo.",
-    icon: BarChart3,
+    title: "Việc cần xử lý",
+    shortTitle: "Việc cần xử lý",
+    desc: "Bắt đầu từ cảnh báo, việc còn thiếu và hành động cần hoàn tất hôm nay.",
+    icon: ClipboardList,
     tone: "main",
-    tables: ["bot_metrics", "audit_logs", "bots", "groups", "module_settings"]
+    tables: ["bot_metrics", "audit_logs", "bots", "groups", "module_settings"],
+    navSection: "Vận hành"
   },
   {
     key: "bot",
-    title: "Bot",
-    shortTitle: "Bot",
-    desc: "Token, trạng thái, quyền chạy, profile và kết nối của từng bot.",
+    title: "Kết nối & thiết lập",
+    shortTitle: "Kết nối & thiết lập",
+    desc: "Kết nối bot, kiểm tra trạng thái và hoàn tất các điều kiện để bot bắt đầu vận hành.",
     icon: Bot,
     tone: "content",
-    tables: ["bots", "admins", "module_settings"]
+    tables: ["bots", "groups", "admins", "module_settings"],
+    navSection: "Vận hành"
   },
   {
     key: "group",
-    title: "Nhóm",
-    shortTitle: "Nhóm",
-    desc: "Bot được phép hoạt động ở group/kênh nào, quyền admin, member và bot được phép.",
+    title: "Phạm vi hoạt động",
+    shortTitle: "Phạm vi hoạt động",
+    desc: "Quản lý group/channel bot đang phục vụ, quyền truy cập và người có vai trò vận hành.",
     icon: Users,
     tone: "security",
-    tables: ["groups", "bot_allowlist", "admins", "member_roles"]
+    tables: ["groups", "bot_allowlist", "admins", "member_roles"],
+    navSection: "Vận hành"
   },
   {
     key: "modules",
-    title: "Chức năng",
-    shortTitle: "Chức năng",
-    desc: "Quản lý module giống plugin: bật module nào thì module đó mới xuất hiện trên sidebar.",
+    title: "Bật chức năng",
+    shortTitle: "Bật chức năng",
+    desc: "Chọn các khả năng bot cần dùng, sau đó mở thẳng workbench của từng chức năng.",
     icon: Sparkles,
     tone: "content",
-    tables: ["module_settings"]
+    tables: ["module_settings"],
+    navSection: "Vận hành"
   },
   {
     key: "logs",
-    title: "Nhật ký",
-    shortTitle: "Nhật ký",
-    desc: "Ai ban member, ai xóa tin, ai sửa quyền và các sự kiện vận hành cần rà soát.",
+    title: "Duyệt & xử lý",
+    shortTitle: "Duyệt & xử lý",
+    desc: "Rà soát sự cố, hành động kiểm duyệt và các thay đổi vận hành đáng chú ý.",
     icon: Activity,
     tone: "main",
-    tables: ["audit_logs"]
+    tables: ["audit_logs"],
+    navSection: "Vận hành"
   },
   {
     key: "settings",
     title: "Cài đặt hệ thống",
     shortTitle: "Cài đặt hệ thống",
-    desc: "Chỉ còn các key dùng chung thật sự. Phần lớn cài đặt đã chuyển vào module hoặc override theo group.",
+    desc: "Chỉ quản lý những thiết lập thật sự dùng chung cho toàn bộ bot và control panel.",
     icon: SlidersHorizontal,
     tone: "content",
-    tables: ["config"]
+    tables: ["config"],
+    navSection: "Nâng cao"
+  },
+  {
+    key: "advanced",
+    title: "Dữ liệu kỹ thuật",
+    shortTitle: "Dữ liệu kỹ thuật",
+    desc: "Tra cứu và sửa dữ liệu thô khi cần xử lý ngoại lệ. Không dùng cho vận hành hằng ngày.",
+    icon: Wrench,
+    tone: "content",
+    tables: NAV_GROUPS.flatMap((group) => group.keys),
+    navSection: "Nâng cao"
   }
 ];
 const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[] }> = {
@@ -685,7 +712,7 @@ function emptyValues(table: TableConfig) {
     } else if (field.key === "settings") {
       values[field.key] = "{}";
     } else if (field.key === "status" && table.key === "channel_posts") {
-      values[field.key] = "pending";
+      values[field.key] = "draft";
     } else if (field.key === "parse_mode") {
       values[field.key] = "HTML";
     } else if (field.key === "status") {
@@ -1222,16 +1249,25 @@ function healthState(row: Row, tableKey = "") {
     if (row.enabled === false) {
       return { className: "disabled", label: "Đang tắt" };
     }
-    if (status === "pending") {
+    if (["pending", "queued"].includes(status)) {
       return { className: "setup", label: "Chờ gửi" };
     }
-    if (status === "sending") {
-      return { className: "setup", label: "Đang gửi" };
+    if (status === "scheduled") {
+      return { className: "setup", label: "Đã lên lịch" };
+    }
+    if (["sending", "deleting"].includes(status)) {
+      return { className: "setup", label: "Đang xử lý" };
     }
     if (status === "sent") {
       return { className: "healthy", label: "Đã gửi" };
     }
-    if (status === "failed") {
+    if (status === "delete_scheduled") {
+      return { className: "healthy", label: "Đã gửi · chờ xóa" };
+    }
+    if (status === "deleted") {
+      return { className: "disabled", label: "Đã xóa" };
+    }
+    if (["failed", "delete_failed"].includes(status)) {
       return { className: "error", label: "Lỗi gửi" };
     }
     return { className: "setup", label: "Nháp" };
@@ -1512,7 +1548,7 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       chips: [
         { label: "Chờ gửi", value: rows.filter((row) => row.status === "pending").length },
         { label: "Đã gửi", value: rows.filter((row) => row.status === "sent").length },
-        { label: "Lỗi", value: rows.filter((row) => row.status === "failed").length }
+        { label: "Lỗi", value: rows.filter((row) => ["failed", "delete_failed"].includes(String(row.status))).length }
       ]
     };
   }
@@ -1843,7 +1879,68 @@ function uniqueValues(rows: Row[], key: string) {
   return Array.from(new Set(rows.map((row) => String(row[key] || "").trim()).filter(Boolean))).sort();
 }
 
-function layerContainsTable(layer: (typeof SYSTEM_LAYERS)[number], tableKey: string) {
+function channelPostTabFor(row: Row): ChannelPostTab {
+  const status = String(row.status || "draft").toLowerCase();
+  if (status === "scheduled") return "scheduled";
+  if (["sent", "delete_scheduled", "deleting"].includes(status)) return "sent";
+  if (status === "deleted") return "deleted";
+  if (["failed", "delete_failed"].includes(status)) return "failed";
+  return "queue";
+}
+
+function channelButtonsFromText(value: unknown): ChannelButtonDraft[] {
+  const buttons: ChannelButtonDraft[] = [];
+  String(value || "").split("\n").forEach((line, row) => {
+    line.split("||").forEach((chunk) => {
+      const [label, url] = chunk.split("|", 2).map((item) => item.trim());
+      if (label || url) buttons.push({ label: label || "", url: url || "", row });
+    });
+  });
+  return buttons.length ? buttons : [{ label: "", url: "", row: 0 }];
+}
+
+function channelButtonsToText(buttons: ChannelButtonDraft[]) {
+  const rows = new Map<number, string[]>();
+  buttons.forEach((button) => {
+    if (!button.label.trim() && !button.url.trim()) return;
+    rows.set(button.row, [...(rows.get(button.row) || []), `${button.label.trim()} | ${button.url.trim()}`]);
+  });
+  return Array.from(rows.entries()).sort(([left], [right]) => left - right).map(([, items]) => items.join(" || ")).join("\n");
+}
+
+function vietnamDateTimeInput(value: unknown) {
+  const date = new Date(String(value || ""));
+  if (!Number.isFinite(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(date);
+  return parts.replace(" ", "T");
+}
+
+function vietnamInputToIso(value: string) {
+  if (!value) return null;
+  return new Date(`${value}:00+07:00`).toISOString();
+}
+
+function actionLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    warn: "Xóa và cảnh báo",
+    delete: "Xóa tin",
+    restrict: "Hạn chế chat",
+    mute: "Hạn chế chat",
+    kick: "Kick khỏi nhóm",
+    ban: "Ban khỏi nhóm"
+  };
+  return labels[String(value || "").toLowerCase()] || String(value || "Chưa đặt");
+}
+
+function layerContainsTable(layer: { tables: string[] }, tableKey: string) {
   return layer.tables.includes(tableKey);
 }
 
@@ -1871,6 +1968,7 @@ export default function HomePage() {
   const [activeConfigTab, setActiveConfigTab] = useState("");
   const [activeLayer, setActiveLayer] = useState("overview");
   const [activeModule, setActiveModule] = useState("moderation");
+  const [showTaskData, setShowTaskData] = useState(false);
   const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
   const [workMode, setWorkMode] = useState<WorkMode>("overview");
   const [quickFilter, setQuickFilter] = useState("");
@@ -1880,6 +1978,11 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
+  const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
+  const [channelPage, setChannelPage] = useState(1);
+  const [channelComposerOpen, setChannelComposerOpen] = useState(false);
+  const [channelComposer, setChannelComposer] = useState<Row>({});
+  const [channelButtons, setChannelButtons] = useState<ChannelButtonDraft[]>([{ label: "", url: "", row: 0 }]);
 
   useEffect(() => {
     if (!toast) {
@@ -1940,6 +2043,16 @@ export default function HomePage() {
     }
     return true;
   }), [rows, selectedBot, selectedGroup, table?.key, quickFilter]);
+  const channelRows = useMemo(
+    () => visibleRows.filter((row) => channelPostTabFor(row) === channelTab).sort((left, right) => Date.parse(String(right.updated_at || right.created_at || 0)) - Date.parse(String(left.updated_at || left.created_at || 0))),
+    [channelTab, visibleRows]
+  );
+  const channelPageSize = 10;
+  const channelPageCount = Math.max(1, Math.ceil(channelRows.length / channelPageSize));
+  const channelPageRows = useMemo(
+    () => channelRows.slice((channelPage - 1) * channelPageSize, channelPage * channelPageSize),
+    [channelPage, channelRows]
+  );
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
@@ -2167,6 +2280,9 @@ export default function HomePage() {
   const layerTables = useMemo(() => activeLayerHub.tables
     .map((key) => meta?.tables.find((tableItem) => tableItem.key === key))
     .filter((item): item is TableConfig => Boolean(item)), [activeLayerHub, meta?.tables]);
+  const activeTaskDefinition = useMemo(() => ADMIN_TASKS.find((task) => (
+    task.targetLayer === activeLayer && (task.targetTable === activeKey || activeLayer.startsWith("module:"))
+  )), [activeKey, activeLayer]);
   const healthSummary = useMemo(() => {
     const activeBots = lookups.bots.filter((bot) => bot.enabled !== false && bot.status !== "paused").length;
     const disabledBots = lookups.bots.filter((bot) => bot.enabled === false || bot.status === "paused").length;
@@ -2312,59 +2428,52 @@ export default function HomePage() {
     { title: "Bật verify khẩn cấp", hint: "Mở captcha và kiểm soát xác minh", action: () => goToInsight({ targetLayer: "module:verification", targetTable: "verification_settings" }) },
     { title: "Tạo mục điều khiển mới", hint: `Tạo trong ${table?.label || "màn hình hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
-  const operationTasks = useMemo(() => [
-    {
-      title: "Setup bot mới",
-      desc: "Tạo bot, nối group, bật module nền và kiểm tra pool nội dung.",
-      meta: setupIssues.length ? `${setupIssues.length} bước còn thiếu` : "Đủ điều kiện nền",
-      icon: Bot,
-      tone: setupIssues.length ? "warning" : "healthy",
-      action: () => goToInsight({ targetLayer: "bot", targetTable: "bots" })
-    },
-    {
-      title: "Bảo vệ group",
-      desc: "Đi thẳng tới module kiểm duyệt rồi áp dụng cho tất cả group.",
-      meta: `${healthSummary.groups} group trong phạm vi`,
-      icon: ShieldCheck,
-      tone: healthSummary.groups ? "healthy" : "warning",
-      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "config" })
-    },
-    {
-      title: "Gửi tin định kỳ",
-      desc: "Chọn group, chọn pool tin nhắn/video và đặt giờ chạy đúng flow runtime.",
-      meta: `${messagePools.length + videoPools.length} pool khả dụng`,
-      icon: Sparkles,
-      tone: messagePools.length || videoPools.length ? "healthy" : "warning",
-      action: () => startScheduledMessageFlow()
-    },
-    {
-      title: "Duyệt scam",
-      desc: "Xem report pending, xác nhận để tạo dữ liệu scam hoặc từ chối report sai.",
-      meta: scamInboxStats.pending ? `${scamInboxStats.pending} report chờ duyệt` : "Không có report pending",
-      icon: Archive,
-      tone: "scam",
-      action: () => {
-        goToInsight({ targetLayer: "module:anti_scam", targetTable: "scam_reports" });
-        setQuickFilter("pending");
+  const operationTasks = useMemo(() => {
+    const icons: Record<string, typeof Bot> = {
+      "connect-bot": Bot,
+      "protect-community": ShieldCheck,
+      "publish-content": Send,
+      "schedule-content": CalendarClock,
+      "review-incidents": Activity,
+      "review-scam": Archive,
+      "build-auto-reply": MessageSquare,
+      "manage-modules": Sparkles
+    };
+    return ADMIN_TASKS.map((task) => {
+      let metaText = task.outcome;
+      let tone = task.priority === "high" ? "info" : "healthy";
+      if (task.id === "connect-bot") {
+        metaText = setupIssues.length ? `${setupIssues.length} bước còn thiếu` : "Đủ điều kiện nền";
+        tone = setupIssues.length ? "warning" : "healthy";
+      } else if (task.id === "protect-community") {
+        metaText = `${healthSummary.groups} group trong phạm vi`;
+        tone = healthSummary.groups ? "healthy" : "warning";
+      } else if (task.id === "schedule-content") {
+        metaText = `${messagePools.length + videoPools.length} pool khả dụng`;
+        tone = messagePools.length || videoPools.length ? "healthy" : "warning";
+      } else if (task.id === "review-scam") {
+        metaText = scamInboxStats.pending ? `${scamInboxStats.pending} report chờ duyệt` : "Không có report pending";
+        tone = scamInboxStats.pending ? "scam" : "healthy";
       }
-    },
-    {
-      title: "Test luật",
-      desc: "Mở keyword/auto reply/domain rồi paste nội dung để kiểm tra rule khớp.",
-      meta: "Có test nhanh",
-      icon: Activity,
-      tone: "info",
-      action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "keywords" })
-    },
-    {
-      title: "Xem nhật ký",
-      desc: "Rà soát ban, warn, xóa tin, đổi module và các thao tác đáng chú ý.",
-      meta: "Audit trail",
-      icon: BarChart3,
-      tone: "info",
-      action: () => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })
-    }
-  ], [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
+      return {
+        ...task,
+        desc: task.description,
+        meta: metaText,
+        icon: icons[task.id] || Activity,
+        tone,
+        action: () => {
+          if (task.id === "schedule-content") {
+            startScheduledMessageFlow();
+            return;
+          }
+          goToInsight(task);
+          if (task.id === "review-scam") {
+            setQuickFilter("pending");
+          }
+        }
+      };
+    });
+  }, [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
     if (!query) {
@@ -2468,6 +2577,27 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, savedPassword, selectedBot, selectedGroup, table?.key]);
+
+  useEffect(() => {
+    setChannelPage(1);
+  }, [channelTab, search, selectedBot]);
+
+  useEffect(() => {
+    if (table?.key !== "channel_posts" || (!savedPassword && meta?.passwordRequired)) {
+      return;
+    }
+    const timer = window.setInterval(async () => {
+      try {
+        const query = buildScopedQuery(table, search, selectedBot, "");
+        const payload = await api(`/api/channel_posts${query}`);
+        setRows(payload.rows || []);
+      } catch {
+        // Keep the last known state; the next poll will retry.
+      }
+    }, 3000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta?.passwordRequired, savedPassword, search, selectedBot, table?.key]);
 
   useEffect(() => {
     if (meta && (!meta.passwordRequired || savedPassword)) {
@@ -2582,12 +2712,22 @@ export default function HomePage() {
     setSelected(null);
     setDraft({});
     setSelectedIds(new Set());
+    setShowTaskData(layer.key === "advanced" || layer.key === "settings");
     setWorkMode(layer.key === "overview" ? "overview" : "operate");
   }
 
   function goToInsight(insight: { targetLayer: string; targetTable: string }) {
     selectLayer(insight.targetLayer);
     setActiveKey(insight.targetTable);
+    setShowTaskData(false);
+    setWorkMode("operate");
+  }
+
+  function openTaskData(tableKey: string) {
+    setActiveKey(tableKey);
+    setShowTaskData(true);
+    setSelected(null);
+    setDraft({});
     setWorkMode("operate");
   }
 
@@ -2878,6 +3018,118 @@ export default function HomePage() {
     flashToast("Đã đưa bài vào hàng chờ gửi.");
   }
 
+  function openChannelComposer(row?: Row) {
+    const source = row || {
+      bot_key: selectedBot || "main",
+      target_chat_id: selectedGroup || "",
+      title: "",
+      content: "",
+      disable_web_page_preview: false,
+      scheduled_at: "",
+      delete_at: ""
+    };
+    setChannelComposer({
+      ...source,
+      scheduled_at: vietnamDateTimeInput(source.scheduled_at),
+      delete_at: vietnamDateTimeInput(source.delete_at)
+    });
+    setChannelButtons(channelButtonsFromText(source.buttons_text));
+    setChannelComposerOpen(true);
+  }
+
+  function updateChannelButton(index: number, values: Partial<ChannelButtonDraft>) {
+    setChannelButtons((current) => current.map((button, buttonIndex) => buttonIndex === index ? { ...button, ...values } : button));
+  }
+
+  async function saveChannelPost(mode: "draft" | "send_now" | "schedule") {
+    if (!channelComposer.target_chat_id || !String(channelComposer.content || "").trim()) {
+      flashToast("Cần chọn channel/group và nhập nội dung bài.", "error");
+      return;
+    }
+    const scheduledAt = vietnamInputToIso(String(channelComposer.scheduled_at || ""));
+    const deleteAt = vietnamInputToIso(String(channelComposer.delete_at || ""));
+    if (mode === "schedule" && (!scheduledAt || Date.parse(scheduledAt) <= Date.now())) {
+      flashToast("Giờ gửi phải nằm trong tương lai, theo giờ Việt Nam.", "error");
+      return;
+    }
+    if (deleteAt && Date.parse(deleteAt) <= Date.now()) {
+      flashToast("Giờ tự xóa phải nằm trong tương lai, theo giờ Việt Nam.", "error");
+      return;
+    }
+    if (deleteAt && scheduledAt && Date.parse(deleteAt) <= Date.parse(scheduledAt)) {
+      flashToast("Giờ tự xóa phải sau giờ gửi.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      const values = {
+        bot_key: channelComposer.bot_key || selectedBot || "main",
+        target_chat_id: channelComposer.target_chat_id,
+        title: channelComposer.title || "",
+        content: channelComposer.content,
+        buttons_text: channelButtonsToText(channelButtons),
+        parse_mode: "HTML",
+        disable_web_page_preview: Boolean(channelComposer.disable_web_page_preview),
+        status: mode === "send_now" ? "queued" : mode === "schedule" ? "scheduled" : "draft",
+        scheduled_at: mode === "schedule" ? scheduledAt : null,
+        delete_at: deleteAt,
+        updated_at: new Date().toISOString(),
+        created_by: channelComposer.created_by || "admin_cp",
+        enabled: true,
+        error: "",
+        error_code: ""
+      };
+      if (channelComposer.id) {
+        await api("/api/channel_posts", { method: "PATCH", body: JSON.stringify({ id: channelComposer.id, values }) });
+      } else {
+        await api("/api/channel_posts", { method: "POST", body: JSON.stringify(values) });
+      }
+      setChannelComposerOpen(false);
+      flashToast(mode === "send_now" ? "Đã yêu cầu bot gửi bài ngay." : mode === "schedule" ? "Đã lên lịch gửi theo giờ Việt Nam." : "Đã lưu bản nháp.");
+      await loadRows(search);
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể lưu bài đăng.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function channelPostAction(row: Row, action: string, values: Row = {}) {
+    setSaving(true);
+    try {
+      await api("/api/channel-posts/action", {
+        method: "POST",
+        body: JSON.stringify({ id: row.id, action, ...values })
+      });
+      const labels: Record<string, string> = {
+        send_now: "Đã yêu cầu gửi ngay.",
+        retry: "Đã đưa bài vào hàng chờ thử lại.",
+        retry_delete: "Đã yêu cầu bot thử xóa lại.",
+        cancel_schedule: "Đã hủy lịch gửi.",
+        delete_now: "Đã yêu cầu bot xóa bài.",
+        cancel_delete: "Đã hủy lịch xóa."
+      };
+      flashToast(labels[action] || "Đã cập nhật bài đăng.");
+      await loadRows(search);
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể thực hiện thao tác.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function scheduleChannelDelete(row: Row) {
+    const suggested = vietnamDateTimeInput(row.delete_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString());
+    const value = window.prompt("Nhập giờ xóa theo giờ Việt Nam (YYYY-MM-DDTHH:mm)", suggested);
+    if (!value) return;
+    const deleteAt = vietnamInputToIso(value);
+    if (!deleteAt || Date.parse(deleteAt) <= Date.now()) {
+      flashToast("Giờ xóa phải nằm trong tương lai.", "error");
+      return;
+    }
+    void channelPostAction(row, "schedule_delete", { delete_at: deleteAt });
+  }
+
   async function writeAuditLog(action: string, row: Row, details: Row = {}) {
     try {
       await api("/api/audit_logs", {
@@ -3090,6 +3342,7 @@ export default function HomePage() {
     setActiveConfigTab("Kiểm duyệt tự động");
     setActiveGroupTab("Thông tin");
     setShowAdvancedFields(false);
+    setShowTaskData(true);
     setWorkMode("operate");
     setNotice("Flow module kiểm duyệt đã mở. Luật chung áp dụng cho toàn bộ group.");
   }
@@ -3180,15 +3433,18 @@ export default function HomePage() {
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const showOverview = workMode === "overview";
   const showOperations = workMode !== "overview";
-  const showPrimaryTask = activeLayer !== "modules";
+  const workbenchModule = activeLayer.startsWith("module:") && ["moderation", "auto_reply", "anti_scam"].includes(activeModuleHub.key);
+  const setupWorkbench = ["bot", "group"].includes(activeLayer);
+  const taskWorkbenchActive = !showTaskData && (workbenchModule || setupWorkbench);
+  const showPrimaryTask = activeLayer !== "modules" && !taskWorkbenchActive;
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
   const scopeCrumbs = useMemo(() => [
     { label: "Bot", value: currentBot?.name || selectedBot || "Tất cả bot" },
     { label: "Group", value: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : selectedGroup || "Tất cả group" },
-    { label: "Module", value: activeModuleHub.title },
-    { label: "Việc", value: table?.label || "Chưa chọn" }
-  ], [activeModuleHub.title, currentBot, selectedBot, selectedGroup, selectedGroupRow, table?.label]);
+    { label: "Khu vực", value: activeLayerHub.title },
+    { label: "Việc", value: table ? TABLE_TASK_LABELS[table.key] || table.label : "Chưa chọn" }
+  ], [activeLayerHub.title, currentBot, selectedBot, selectedGroup, selectedGroupRow, table]);
   const groupEditorTabs = useMemo(() => {
     if (table?.key !== "groups") {
       return [];
@@ -3264,6 +3520,30 @@ export default function HomePage() {
   const menuCommandsEnabled = menuCommandRows.some((row) => row.enabled !== false && String(row.value || "").trim());
   const policyButtonRow = menuConfigRows.get("show_policy_button");
   const policyButtonEnabled = policyButtonRow ? String(policyButtonRow.value || "").trim().toLowerCase() === "true" && policyButtonRow.enabled !== false : false;
+  const moderationSettingsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (activeModuleHub.key !== "moderation") return map;
+    for (const row of scopedConfigRows) map.set(String(row.key || ""), String(row.value ?? ""));
+    return map;
+  }, [activeModuleHub.key, scopedConfigRows]);
+  const moderationPolicySummary = useMemo(() => [
+    { label: "Forward", value: moderationSettingsMap.get("delete_forwarded_messages") === "false" ? "Cho phép" : actionLabel(moderationSettingsMap.get("forward_action") || "warn") },
+    { label: "Spam", value: `${moderationSettingsMap.get("spam_max_messages") || "6"} tin / ${moderationSettingsMap.get("spam_window_seconds") || "12"} giây` },
+    { label: "Nội dung lặp", value: moderationSettingsMap.get("duplicate_message_enabled") === "false" ? "Tắt" : actionLabel(moderationSettingsMap.get("duplicate_message_action") || "warn") },
+    { label: "Bio có link", value: moderationSettingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" }
+  ], [moderationSettingsMap]);
+  const autoReplyStats = useMemo(() => {
+    const source = table?.key === "auto_replies" ? rows : [];
+    return {
+      total: source.length,
+      enabled: source.filter((row) => row.enabled !== false).length,
+      smart: source.filter((row) => String(row.match || "smart") === "smart").length,
+      risky: source.filter((row) => String(row.trigger || "").trim().length < 2).length
+    };
+  }, [rows, table?.key]);
+  const scamWorkbenchRows = useMemo(() => (
+    table?.key === "scam_reports" ? visibleRows : lookups.scamReports.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot)
+  ), [lookups.scamReports, selectedBot, table?.key, visibleRows]);
 
   if (loading && !meta) {
     return (
@@ -3312,26 +3592,28 @@ export default function HomePage() {
           </div>
         </div>
         <nav className="layer-nav">
-          <section className="nav-group">
-            <h2>Hệ thống</h2>
-            {SYSTEM_LAYERS.map((layer) => {
-              const LayerIcon = layer.icon;
-              return (
-                <button
-                  key={layer.key}
-                  className={layer.key === activeLayer ? "active" : ""}
-                  onClick={() => selectLayer(layer.key)}
-                  type="button"
-                >
-                  <LayerIcon size={17} />
-                  <span>{layer.shortTitle}</span>
-                </button>
-              );
-            })}
-          </section>
+          {["Vận hành", "Nâng cao"].map((section) => (
+            <section className="nav-group" key={section}>
+              <h2>{section}</h2>
+              {SYSTEM_LAYERS.filter((layer) => layer.navSection === section).map((layer) => {
+                const LayerIcon = layer.icon;
+                return (
+                  <button
+                    key={layer.key}
+                    className={layer.key === activeLayer ? "active" : ""}
+                    onClick={() => selectLayer(layer.key)}
+                    type="button"
+                  >
+                    <LayerIcon size={17} />
+                    <span>{layer.shortTitle}</span>
+                  </button>
+                );
+              })}
+            </section>
+          ))}
           {moduleLayers.length ? (
           <section className="nav-group">
-            <h2>Module đang bật</h2>
+            <h2>Công việc theo chức năng</h2>
             {moduleLayers.map((layer) => {
               const LayerIcon = layer.icon;
               return (
@@ -3357,7 +3639,7 @@ export default function HomePage() {
             <span>Context đang điều khiển</span>
             <strong>{currentBot?.name || selectedBot || "Tất cả bot"}</strong>
             <p>
-              Group: {selectedGroup || "Tất cả"} · Module: {activeModuleHub.title} · Màn hình: {table.label}
+              Group: {selectedGroup || "Tất cả"} · Công việc: {activeLayerHub.title} · Chi tiết: {TABLE_TASK_LABELS[table.key] || table.label}
             </p>
           </div>
           <div className="bot-switcher">
@@ -3398,16 +3680,16 @@ export default function HomePage() {
 
         <section className="workflow-mode-bar" aria-label="Chế độ làm việc">
           <button type="button" className={workMode === "overview" ? "active" : ""} onClick={() => setWorkMode("overview")}>
-            <BarChart3 size={16} />
-            <span>Tổng quan</span>
+            <ClipboardList size={16} />
+            <span>Việc cần làm</span>
           </button>
           <button type="button" className={workMode === "operate" ? "active" : ""} onClick={() => setWorkMode("operate")}>
             <Activity size={16} />
-            <span>Vận hành</span>
+            <span>Chi tiết tác vụ</span>
           </button>
           <button type="button" className={workMode === "edit" ? "active" : ""} onClick={() => (hasFocusedPanel ? setWorkMode("edit") : startCreate())}>
             <Edit3 size={16} />
-            <span>Chỉnh sửa</span>
+            <span>Biểu mẫu</span>
           </button>
         </section>
 
@@ -3415,8 +3697,8 @@ export default function HomePage() {
         <>
         <section className="command-center">
           <div className="command-copy">
-            <span className="eyebrow">Operations console</span>
-            <h2>Làm theo việc cần xử lý, không theo bảng Supabase</h2>
+            <span className="eyebrow">Hàng đợi vận hành</span>
+            <h2>Việc nào cần xử lý trước?</h2>
             <p>{commandInsights[0]?.body}</p>
             <div className={`severity-ribbon ${commandInsights[0]?.severity}`}>
               <strong>{commandInsights[0]?.severity?.toUpperCase()}</strong>
@@ -3450,8 +3732,8 @@ export default function HomePage() {
         <section className="ops-task-board">
           <div className="ops-task-head">
             <div>
-              <span className="eyebrow">Bảng tác vụ admin</span>
-              <h3>Chọn việc cần làm</h3>
+              <span className="eyebrow">Công việc thường dùng</span>
+              <h3>Bắt đầu theo kết quả cần đạt</h3>
             </div>
             <button type="button" className="ghost" onClick={() => setCommandOpen(true)}>
               Mở tìm nhanh
@@ -3538,7 +3820,7 @@ export default function HomePage() {
               <ActiveLayerIcon size={24} />
             </div>
             <div>
-              <span>Kiến trúc vận hành</span>
+              <span>{activeLayer === "advanced" ? "Khu vực dành cho xử lý ngoại lệ" : "Công việc đang thực hiện"}</span>
               <h3>{activeLayerHub.title}</h3>
               <p>{activeLayerHub.desc}</p>
             </div>
@@ -3546,13 +3828,38 @@ export default function HomePage() {
           {activeLayer !== "modules" ? (
           <div className="layer-links">
             {layerTables.map((item) => (
-              <button key={item.key} type="button" className={activeKey === item.key ? "active" : ""} onClick={() => setActiveKey(item.key)}>
-                {item.label}
+              <button
+                key={item.key}
+                type="button"
+                className={activeKey === item.key ? "active" : ""}
+                onClick={() => ((workbenchModule || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
+              >
+                {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
               </button>
             ))}
           </div>
           ) : null}
         </section>
+
+        {activeTaskDefinition && activeLayer !== "advanced" ? (
+          <section className="task-outcome-strip">
+            <div>
+              <span className="eyebrow">Kết quả cần đạt</span>
+              <strong>{activeTaskDefinition.outcome}</strong>
+            </div>
+            <p>{activeTaskDefinition.description}</p>
+          </section>
+        ) : null}
+
+        {activeLayer === "advanced" ? (
+          <section className="advanced-warning">
+            <Wrench size={20} />
+            <div>
+              <strong>Dữ liệu kỹ thuật, không phải luồng vận hành chính</strong>
+              <p>Chỉ sửa trực tiếp record khi cần xử lý ngoại lệ. Với công việc thường ngày, hãy mở tác vụ tương ứng từ sidebar.</p>
+            </div>
+          </section>
+        ) : null}
 
         <section className="scope-bar">
           <label>
@@ -3730,7 +4037,7 @@ export default function HomePage() {
           </>
         ) : null}
 
-        {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" && showTaskData ? (
           <section className="protection-flow-launcher">
             <div>
               <span>Flow bảo vệ module</span>
@@ -3748,14 +4055,163 @@ export default function HomePage() {
           </section>
         ) : null}
 
+        {taskWorkbenchActive ? (
+          <section className="task-workbench">
+            {setupWorkbench ? (
+              <>
+                <section className="task-workbench-hero">
+                  <div>
+                    <span className="eyebrow">Phase 2 · Thiết lập vận hành</span>
+                    <h2>{activeLayer === "bot" ? "Đưa bot vào trạng thái sẵn sàng" : "Hoàn tất phạm vi hoạt động"}</h2>
+                    <p>{activeLayer === "bot" ? "Kết nối bot, kiểm tra trạng thái, bật chức năng và xác nhận bot đã có nơi để hoạt động." : "Khai báo group/channel, kiểm tra quyền và xác định bot nào được phép phục vụ phạm vi đó."}</p>
+                  </div>
+                  <div className="task-workbench-score">
+                    <strong>{setupChecklist.length - setupIssues.length}/{setupChecklist.length}</strong>
+                    <span>điều kiện nền đã hoàn tất</span>
+                  </div>
+                </section>
+                <section className="guided-steps">
+                  {setupChecklist.map((item, index) => (
+                    <article key={item.label} className={item.done ? "done" : "needs-action"}>
+                      <span>{item.done ? <Check size={18} /> : index + 1}</span>
+                      <div><strong>{item.label}</strong><p>{item.detail}</p></div>
+                    </article>
+                  ))}
+                </section>
+                <section className="workbench-actions-grid">
+                  <button type="button" onClick={() => openTaskData("bots")}><Bot size={20} /><strong>Kết nối và kiểm tra bot</strong><span>Token, trạng thái và profile bot.</span></button>
+                  <button type="button" onClick={() => openTaskData("groups")}><Users size={20} /><strong>Thêm group hoặc channel</strong><span>Khai báo phạm vi bot sẽ phục vụ.</span></button>
+                  <button type="button" onClick={() => openTaskData("admins")}><ShieldCheck size={20} /><strong>Phân quyền vận hành</strong><span>Owner, mod và quyền quản trị.</span></button>
+                  <button type="button" onClick={() => selectLayer("modules")}><Sparkles size={20} /><strong>Bật chức năng cần dùng</strong><span>Chỉ bật module phục vụ công việc thật.</span></button>
+                </section>
+              </>
+            ) : null}
+
+            {workbenchModule && activeModuleHub.key === "moderation" ? (
+              <>
+                <section className="task-workbench-hero security">
+                  <div>
+                    <span className="eyebrow">Phase 3 · Protection workbench</span>
+                    <h2>Thiết lập, kiểm thử và theo dõi bảo vệ</h2>
+                    <p>Một luồng duy nhất cho spam, forward, link, bio, ngoại lệ và hành động xử lý.</p>
+                  </div>
+                  <div className="task-workbench-score">
+                    <strong>{selectedGroupProtection.enabledChecks}/{selectedGroupProtection.totalChecks}</strong>
+                    <span>kiểm tra bảo vệ đang đạt</span>
+                  </div>
+                </section>
+                <section className="policy-summary-grid">
+                  {moderationPolicySummary.map((item) => <article key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
+                </section>
+                <section className="guided-flow">
+                  <article><b>1</b><div><strong>Chọn hành vi cần chặn</strong><p>Spam, forward, domain nguy hiểm, bio link và bot lạ.</p></div><button type="button" onClick={() => openTaskData("config")}>Thiết lập chính sách</button></article>
+                  <article><b>2</b><div><strong>Quản lý luật và ngoại lệ</strong><p>Từ khóa, domain, link rút gọn và bot được phép.</p></div><button type="button" onClick={() => openTaskData("keywords")}>Mở luật chặn</button></article>
+                  <article><b>3</b><div><strong>Kiểm thử trước khi bật</strong><p>Paste nội dung để biết luật nào sẽ khớp và hành động nào xảy ra.</p></div><button type="button" onClick={() => openTaskData("keywords")}>Test luật</button></article>
+                  <article><b>4</b><div><strong>Rà soát hành động thực tế</strong><p>Xem lý do xóa tin, cảnh báo, hạn chế hoặc ban.</p></div><button type="button" onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Xem sự cố</button></article>
+                </section>
+                <section className="workbench-footer-actions">
+                  <button type="button" className="primary" onClick={startGroupProtectionFlow}><SlidersHorizontal size={17} />Mở thiết lập bảo vệ</button>
+                  <button type="button" className="secondary" onClick={() => openTaskData("domain_blacklist")}>Quản lý link nguy hiểm</button>
+                  <button type="button" className="secondary" onClick={() => openTaskData("bot_allowlist")}>Quản lý ngoại lệ bot</button>
+                </section>
+              </>
+            ) : null}
+
+            {workbenchModule && activeModuleHub.key === "auto_reply" ? (
+              <>
+                <section className="task-workbench-hero fun">
+                  <div>
+                    <span className="eyebrow">Phase 4 · Auto reply builder</span>
+                    <h2>Tạo câu trả lời đúng ngữ cảnh</h2>
+                    <p>Tạo trigger dễ hiểu, nhiều câu trả lời ngẫu nhiên và kiểm thử để tránh bot tự nói khi không ai hỏi.</p>
+                  </div>
+                  <button type="button" className="primary" onClick={() => openTaskData("auto_replies")}><Plus size={17} />Tạo auto reply</button>
+                </section>
+                <section className="policy-summary-grid">
+                  <article><span>Tổng rule</span><strong>{autoReplyStats.total}</strong></article>
+                  <article><span>Đang bật</span><strong>{autoReplyStats.enabled}</strong></article>
+                  <article><span>Smart match</span><strong>{autoReplyStats.smart}</strong></article>
+                  <article className={autoReplyStats.risky ? "warning" : ""}><span>Trigger quá ngắn</span><strong>{autoReplyStats.risky}</strong></article>
+                </section>
+                <section className="auto-reply-builder">
+                  <div className="builder-guide">
+                    <h3>Cách tạo một phản hồi tốt</h3>
+                    <span><b>1</b>Nhập câu người dùng thường hỏi, ví dụ “giá bao nhiêu”.</span>
+                    <span><b>2</b>Chọn Smart để hiểu các cách hỏi tương tự.</span>
+                    <span><b>3</b>Nhập nhiều câu trả lời, ngăn bằng <code>||</code> để bot random.</span>
+                    <span><b>4</b>Test câu thật trước khi bật.</span>
+                  </div>
+                  <div className="builder-test">
+                    <h3>Thử hội thoại</h3>
+                    <input value={quickTestInput} onChange={(event) => setQuickTestInput(event.target.value)} placeholder="Nhập câu người dùng có thể gửi..." />
+                    <div className="rule-test-results">
+                      {quickTestInput ? ruleTestResults.length ? ruleTestResults.slice(0, 3).map((result) => <span key={`${result.label}-${result.detail}`} className="matched"><Check size={14} /><b>{result.label}</b>{result.detail}</span>) : <span className="clean"><ShieldCheck size={14} />Bot sẽ không tự trả lời câu này</span> : <span className="idle">Nhập một câu để kiểm thử</span>}
+                    </div>
+                  </div>
+                </section>
+                <section className="workbench-footer-actions">
+                  <button type="button" className="primary" onClick={() => openTaskData("auto_replies")}><MessageSquare size={17} />Quản lý câu trả lời</button>
+                  <button type="button" className="secondary" onClick={() => { setQuickTestInput(""); openTaskData("auto_replies"); }}>Mở test chi tiết</button>
+                </section>
+              </>
+            ) : null}
+
+            {workbenchModule && activeModuleHub.key === "anti_scam" ? (
+              <>
+                <section className="task-workbench-hero scam">
+                  <div>
+                    <span className="eyebrow">Phase 3 · Review workbench</span>
+                    <h2>Duyệt báo cáo và xây hồ sơ scam</h2>
+                    <p>Bắt đầu từ report chờ duyệt, kiểm tra bằng chứng rồi mới xác nhận thành dữ liệu cảnh báo.</p>
+                  </div>
+                  <div className="task-workbench-score">
+                    <strong>{pendingScamReports}</strong>
+                    <span>báo cáo đang chờ quyết định</span>
+                  </div>
+                </section>
+                <section className="policy-summary-grid">
+                  <article><span>Chờ duyệt</span><strong>{scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}</strong></article>
+                  <article><span>Đã xác nhận</span><strong>{scamWorkbenchRows.filter((row) => row.status === "confirmed").length}</strong></article>
+                  <article><span>Đã từ chối</span><strong>{scamWorkbenchRows.filter((row) => row.status === "rejected").length}</strong></article>
+                  <article><span>Bot đang xét</span><strong>{currentBot?.name || selectedBot || "Tất cả"}</strong></article>
+                </section>
+                <section className="review-queue-preview">
+                  <div className="review-queue-head"><div><h3>Hàng đợi cần quyết định</h3><p>Ưu tiên report mới và report có đủ bằng chứng.</p></div><button type="button" className="primary" onClick={() => { openTaskData("scam_reports"); setQuickFilter("pending"); }}>Mở hàng đợi</button></div>
+                  <div className="review-queue-list">
+                    {scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").slice(0, 4).map((row) => (
+                      <article key={row.id || `${row.target_uid}-${row.target_username}`}>
+                        <strong>{row.target_username || row.target_uid || row.bank_account || "Đối tượng chưa rõ"}</strong>
+                        <span>{row.evidence ? "Có bằng chứng để kiểm tra" : "Chưa có bằng chứng rõ"}</span>
+                        <small>Người báo: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}</small>
+                      </article>
+                    ))}
+                    {!scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? <div className="workbench-empty"><Check size={20} />Không còn report chờ duyệt.</div> : null}
+                  </div>
+                </section>
+                <section className="workbench-footer-actions">
+                  <button type="button" className="primary" onClick={() => openTaskData("scam_reports")}><ClipboardList size={17} />Duyệt báo cáo</button>
+                  <button type="button" className="secondary" onClick={() => openTaskData("scam_entities")}>Mở hồ sơ scam</button>
+                  <button type="button" className="secondary" onClick={() => openTaskData("config")}>Mẫu tin và channel duyệt</button>
+                </section>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+
         {showPrimaryTask ? (
         <>
         <header className="topbar">
           <div>
-            <h2>{table.label}</h2>
+            <h2>{activeLayer === "advanced" ? table.label : TABLE_TASK_LABELS[table.key] || table.label}</h2>
             <p>{table.description}</p>
           </div>
           <div className="actions">
+            {showTaskData && (workbenchModule || setupWorkbench) ? (
+              <button type="button" className="secondary" onClick={() => { setShowTaskData(false); setSelected(null); setDraft({}); }}>
+                <X size={16} />
+                Về workbench
+              </button>
+            ) : null}
             <form
               className="search"
               onSubmit={(event) => {
@@ -3769,19 +4225,24 @@ export default function HomePage() {
             <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
-            <div className="mode-switch" aria-label="Chế độ hiển thị">
+            {table.key !== "channel_posts" ? <div className="mode-switch" aria-label="Chế độ hiển thị">
               <button type="button" className={scanMode === "scan" ? "active" : ""} onClick={() => setScanMode("scan")}>
                 Scan
               </button>
               <button type="button" className={scanMode === "detail" ? "active" : ""} onClick={() => setScanMode("detail")}>
                 Detail
               </button>
-            </div>
-            {readOnlyTable ? null : table.key !== "config" ? (
+            </div> : null}
+            {table.key === "channel_posts" ? (
+              <button type="button" className="primary" onClick={() => openChannelComposer()}>
+                <Send size={17} />
+                Đăng bài mới
+              </button>
+            ) : readOnlyTable ? null : table.key !== "config" ? (
               <>
                 <button type="button" className="primary" onClick={startCreate}>
                   <Plus size={17} />
-                  Thêm
+                  {TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}
                 </button>
                 <button type="button" className="secondary" onClick={toggleAllVisible} disabled={!visibleRows.length}>
                   <CheckSquare size={17} />
@@ -3844,7 +4305,7 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {table.key !== "config" ? (
+        {table.key !== "config" && table.key !== "channel_posts" ? (
           <section className="quick-filter-bar">
             {quickFilters.map((filter) => (
               <button
@@ -3859,7 +4320,7 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {activeGuide ? (
+        {activeGuide && table.key !== "channel_posts" ? (
           <section className="usage-guide">
             <div>
               <SlidersHorizontal size={19} />
@@ -3876,7 +4337,7 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {workflow ? (
+        {workflow && table.key !== "channel_posts" ? (
           <section className="workflow-panel">
             <div className="workflow-copy">
               <div className="workflow-icon">
@@ -4116,7 +4577,117 @@ export default function HomePage() {
           </section>
         ) : null}
 
-        {table.key === "bot_metrics" ? (
+        {table.key === "channel_posts" ? (
+          <section className="channel-console">
+            <div className="channel-console-head">
+              <div>
+                <span className="eyebrow">Channel publisher · Giờ Việt Nam GMT+7</span>
+                <h3>Đăng bài và theo dõi tiến trình</h3>
+                <p>Admin chỉ cần soạn nội dung, chọn nơi nhận và bấm gửi. Trạng thái kỹ thuật được bot tự quản lý.</p>
+              </div>
+              <button type="button" className="primary" onClick={() => openChannelComposer()}>
+                <Send size={17} />
+                Đăng bài mới
+              </button>
+            </div>
+            <div className="channel-tabs">
+              {([
+                ["queue", "Chờ gửi", Clock3],
+                ["scheduled", "Đã lên lịch", CalendarClock],
+                ["sent", "Đã gửi", Send],
+                ["deleted", "Đã xóa", Trash2],
+                ["failed", "Lỗi", X]
+              ] as [ChannelPostTab, string, typeof Send][]).map(([key, label, Icon]) => {
+                const count = visibleRows.filter((row) => channelPostTabFor(row) === key).length;
+                return (
+                  <button key={key} type="button" className={channelTab === key ? "active" : ""} onClick={() => setChannelTab(key)}>
+                    <Icon size={16} />
+                    <span>{label}</span>
+                    <b>{count}</b>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="channel-post-list">
+              {channelPageRows.map((row) => {
+                const status = healthState(row, "channel_posts");
+                return (
+                  <article className="channel-post-card" key={row.id}>
+                    <div className="channel-post-main">
+                      <div className="channel-post-title">
+                        <div>
+                          <strong>{row.title || "Bài đăng không tiêu đề"}</strong>
+                          <span>{row.target_chat_id}</span>
+                        </div>
+                        <span className={`health ${status.className}`}>{status.label}</span>
+                      </div>
+                      <p>{row.content}</p>
+                      <div className="channel-post-meta">
+                        {row.scheduled_at ? <span><CalendarClock size={14} /> Gửi: {formatDateTime(row.scheduled_at)}</span> : null}
+                        {row.sent_at ? <span><Send size={14} /> Đã gửi: {formatDateTime(row.sent_at)}</span> : null}
+                        {row.delete_at && !row.deleted_at ? <span><Clock3 size={14} /> Xóa: {formatDateTime(row.delete_at)}</span> : null}
+                        {row.deleted_at ? <span><Trash2 size={14} /> Đã xóa: {formatDateTime(row.deleted_at)}</span> : null}
+                        {row.attempt_count ? <span><History size={14} /> {row.attempt_count} lần thử</span> : null}
+                      </div>
+                      {row.error ? <div className="channel-post-error">{row.error_code || "telegram_error"}: {row.error}</div> : null}
+                    </div>
+                    <div className="channel-post-actions">
+                      {["draft", "cancelled"].includes(String(row.status || "draft")) ? (
+                        <>
+                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "send_now")}><Send size={15} /> Gửi ngay</button>
+                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa</button>
+                        </>
+                      ) : null}
+                      {row.status === "scheduled" ? (
+                        <>
+                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "send_now")}><Send size={15} /> Gửi ngay</button>
+                          <button type="button" className="secondary" disabled={saving} onClick={() => channelPostAction(row, "cancel_schedule")}><X size={15} /> Hủy lịch</button>
+                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa lịch</button>
+                        </>
+                      ) : null}
+                      {["sent", "delete_scheduled"].includes(String(row.status || "")) ? (
+                        <>
+                          <button type="button" className="danger" disabled={saving} onClick={() => channelPostAction(row, "delete_now")}><Trash2 size={15} /> Xóa ngay</button>
+                          {row.status === "delete_scheduled" ? (
+                            <button type="button" className="secondary" disabled={saving} onClick={() => channelPostAction(row, "cancel_delete")}><X size={15} /> Hủy lịch xóa</button>
+                          ) : (
+                            <button type="button" className="secondary" disabled={saving} onClick={() => scheduleChannelDelete(row)}><CalendarClock size={15} /> Hẹn xóa</button>
+                          )}
+                        </>
+                      ) : null}
+                      {row.status === "failed" ? (
+                        <>
+                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "retry")}><RotateCcw size={15} /> Thử lại</button>
+                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa bài</button>
+                        </>
+                      ) : null}
+                      {row.status === "delete_failed" ? (
+                        <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "retry_delete")}><RotateCcw size={15} /> Thử xóa lại</button>
+                      ) : null}
+                      {row.status === "deleted" ? (
+                        <button type="button" className="secondary" onClick={() => openChannelComposer({ ...row, id: undefined, status: "draft", sent_message_id: "", sent_at: "", deleted_at: "", delete_at: "" })}><RotateCcw size={15} /> Đăng lại</button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+              {!channelPageRows.length ? (
+                <div className="empty-state">
+                  <Send size={28} />
+                  <strong>Chưa có bài trong mục này</strong>
+                  <span>Bấm Đăng bài mới để soạn nội dung và gửi ngay hoặc hẹn giờ.</span>
+                </div>
+              ) : null}
+            </div>
+            {channelPageCount > 1 ? (
+              <div className="channel-pagination">
+                <button type="button" className="secondary" disabled={channelPage <= 1} onClick={() => setChannelPage((page) => page - 1)}>Trang trước</button>
+                <span>Trang {channelPage}/{channelPageCount}</span>
+                <button type="button" className="secondary" disabled={channelPage >= channelPageCount} onClick={() => setChannelPage((page) => page + 1)}>Trang sau</button>
+              </div>
+            ) : null}
+          </section>
+        ) : table.key === "bot_metrics" ? (
           <section className="metrics-dashboard">
             <div className="metrics-head">
               <div>
@@ -4351,7 +4922,7 @@ export default function HomePage() {
               </section>
             ) : null}
           </section>
-        ) : table.key === "config" ? (
+        ) : table.key === "channel_posts" ? null : table.key === "config" ? (
           <section className="config-center">
               <>
             <div className="config-tabs" aria-label="Cây nhóm cài đặt">
@@ -4935,6 +5506,103 @@ export default function HomePage() {
         </>
         ) : null}
       </section>
+      {channelComposerOpen ? (
+        <section className="channel-composer-backdrop" onClick={() => setChannelComposerOpen(false)}>
+          <div className="channel-composer" role="dialog" aria-label="Soạn bài đăng channel" onClick={(event) => event.stopPropagation()}>
+            <div className="channel-composer-head">
+              <div>
+                <span className="eyebrow">Đăng channel · Giờ Việt Nam GMT+7</span>
+                <h3>{channelComposer.id ? "Sửa bài đăng" : "Soạn bài mới"}</h3>
+              </div>
+              <button type="button" className="icon-button" onClick={() => setChannelComposerOpen(false)}><X size={18} /></button>
+            </div>
+            <div className="channel-composer-grid">
+              <div className="channel-compose-fields">
+                <label>
+                  <span>Gửi bằng bot</span>
+                  <select value={channelComposer.bot_key || selectedBot || "main"} onChange={(event) => setChannelComposer((current) => ({ ...current, bot_key: event.target.value }))}>
+                    {lookups.bots.map((bot) => <option key={bot.bot_key || bot.id} value={bot.bot_key}>{bot.name || bot.bot_key}</option>)}
+                    {!lookups.bots.length ? <option value="main">main</option> : null}
+                  </select>
+                </label>
+                <label>
+                  <span>Channel/Group nhận bài</span>
+                  <select value={channelComposer.target_chat_id || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, target_chat_id: event.target.value }))}>
+                    <option value="">Chọn channel/group</option>
+                    {lookups.groups.filter((group) => !channelComposer.bot_key || !group.bot_key || group.bot_key === channelComposer.bot_key).map((group) => {
+                      const groupId = group.group_id || group.chat_id || "";
+                      return <option key={groupId || group.id} value={groupId}>{group.group_name || groupId}</option>;
+                    })}
+                  </select>
+                </label>
+                <label>
+                  <span>Tên nội bộ</span>
+                  <input value={channelComposer.title || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, title: event.target.value }))} placeholder="Ví dụ: Xác nhận tham gia" />
+                </label>
+                <label>
+                  <span>Nội dung bài đăng</span>
+                  <textarea rows={9} value={channelComposer.content || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, content: event.target.value }))} placeholder="Soạn nội dung sẽ hiển thị trên Telegram..." />
+                </label>
+                <div className="channel-button-builder">
+                  <div>
+                    <strong>Nút inline</strong>
+                    <button type="button" className="secondary" onClick={() => setChannelButtons((current) => [...current, { label: "", url: "", row: current.length ? Math.max(...current.map((button) => button.row)) + 1 : 0 }])}><Plus size={14} /> Thêm nút</button>
+                  </div>
+                  {channelButtons.map((button, index) => (
+                    <div className="channel-button-row" key={`${index}-${button.row}`}>
+                      <input value={button.label} onChange={(event) => updateChannelButton(index, { label: event.target.value })} placeholder="Tên nút" />
+                      <input value={button.url} onChange={(event) => updateChannelButton(index, { url: event.target.value })} placeholder="https://..." />
+                      <select value={button.row} onChange={(event) => updateChannelButton(index, { row: Number(event.target.value) })}>
+                        {Array.from({ length: Math.max(channelButtons.length, 1) }, (_, row) => <option key={row} value={row}>Hàng {row + 1}</option>)}
+                      </select>
+                      <button type="button" className="icon-button" title="Xóa nút" onClick={() => setChannelButtons((current) => current.filter((_, buttonIndex) => buttonIndex !== index))}><Trash2 size={15} /></button>
+                    </div>
+                  ))}
+                </div>
+                <div className="channel-time-grid">
+                  <label>
+                    <span>Hẹn giờ gửi</span>
+                    <input type="datetime-local" value={channelComposer.scheduled_at || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, scheduled_at: event.target.value }))} />
+                    <small>Để trống nếu muốn gửi ngay. Thời gian được hiểu là giờ Việt Nam.</small>
+                  </label>
+                  <label>
+                    <span>Tự động xóa bài</span>
+                    <input type="datetime-local" value={channelComposer.delete_at || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, delete_at: event.target.value }))} />
+                    <small>Để trống nếu muốn giữ bài trên Telegram.</small>
+                  </label>
+                </div>
+                <label className="checkbox-field">
+                  <span>Ẩn preview đường dẫn</span>
+                  <input type="checkbox" checked={Boolean(channelComposer.disable_web_page_preview)} onChange={(event) => setChannelComposer((current) => ({ ...current, disable_web_page_preview: event.target.checked }))} />
+                </label>
+              </div>
+              <aside className="channel-preview">
+                <div className="channel-preview-head"><Eye size={17} /><strong>Xem trước Telegram</strong></div>
+                <div className="telegram-post-preview">
+                  <strong>{channelComposer.title || "Bài đăng mới"}</strong>
+                  <p>{channelComposer.content || "Nội dung bài đăng sẽ xuất hiện tại đây."}</p>
+                  <div className="telegram-inline-buttons">
+                    {Array.from(new Set(channelButtons.map((button) => button.row))).sort().map((row) => (
+                      <div key={row}>
+                        {channelButtons.filter((button) => button.row === row && button.label).map((button, index) => <span key={`${row}-${index}`}>{button.label}</span>)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="channel-preview-schedule">
+                  <span><Send size={14} /> {channelComposer.scheduled_at ? `Gửi lúc ${channelComposer.scheduled_at.replace("T", " ")} GMT+7` : "Gửi ngay khi bấm nút"}</span>
+                  <span><Trash2 size={14} /> {channelComposer.delete_at ? `Xóa lúc ${channelComposer.delete_at.replace("T", " ")} GMT+7` : "Không tự xóa"}</span>
+                </div>
+              </aside>
+            </div>
+            <div className="channel-composer-actions">
+              <button type="button" className="ghost" disabled={saving} onClick={() => saveChannelPost("draft")}><Save size={16} /> Lưu nháp</button>
+              <button type="button" className="secondary" disabled={saving || !channelComposer.scheduled_at} onClick={() => saveChannelPost("schedule")}><CalendarClock size={16} /> Lên lịch đăng</button>
+              <button type="button" className="primary" disabled={saving} onClick={() => saveChannelPost("send_now")}>{saving ? <Loader2 className="spin" size={16} /> : <Send size={16} />} Đăng ngay</button>
+            </div>
+          </div>
+        </section>
+      ) : null}
       {commandOpen ? (
         <section className="command-palette-backdrop" onClick={() => setCommandOpen(false)}>
           <div className="command-palette" onClick={(event) => event.stopPropagation()}>

@@ -4,11 +4,18 @@ const checks = [
   {
     file: "app/page.tsx",
     patterns: [
-      "Operations console",
+      "Hàng đợi vận hành",
+      "Dữ liệu kỹ thuật",
+      "task-outcome-strip",
+      "task-workbench",
+      "Thiết lập, kiểm thử và theo dõi bảo vệ",
+      "Tạo câu trả lời đúng ngữ cảnh",
+      "Duyệt báo cáo và xây hồ sơ scam",
       "scope-breadcrumb",
-      "GROUP_PRESETS",
       "schedule-wizard",
       "scam-inbox",
+      "channel-composer",
+      "channelPostAction",
       "production-readiness",
       "writeAuditLog",
       "envStatus"
@@ -27,9 +34,15 @@ const checks = [
     file: "app/globals.css",
     patterns: [
       ".ops-task-board",
+      ".task-workbench",
+      ".guided-flow",
+      ".auto-reply-builder",
+      ".review-queue-preview",
       ".group-editor-tabs",
       ".schedule-wizard",
       ".scam-inbox",
+      ".channel-console",
+      ".channel-composer",
       ".production-readiness"
     ]
   }

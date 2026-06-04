@@ -17,6 +17,7 @@ BOT_SCOPED_TABLES = {
     "bot_metrics",
     "captcha_questions",
     "channel_posts",
+    "channel_post_events",
     "config",
     "domain_blacklist",
     "entertainment_events",
@@ -128,6 +129,29 @@ class SupabaseStore:
         self._cache.pop(table.lower(), None)
         rows = response.json()
         return rows[0] if rows else {}
+
+    def update_where(self, table, row_id, payload, **conditions):
+        url = f"{self.supabase_url}/rest/v1/{table}"
+        headers = {
+            "apikey": self.service_role_key,
+            "authorization": f"Bearer {self.service_role_key}",
+            "content-type": "application/json",
+            "prefer": "return=representation",
+        }
+        params = {"id": f"eq.{row_id}"}
+        for key, value in conditions.items():
+            params[key] = f"eq.{value}"
+        response = requests.patch(url, headers=headers, params=params, json=payload, timeout=15)
+        response.raise_for_status()
+        self._cache.pop(table.lower(), None)
+        rows = response.json()
+        return rows[0] if rows else {}
+
+    def fresh_rows(self, name):
+        name = name.lower()
+        rows = self._load_rows(name)
+        self._cache[name] = {"loaded_at": time.time(), "rows": rows}
+        return rows
 
     def _clean_row(self, row):
         cleaned = {}
