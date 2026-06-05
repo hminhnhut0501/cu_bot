@@ -1298,7 +1298,15 @@ function actionBadge(row: Row, table: TableConfig) {
         title_update: "Đổi tiêu đề",
         module_update: "Đổi module",
         scam_report_confirmed: "Xác nhận scam",
-        scam_report_rejected: "Từ chối scam"
+        scam_report_rejected: "Từ chối scam",
+        scheduled_posts_not_configured: "Lịch gửi chưa cấu hình",
+        scheduled_posts_jobs_loaded: "Đã nạp lịch gửi",
+        scheduled_message_skipped: "Bỏ qua gửi tin",
+        scheduled_message_sent: "Đã gửi tin định kỳ",
+        scheduled_message_failed: "Lỗi gửi tin định kỳ",
+        scheduled_video_skipped: "Bỏ qua gửi video",
+        scheduled_video_sent: "Đã gửi video định kỳ",
+        scheduled_video_failed: "Lỗi gửi video định kỳ"
       };
       return labels[String(action).toLowerCase()] || String(action).replaceAll("_", " ");
     }
@@ -2129,12 +2137,13 @@ export default function HomePage() {
   const scheduleMessagePreview = useMemo(() => poolRows(lookups.messages, scheduleMessagePool), [lookups.messages, scheduleMessagePool]);
   const scheduleVideoPreview = useMemo(() => poolRows(lookups.videos, scheduleVideoPool), [lookups.videos, scheduleVideoPool]);
   const scheduleIssues = useMemo(() => [
-    !lookups.groups.length ? "Chưa có group/kênh để đặt lịch." : "",
+    !lookups.groups.length ? `Bot ${currentBot?.name || selectedBot || "đang chọn"} chưa có group/kênh nhận tin.` : "",
+    !scheduleSubject.group_id && !scheduleSubject.chat_id && !selectedGroup ? "Chưa chọn group/kênh cụ thể. Pool có nội dung nhưng bot chưa biết gửi đi đâu." : "",
     !scheduleMessagePool ? "Chưa chọn message pool." : "",
     scheduleMessagePool && !scheduleMessagePreview.length ? `Pool tin nhắn "${scheduleMessagePool}" đang rỗng hoặc toàn mục tắt.` : "",
     scheduleSubject.video_enabled && scheduleVideoPool && !scheduleVideoPreview.length ? `Pool video "${scheduleVideoPool}" đang rỗng hoặc toàn mục tắt.` : "",
     scheduleSubject.daily_enabled === false ? "Gửi tin hằng ngày đang tắt trên group này." : ""
-  ].filter(Boolean), [lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.daily_enabled, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length]);
+  ].filter(Boolean), [currentBot?.name, lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.daily_enabled, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedGroup]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -3989,7 +3998,7 @@ export default function HomePage() {
                   <strong>{scheduleIssues.length ? `${scheduleIssues.length} cần xử lý` : "Sẵn sàng lưu"}</strong>
                   <p>
                     Group: {scheduleSubject.group_name || scheduleSubject.group_id || selectedGroup || "Chưa chọn"} ·
-                    Giờ: {scheduleSubject.daily_window_start || "09:00"} - {scheduleSubject.daily_window_end || "09:00"}
+                    Giờ Việt Nam: {scheduleSubject.daily_window_start || "09:00"} - {scheduleSubject.daily_window_end || "09:00"}
                   </p>
                   {scheduleIssues.length ? (
                     <ul>
@@ -4031,7 +4040,9 @@ export default function HomePage() {
               <div className="schedule-actions">
                 <button type="button" className="secondary" onClick={() => goToScheduleContent("messages")}>Thêm tin vào pool</button>
                 <button type="button" className="secondary" onClick={() => goToScheduleContent("video_messages")}>Thêm video vào pool</button>
-                <button type="button" className="primary" onClick={startScheduledMessageFlow}>Đặt giờ trên group</button>
+                <button type="button" className="primary" onClick={startScheduledMessageFlow}>
+                  {lookups.groups.length ? "Đặt giờ trên group" : "Thêm group/kênh nhận tin"}
+                </button>
               </div>
             </section>
           </>

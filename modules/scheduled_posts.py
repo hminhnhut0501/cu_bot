@@ -44,6 +44,7 @@ class ScheduledPostsModule(BotModule):
             self.scheduler.clear("daily_messages")
             self.scheduler.clear("daily_videos")
             self.schedule_signature = None
+            LOGGER.info("Scheduled posts inactive for bot %s.", self.settings.bot_key)
             return
 
         groups = self.target_groups()
@@ -55,22 +56,67 @@ class ScheduledPostsModule(BotModule):
         self.scheduler.clear("daily_messages")
         self.scheduler.clear("daily_videos")
 
+        if not groups:
+            LOGGER.warning(
+                "No enabled group/channel configured for scheduled posts on bot %s. "
+                "Add a groups row with the same bot_key before expecting automatic posts.",
+                self.settings.bot_key,
+            )
+            self.record_audit(
+                "",
+                "scheduled_posts_not_configured",
+                {"reason": "no_enabled_target_group", "timezone": self.settings.timezone},
+            )
+            return
+
+        scheduled_messages = 0
+        scheduled_videos = 0
         for group in groups:
             if as_bool(group.get("daily_enabled"), True):
                 run_at = self.random_time(
                     group.get("daily_window_start") or self.store.value("daily_window_start", "20:00"),
                     group.get("daily_window_end") or self.store.value("daily_window_end", "23:59"),
                 )
-                self.scheduler.every().day.at(run_at).do(self.send_random_message, group).tag("daily_messages")
-                LOGGER.info("Daily message for bot %s group %s scheduled at %s", self.settings.bot_key, group["group_id"], run_at)
+                self.scheduler.every().day.at(run_at, self.settings.timezone).do(self.send_random_message, group).tag("daily_messages")
+                scheduled_messages += 1
+                LOGGER.info(
+                    "Daily message for bot %s group %s scheduled at %s (%s)",
+                    self.settings.bot_key,
+                    group["group_id"],
+                    run_at,
+                    self.settings.timezone,
+                )
 
             if as_bool(group.get("video_enabled"), False):
                 run_at = self.random_time(
                     group.get("video_window_start") or self.store.value("video_window_start", "20:00"),
                     group.get("video_window_end") or self.store.value("video_window_end", "23:59"),
                 )
-                self.scheduler.every().day.at(run_at).do(self.copy_random_video, group).tag("daily_videos")
-                LOGGER.info("Daily video for bot %s group %s scheduled at %s", self.settings.bot_key, group["group_id"], run_at)
+                self.scheduler.every().day.at(run_at, self.settings.timezone).do(self.copy_random_video, group).tag("daily_videos")
+                scheduled_videos += 1
+                LOGGER.info(
+                    "Daily video for bot %s group %s scheduled at %s (%s)",
+                    self.settings.bot_key,
+                    group["group_id"],
+                    run_at,
+                    self.settings.timezone,
+                )
+        LOGGER.info(
+            "Scheduled posts ready for bot %s: %s message job(s), %s video job(s), timezone=%s.",
+            self.settings.bot_key,
+            scheduled_messages,
+            scheduled_videos,
+            self.settings.timezone,
+        )
+        self.record_audit(
+            "",
+            "scheduled_posts_jobs_loaded",
+            {
+                "message_jobs": scheduled_messages,
+                "video_jobs": scheduled_videos,
+                "timezone": self.settings.timezone,
+            },
+        )
 
     def send_boot_messages(self):
         if not self.bot_active() or not self.module_active():
@@ -83,10 +129,14 @@ class ScheduledPostsModule(BotModule):
     def send_random_message(self, group, force=False):
         if not self.bot_active() or not self.module_active():
             return
-        chat_id = int(group["group_id"])
-        send_if_silent = as_bool(group.get("send_if_silent") or self.store.value("send_if_silent", "false"), False)
-        if not force and not send_if_silent and not self.state.consume_activity(chat_id):
+        chat_id = self.chat_target(group["group_id"])
+        send_if_silent_value = group.get("send_if_silent")
+        if send_if_silent_value in (None, ""):
+            send_if_silent_value = self.store.value("send_if_silent", "false")
+        send_if_silent = as_bool(send_if_silent_value, False)
+        if not force and not send_if_silent and isinstance(chat_id, int) and not self.state.consume_activity(chat_id):
             LOGGER.info("Skip bot %s group %s because group is silent.", self.settings.bot_key, chat_id)
+            self.record_audit(chat_id, "scheduled_message_skipped", {"reason": "group_silent"})
             return
 
         pool = group.get("message_pool") or "default"
@@ -97,18 +147,21 @@ class ScheduledPostsModule(BotModule):
         selected = weighted_choice(candidates)
         if not selected:
             LOGGER.warning("No message candidate for bot %s pool %s", self.settings.bot_key, pool)
+            self.record_audit(chat_id, "scheduled_message_skipped", {"reason": "empty_message_pool", "pool": pool})
             return
 
         try:
             self.bot.send_message(chat_id, selected.get("message") or selected.get("text"))
             LOGGER.info("Sent scheduled message for bot %s to %s", self.settings.bot_key, chat_id)
+            self.record_audit(chat_id, "scheduled_message_sent", {"pool": pool, "message_id": selected.get("id")})
         except Exception as exc:
             LOGGER.warning("Cannot send scheduled message for bot %s to %s: %s", self.settings.bot_key, chat_id, exc)
+            self.record_audit(chat_id, "scheduled_message_failed", {"pool": pool, "error": str(exc)})
 
     def copy_random_video(self, group):
         if not self.bot_active() or not self.module_active():
             return
-        chat_id = int(group["group_id"])
+        chat_id = self.chat_target(group["group_id"])
         pool = group.get("video_pool") or "default"
         candidates = [
             row for row in self.store.enabled_rows("video_messages")
@@ -117,6 +170,7 @@ class ScheduledPostsModule(BotModule):
         selected = weighted_choice(candidates)
         if not selected:
             LOGGER.warning("No video candidate for bot %s pool %s", self.settings.bot_key, pool)
+            self.record_audit(chat_id, "scheduled_video_skipped", {"reason": "empty_video_pool", "pool": pool})
             return
 
         try:
@@ -127,8 +181,10 @@ class ScheduledPostsModule(BotModule):
                 caption=selected.get("caption") or None,
             )
             LOGGER.info("Copied anonymous video for bot %s to %s", self.settings.bot_key, chat_id)
+            self.record_audit(chat_id, "scheduled_video_sent", {"pool": pool, "video_id": selected.get("id")})
         except Exception as exc:
             LOGGER.warning("Cannot copy video for bot %s to %s: %s", self.settings.bot_key, chat_id, exc)
+            self.record_audit(chat_id, "scheduled_video_failed", {"pool": pool, "error": str(exc)})
 
     def target_groups(self):
         groups = []
@@ -177,3 +233,23 @@ class ScheduledPostsModule(BotModule):
 
     def parse_time(self, value):
         return datetime.strptime((value or "00:00").strip(), "%H:%M")
+
+    def chat_target(self, value):
+        text = str(value or "").strip()
+        if text.lstrip("-").isdigit():
+            return int(text)
+        return text
+
+    def record_audit(self, chat_id, action, details):
+        try:
+            self.store.insert(
+                "audit_logs",
+                {
+                    "chat_id": str(chat_id or ""),
+                    "actor_user_id": "bot",
+                    "action": action,
+                    "details": details,
+                },
+            )
+        except Exception as exc:
+            LOGGER.warning("Cannot write scheduled-post audit %s for bot %s: %s", action, self.settings.bot_key, exc)

@@ -100,7 +100,7 @@ class ChannelPublisherModule(BotModule):
             self.store.update(
                 "channel_posts",
                 row_id,
-                {"status": "delete_failed", "error": str(exc), "error_code": self.error_code(exc), "updated_at": self.utc_now()},
+                {"status": "failed", "error": str(exc), "error_code": self.error_code(exc), "updated_at": self.utc_now()},
             )
             self.record_event(row_id, "send_failed", "Không gửi được bài.", {"error": str(exc)})
             LOGGER.warning("Cannot publish channel post %s to %s for bot %s: %s", row_id, chat_id, self.settings.bot_key, exc)
