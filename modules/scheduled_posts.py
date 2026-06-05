@@ -21,6 +21,7 @@ class ScheduledPostsModule(BotModule):
         super().__init__(app)
         self.scheduler = schedule.Scheduler()
         self.schedule_signature = None
+        self.inactive_log_state = None
 
     def start(self):
         self.schedule_daily_jobs(force=True)
@@ -53,8 +54,12 @@ class ScheduledPostsModule(BotModule):
             self.scheduler.clear("daily_messages")
             self.scheduler.clear("daily_videos")
             self.schedule_signature = None
-            LOGGER.info("Scheduled posts inactive for bot %s: %s.", self.settings.bot_key, inactive_reason)
+            inactive_log_state = (self.settings.bot_key, inactive_reason)
+            if inactive_log_state != self.inactive_log_state:
+                LOGGER.info("Scheduled posts inactive for bot %s: %s.", self.settings.bot_key, inactive_reason)
+                self.inactive_log_state = inactive_log_state
             return
+        self.inactive_log_state = None
 
         groups = self.target_groups()
         signature = self.build_schedule_signature(groups)
