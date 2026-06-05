@@ -16,15 +16,25 @@ class AutoReplyModule(BotModule):
         )(self.active(self.handle_text))
 
     def is_enabled(self):
-        return self.module_enabled("auto_reply", True)
+        return True
 
-    def module_enabled(self, module_key, default=True):
-        for row in self.store.enabled_rows("module_settings"):
-            if (row.get("module_key") or "").strip() == module_key:
-                return str(row.get("enabled", default)).lower() in {"1", "true", "yes", "on"}
-        return default
+    def scoped_auto_replies(self):
+        for row in self.store.enabled_rows("auto_replies"):
+            if (row.get("bot_key") or "").strip() != self.settings.bot_key:
+                continue
+            yield row
+
+    def module_active(self):
+        for row in self.store.rows("module_settings"):
+            if (row.get("bot_key") or "").strip() != self.settings.bot_key:
+                continue
+            if (row.get("module_key") or "").strip() == self.name:
+                return str(row.get("enabled", True)).lower() in {"1", "true", "yes", "on"}
+        return False
 
     def handle_text(self, message):
+        if not self.module_active():
+            return
         text = getattr(message, "text", "") or ""
         if not text.strip():
             return
@@ -44,7 +54,7 @@ class AutoReplyModule(BotModule):
         min_trigger_length = max(1, self.setting_int("auto_reply_min_trigger_length", 2))
         normalized = normalize_text(text)
         scored_candidates = []
-        for row in self.store.enabled_rows("auto_replies"):
+        for row in self.scoped_auto_replies():
             if not self.in_scope(message, row):
                 continue
             trigger = (row.get("trigger") or "").strip()

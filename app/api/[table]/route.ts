@@ -31,7 +31,7 @@ type SeedSpec = {
 
 const BOT_SEED_TABLES: SeedSpec[] = [
   { table: "config", uniqueKeys: ["key"] },
-  { table: "module_settings", uniqueKeys: ["module_key"] },
+  { table: "module_settings", uniqueKeys: ["bot_key", "module_key"] },
   { table: "captcha_questions", uniqueKeys: ["question"] },
   { table: "reputation_rules", uniqueKeys: ["action_key"] },
   { table: "bot_metrics", uniqueKeys: ["metric_key", "period"] }

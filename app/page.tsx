@@ -592,6 +592,7 @@ const MODULE_TABLE_OWNER: Record<string, string> = {
   admins: "members",
   member_roles: "members"
 };
+const MODULES_REQUIRE_EXPLICIT_ENABLE = new Set(["auto_reply"]);
 const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
 const SYSTEM_CONFIG_SECTIONS = [
   {
@@ -1299,12 +1300,15 @@ function actionBadge(row: Row, table: TableConfig) {
         module_update: "Đổi module",
         scam_report_confirmed: "Xác nhận scam",
         scam_report_rejected: "Từ chối scam",
+        scheduled_posts_inactive: "Lịch gửi đang tắt",
         scheduled_posts_not_configured: "Lịch gửi chưa cấu hình",
         scheduled_posts_jobs_loaded: "Đã nạp lịch gửi",
+        scheduled_message_catch_up: "Gửi bù lịch trễ",
         scheduled_message_skipped: "Bỏ qua gửi tin",
         scheduled_message_sent: "Đã gửi tin định kỳ",
         scheduled_message_failed: "Lỗi gửi tin định kỳ",
         scheduled_video_skipped: "Bỏ qua gửi video",
+        scheduled_video_catch_up: "Gửi bù video trễ",
         scheduled_video_sent: "Đã gửi video định kỳ",
         scheduled_video_failed: "Lỗi gửi video định kỳ"
       };
@@ -2260,7 +2264,9 @@ export default function HomePage() {
   const moduleCards = useMemo(() => MODULE_HUBS.map((module) => {
     const keys = module.moduleKeys || [module.key];
     const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
-    const isOn = states.length ? states.some((row) => row?.enabled !== false) : true;
+    const isOn = states.length
+      ? states.some((row) => row?.enabled !== false)
+      : !MODULES_REQUIRE_EXPLICIT_ENABLE.has(module.key);
     return { ...module, isOn };
   }), [moduleState]);
   const enabledModuleCards = useMemo(() => moduleCards.filter((module) => module.isOn), [moduleCards]);
@@ -2269,7 +2275,7 @@ export default function HomePage() {
     const keys = activeModuleHub.moduleKeys || [activeModuleHub.key];
     const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
     if (!states.length) {
-      return true;
+      return !MODULES_REQUIRE_EXPLICIT_ENABLE.has(activeModuleHub.key);
     }
     return states.some((row) => row?.enabled !== false);
   }, [activeModuleHub, moduleState]);

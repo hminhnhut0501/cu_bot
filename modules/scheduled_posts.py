@@ -2,6 +2,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import schedule
 
@@ -39,12 +40,20 @@ class ScheduledPostsModule(BotModule):
                 return as_bool(row.get("enabled"), True)
         return True
 
+    def inactive_reason(self):
+        if not self.bot_active():
+            return "bot_inactive"
+        if not self.module_active():
+            return "module_disabled"
+        return ""
+
     def schedule_daily_jobs(self, force=False):
-        if not self.bot_active() or not self.module_active():
+        inactive_reason = self.inactive_reason()
+        if inactive_reason:
             self.scheduler.clear("daily_messages")
             self.scheduler.clear("daily_videos")
             self.schedule_signature = None
-            LOGGER.info("Scheduled posts inactive for bot %s.", self.settings.bot_key)
+            LOGGER.info("Scheduled posts inactive for bot %s: %s.", self.settings.bot_key, inactive_reason)
             return
 
         groups = self.target_groups()
@@ -73,9 +82,11 @@ class ScheduledPostsModule(BotModule):
         scheduled_videos = 0
         for group in groups:
             if as_bool(group.get("daily_enabled"), True):
+                window_start = group.get("daily_window_start") or self.store.value("daily_window_start", "20:00")
+                window_end = group.get("daily_window_end") or self.store.value("daily_window_end", "23:59")
                 run_at = self.random_time(
-                    group.get("daily_window_start") or self.store.value("daily_window_start", "20:00"),
-                    group.get("daily_window_end") or self.store.value("daily_window_end", "23:59"),
+                    window_start,
+                    window_end,
                 )
                 self.scheduler.every().day.at(run_at, self.settings.timezone).do(self.send_random_message, group).tag("daily_messages")
                 scheduled_messages += 1
@@ -86,11 +97,35 @@ class ScheduledPostsModule(BotModule):
                     run_at,
                     self.settings.timezone,
                 )
+                if self.should_catch_up_today(run_at, window_start, window_end):
+                    LOGGER.info(
+                        "Daily message for bot %s group %s was loaded after %s; sending catch-up now (%s).",
+                        self.settings.bot_key,
+                        group["group_id"],
+                        run_at,
+                        self.settings.timezone,
+                    )
+                    self.record_audit(
+                        group["group_id"],
+                        "scheduled_message_catch_up",
+                        {
+                            "scheduled_at": run_at,
+                            "window_start": window_start,
+                            "window_end": window_end,
+                            "timezone": self.settings.timezone,
+                        },
+                    )
+                    self.app.run_background(
+                        f"scheduled-message-catchup-{self.settings.bot_key}-{group['group_id']}",
+                        lambda group=group: self.send_random_message(group),
+                    )
 
             if as_bool(group.get("video_enabled"), False):
+                window_start = group.get("video_window_start") or self.store.value("video_window_start", "20:00")
+                window_end = group.get("video_window_end") or self.store.value("video_window_end", "23:59")
                 run_at = self.random_time(
-                    group.get("video_window_start") or self.store.value("video_window_start", "20:00"),
-                    group.get("video_window_end") or self.store.value("video_window_end", "23:59"),
+                    window_start,
+                    window_end,
                 )
                 self.scheduler.every().day.at(run_at, self.settings.timezone).do(self.copy_random_video, group).tag("daily_videos")
                 scheduled_videos += 1
@@ -101,6 +136,28 @@ class ScheduledPostsModule(BotModule):
                     run_at,
                     self.settings.timezone,
                 )
+                if self.should_catch_up_today(run_at, window_start, window_end):
+                    LOGGER.info(
+                        "Daily video for bot %s group %s was loaded after %s; sending catch-up now (%s).",
+                        self.settings.bot_key,
+                        group["group_id"],
+                        run_at,
+                        self.settings.timezone,
+                    )
+                    self.record_audit(
+                        group["group_id"],
+                        "scheduled_video_catch_up",
+                        {
+                            "scheduled_at": run_at,
+                            "window_start": window_start,
+                            "window_end": window_end,
+                            "timezone": self.settings.timezone,
+                        },
+                    )
+                    self.app.run_background(
+                        f"scheduled-video-catchup-{self.settings.bot_key}-{group['group_id']}",
+                        lambda group=group: self.copy_random_video(group),
+                    )
         LOGGER.info(
             "Scheduled posts ready for bot %s: %s message job(s), %s video job(s), timezone=%s.",
             self.settings.bot_key,
@@ -233,6 +290,34 @@ class ScheduledPostsModule(BotModule):
 
     def parse_time(self, value):
         return datetime.strptime((value or "00:00").strip(), "%H:%M")
+
+    def now_in_timezone(self):
+        try:
+            return datetime.now(ZoneInfo(self.settings.timezone))
+        except ZoneInfoNotFoundError:
+            LOGGER.warning("Invalid timezone %s for scheduled posts; using server timezone.", self.settings.timezone)
+            return datetime.now()
+
+    def should_catch_up_today(self, run_at, window_start, window_end):
+        if not as_bool(self.store.value("catch_up_missed_daily_posts", "true"), True):
+            return False
+        now = self.now_in_timezone()
+        run_dt = self.local_time_today(now, run_at)
+        start_dt = self.local_time_today(now, window_start)
+        end_dt = self.local_time_today(now, window_end)
+        if end_dt < start_dt:
+            if now < start_dt:
+                start_dt -= timedelta(days=1)
+                run_dt -= timedelta(days=1)
+            else:
+                end_dt += timedelta(days=1)
+                if run_dt < start_dt:
+                    run_dt += timedelta(days=1)
+        return start_dt <= now <= end_dt and run_dt <= now
+
+    def local_time_today(self, now, value):
+        parsed = self.parse_time(value)
+        return now.replace(hour=parsed.hour, minute=parsed.minute, second=0, microsecond=0)
 
     def chat_target(self, value):
         text = str(value or "").strip()
