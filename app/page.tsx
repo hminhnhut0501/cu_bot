@@ -39,6 +39,7 @@ import { FieldConfig, TableConfig } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
 import { UI_COPY } from "@/lib/uiCopy";
+import { buildEditorFieldGroups, buildGroupEditorTabs, buildModerationPolicySummary, buildScamWorkbenchRows, buildScopeCrumbs } from "@/lib/workbench-helpers";
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
@@ -3491,33 +3492,32 @@ export default function HomePage() {
   const showPrimaryTask = activeLayer !== "modules" && !taskWorkbenchActive;
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
-  const scopeCrumbs = useMemo(() => [
-    { label: "Bot", value: currentBot?.name || selectedBot || "Tất cả bot" },
-    { label: "Group", value: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : selectedGroup || "Tất cả group" },
-    { label: "Khu vực", value: activeLayerHub.title },
-    { label: "Việc", value: table ? TABLE_TASK_LABELS[table.key] || table.label : "Chưa chọn" }
-  ], [activeLayerHub.title, currentBot, selectedBot, selectedGroup, selectedGroupRow, table]);
+  const scopeCrumbs = useMemo(() => buildScopeCrumbs({
+    currentBotName: currentBot?.name || "",
+    selectedBot,
+    selectedGroupName: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : "",
+    selectedGroup,
+    activeLayerTitle: activeLayerHub.title,
+    tableLabel: table?.label || "",
+    tableTaskLabel: table ? TABLE_TASK_LABELS[table.key] || table.label : ""
+  }), [activeLayerHub.title, currentBot?.name, selectedBot, selectedGroup, selectedGroupRow, table]);
   const groupEditorTabs = useMemo(() => {
     if (table?.key !== "groups") {
       return [];
     }
-    const allowedSections = allowedGroupSectionsForLayer(activeLayer);
-    const labels = new Map<string, { key: string; label: string; count: number }>();
-    for (const [section, fields] of groupedFields(table)) {
-      if (!allowedSections.has(section)) {
-        continue;
-      }
-      const label = groupTabLabel(section);
-      const visibleCount = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key)).length;
-      const current = labels.get(label);
-      labels.set(label, { key: current?.key || section, label, count: (current?.count || 0) + visibleCount });
-    }
-    return GROUP_TAB_ORDER
-      .map((section) => groupTabLabel(section))
-      .filter((label, index, all) => all.indexOf(label) === index)
-      .map((label) => labels.get(label) || { key: label, label, count: 0 })
-      .filter((tab) => tab.count || tab.label === "Kỹ thuật");
-  }, [activeLayer, showAdvancedFields, table]);
+    return buildGroupEditorTabs({
+      table,
+      activeLayer,
+      showAdvancedFields,
+      activeGroupTab,
+      groupedFields,
+      allowedGroupSectionsForLayer,
+      fieldIsAdvanced,
+      groupTabLabel,
+      sortGroupFieldGroups,
+      groupTabOrder: GROUP_TAB_ORDER
+    });
+  }, [activeGroupTab, activeLayer, showAdvancedFields, table]);
   useEffect(() => {
     if (table?.key !== "groups" || !groupEditorTabs.length) {
       return;
@@ -3526,30 +3526,17 @@ export default function HomePage() {
       setActiveGroupTab(groupEditorTabs[0].label);
     }
   }, [activeGroupTab, groupEditorTabs, table?.key]);
-  const editorFieldGroups = useMemo(() => {
-    if (!table) {
-      return [];
-    }
-    const groups = groupedFields(table);
-    let visibleGroups = groups;
-    if (table.key === "groups") {
-      const allowed = allowedGroupSectionsForLayer(activeLayer);
-      visibleGroups = groups
-        .map(([section, fields]) => [section, fields.filter((field) => allowed.has(section))] as [string, FieldConfig[]])
-        .filter(([section]) => groupTabLabel(section) === activeGroupTab)
-        .filter(([, fields]) => fields.length);
-    }
-    if (table.key === "groups" && activeGroupTab === "Kỹ thuật") {
-      visibleGroups = groups.filter(([section]) => ["Ghi chú", "Advanced"].includes(section));
-    }
-    return sortGroupFieldGroups(visibleGroups)
-      .map(([section, fields]) => {
-        const nextFields = fields.filter((field) => showAdvancedFields || !fieldIsAdvanced(table.key, field.key));
-        const sectionName = fields.every((field) => fieldIsAdvanced(table.key, field.key)) ? groupTabLabel("Advanced") : groupTabLabel(section);
-        return [sectionName, nextFields] as [string, FieldConfig[]];
-      })
-      .filter(([, fields]) => fields.length);
-  }, [activeGroupTab, activeLayer, showAdvancedFields, table]);
+  const editorFieldGroups = useMemo(() => buildEditorFieldGroups({
+    table,
+    activeLayer,
+    activeGroupTab,
+    showAdvancedFields,
+    groupedFields,
+    allowedGroupSectionsForLayer,
+    fieldIsAdvanced,
+    groupTabLabel,
+    sortGroupFieldGroups
+  }), [activeGroupTab, activeLayer, showAdvancedFields, table]);
   const menuConfigRows = useMemo(() => {
     const map = new Map<string, Row>();
     for (const row of scopedConfigRows) {
@@ -3578,12 +3565,7 @@ export default function HomePage() {
     for (const row of scopedConfigRows) map.set(String(row.key || ""), String(row.value ?? ""));
     return map;
   }, [activeModuleHub.key, scopedConfigRows]);
-  const moderationPolicySummary = useMemo(() => [
-    { label: "Forward", value: moderationSettingsMap.get("delete_forwarded_messages") === "false" ? "Cho phép" : actionLabel(moderationSettingsMap.get("forward_action") || "warn") },
-    { label: "Spam", value: `${moderationSettingsMap.get("spam_max_messages") || "6"} tin / ${moderationSettingsMap.get("spam_window_seconds") || "12"} giây` },
-    { label: "Nội dung lặp", value: moderationSettingsMap.get("duplicate_message_enabled") === "false" ? "Tắt" : actionLabel(moderationSettingsMap.get("duplicate_message_action") || "warn") },
-    { label: "Bio có link", value: moderationSettingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" }
-  ], [moderationSettingsMap]);
+  const moderationPolicySummary = useMemo(() => buildModerationPolicySummary(moderationSettingsMap), [moderationSettingsMap]);
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -3593,9 +3575,12 @@ export default function HomePage() {
       risky: source.filter((row) => String(row.trigger || "").trim().length < 2).length
     };
   }, [rows, table?.key]);
-  const scamWorkbenchRows = useMemo(() => (
-    table?.key === "scam_reports" ? visibleRows : lookups.scamReports.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot)
-  ), [lookups.scamReports, selectedBot, table?.key, visibleRows]);
+  const scamWorkbenchRows = useMemo(() => buildScamWorkbenchRows({
+    tableKey: table?.key,
+    visibleRows,
+    scamReports: lookups.scamReports,
+    selectedBot
+  }), [lookups.scamReports, selectedBot, table?.key, visibleRows]);
 
   if (loading && !meta) {
     return (
@@ -5155,7 +5140,7 @@ export default function HomePage() {
                           ) : field.type === "select" || lookupOptions.length ? (
                             <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
                               <option value="">Mặc định</option>
-                              {(lookupOptions.length ? lookupOptions : field.options?.map((option) => ({ value: option, label: option })) || []).map((option) => (
+                              {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({ value: option, label: option })) || []).map((option: { value: string; label: string }) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>

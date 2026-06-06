@@ -27,7 +27,12 @@ export const UI_COPY = {
       setTime: "Đặt giờ",
       addGroup: "Thêm group",
       noMessages: "Chưa có tin.",
-      noVideos: "Chưa có video."
+      noVideos: "Chưa có video.",
+      choosePool: "Chưa chọn",
+      tinCount: "tin",
+      videoCount: "video",
+      groupLabel: "Group",
+      hourLabel: "Giờ"
     },
     moderation: {
       eyebrow: "Moderation",
@@ -45,7 +50,10 @@ export const UI_COPY = {
       logs: "Logs",
       openProtection: "Mở bảo vệ",
       dangerousLinks: "Link nguy hiểm",
-      botExceptions: "Ngoại lệ bot"
+      botExceptions: "Ngoại lệ bot",
+      noField: "Không có field kỹ thuật.",
+      editDetail: "Chi tiết vận hành",
+      readDetail: "Chi tiết nhật ký"
     },
     scam: {
       eyebrow: "Anti scam",
@@ -62,7 +70,10 @@ export const UI_COPY = {
       review: "Duyệt",
       profile: "Hồ sơ",
       noPending: "Không còn report pending.",
-      report: "Report"
+      report: "Report",
+      targetUnknown: "Chưa rõ",
+      hasEvidence: "Có bằng chứng",
+      noEvidence: "Thiếu bằng chứng"
     },
     bot: {
       eyebrow: "Bot",
@@ -74,7 +85,8 @@ export const UI_COPY = {
       module: "Module",
       token: "Token, trạng thái.",
       ownerMod: "Owner, mod.",
-      viewModules: "Xem module."
+      viewModules: "Xem module.",
+      doneCount: "điều kiện xong"
     },
     group: {
       eyebrow: "Group",
@@ -88,12 +100,15 @@ export const UI_COPY = {
       module: "Module",
       addGroup: "Thêm group.",
       botRole: "Bot và role.",
-      viewModules: "Xem module."
+      viewModules: "Xem module.",
+      check: "Cần kiểm tra"
     }
   },
   inspector: {
     runtime: "Runtime",
-    advancedEmpty: "Không có field kỹ thuật.",
+    noField: "Không có field kỹ thuật.",
+    editDetail: "Chi tiết vận hành",
+    readDetail: "Chi tiết nhật ký",
     step: "Bước sau",
     test: "Test",
     testReady: "Test UI đã sẵn sàng."

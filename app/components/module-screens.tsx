@@ -1,15 +1,43 @@
 import { Check, ClipboardList, Plus, ShieldCheck, Sparkles, Users, Bot } from "lucide-react";
 import { UI_COPY } from "@/lib/uiCopy";
 
+type ScheduleReadiness = {
+  ready: boolean;
+  pending: string;
+  hasBot: boolean;
+  hasGroup: boolean;
+  hasMessagePool: boolean;
+  hasVideoPool: boolean;
+};
+
+type NamedRow = {
+  id?: string | number;
+  message?: string;
+  content?: string;
+  from_chat_id?: string | number;
+  message_id?: string | number;
+  target_uid?: string | number;
+  target_username?: string;
+  bank_account?: string;
+  evidence?: unknown;
+  reporter_username?: string;
+  reporter_user_id?: string | number;
+  status?: string;
+};
+
+type ChecklistItem = { label: string; detail: string; done: boolean };
+type SummaryItem = { label: string; value: string };
+type ProtectionState = { enabledChecks: number; totalChecks: number; ready: boolean; warnings: string[] };
+
 export function AutomationScreen(props: {
-  scheduleReadiness: any;
+  scheduleReadiness: ScheduleReadiness;
   scheduleIssues: string[];
-  scheduleSubject: any;
+  scheduleSubject: { group_name?: string; group_id?: string; daily_window_start?: string; daily_window_end?: string };
   selectedGroup: string;
   scheduleMessagePool: string;
-  scheduleMessagePreview: any[];
+  scheduleMessagePreview: NamedRow[];
   scheduleVideoPool: string;
-  scheduleVideoPreview: any[];
+  scheduleVideoPreview: NamedRow[];
   goToScheduleContent: (key: "messages" | "video_messages") => void;
   startScheduledMessageFlow: () => void;
   lookupsGroupsLength: number;
@@ -53,8 +81,8 @@ export function AutomationScreen(props: {
             <h4>{c.poolMessages}</h4>
             <button type="button" className="ghost" onClick={() => props.goToScheduleContent("messages")}>{c.open}</button>
           </div>
-          <strong>{props.scheduleMessagePool || "Chưa chọn"}</strong>
-          <p>{props.scheduleMessagePreview.length} tin</p>
+          <strong>{props.scheduleMessagePool || c.choosePool}</strong>
+          <p>{props.scheduleMessagePreview.length} {c.tinCount}</p>
           <div className="pool-preview-list">
             {props.scheduleMessagePreview.slice(0, 3).map((row) => <span key={row.id || row.message}>{String(row.message || row.content || "")}</span>)}
             {!props.scheduleMessagePreview.length ? <span>{c.noMessages}</span> : null}
@@ -65,8 +93,8 @@ export function AutomationScreen(props: {
             <h4>{c.poolVideos}</h4>
             <button type="button" className="ghost" onClick={() => props.goToScheduleContent("video_messages")}>{c.open}</button>
           </div>
-          <strong>{props.scheduleVideoPool || "Chưa chọn"}</strong>
-          <p>{props.scheduleVideoPreview.length} video</p>
+          <strong>{props.scheduleVideoPool || c.choosePool}</strong>
+          <p>{props.scheduleVideoPreview.length} {c.videoCount}</p>
           <div className="pool-preview-list">
             {props.scheduleVideoPreview.slice(0, 3).map((row) => <span key={row.id || `${row.from_chat_id}-${row.message_id}`}>{String(row.message || row.content || "")}</span>)}
             {!props.scheduleVideoPreview.length ? <span>{c.noVideos}</span> : null}
@@ -83,8 +111,8 @@ export function AutomationScreen(props: {
 }
 
 export function ModerationScreen(props: {
-  selectedGroupProtection: any;
-  moderationPolicySummary: Array<{ label: string; value: string }>;
+  selectedGroupProtection: ProtectionState;
+  moderationPolicySummary: SummaryItem[];
   startGroupProtectionFlow: () => void;
   openTaskData: (key: string) => void;
   goToInsight: (insight: any) => void;
@@ -122,7 +150,7 @@ export function ModerationScreen(props: {
 
 export function ScamScreen(props: {
   pendingScamReports: number;
-  scamWorkbenchRows: any[];
+  scamWorkbenchRows: NamedRow[];
   currentBotName: string;
   selectedBot: string;
   openTaskData: (key: string) => void;
@@ -153,8 +181,8 @@ export function ScamScreen(props: {
         <div className="review-queue-list">
           {props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").slice(0, 4).map((row) => (
             <article key={row.id || `${row.target_uid}-${row.target_username}`}>
-              <strong>{row.target_username || row.target_uid || row.bank_account || "Chưa rõ"}</strong>
-              <span>{row.evidence ? "Có bằng chứng" : "Thiếu bằng chứng"}</span>
+              <strong>{row.target_username || row.target_uid || row.bank_account || c.targetUnknown}</strong>
+              <span>{row.evidence ? c.hasEvidence : c.noEvidence}</span>
               <small>{c.report}: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}</small>
             </article>
           ))}
@@ -170,7 +198,7 @@ export function ScamScreen(props: {
 }
 
 export function BotScreen(props: {
-  setupChecklist: Array<{ label: string; detail: string; done: boolean }>;
+  setupChecklist: ChecklistItem[];
   openTaskData: (key: string) => void;
   selectLayer: (key: string) => void;
 }) {
@@ -185,7 +213,7 @@ export function BotScreen(props: {
         </div>
         <div className="task-workbench-score">
           <strong>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}</strong>
-          <span>{c.done}</span>
+          <span>{c.doneCount}</span>
         </div>
       </div>
       <section className="guided-steps">
@@ -207,8 +235,8 @@ export function BotScreen(props: {
 
 export function GroupScreen(props: {
   setupIssues: any[];
-  setupChecklist: Array<{ label: string; detail: string; done: boolean }>;
-  selectedGroupRow: any;
+  setupChecklist: ChecklistItem[];
+  selectedGroupRow: { group_name?: string } | null;
   selectedGroup: string;
   openTaskData: (key: string) => void;
   selectLayer: (key: string) => void;
@@ -223,7 +251,7 @@ export function GroupScreen(props: {
           <p>{c.body}</p>
         </div>
         <div className="task-workbench-score">
-          <strong>{props.setupIssues.length ? "Cần kiểm tra" : c.statusReady}</strong>
+          <strong>{props.setupIssues.length ? c.check : c.statusReady}</strong>
           <span>{props.selectedGroupRow ? String(props.selectedGroupRow.group_name || props.selectedGroup) : c.unselected}</span>
         </div>
       </div>
@@ -246,8 +274,8 @@ export function GroupScreen(props: {
 
 export function InspectorPanel(props: {
   readOnlyTable: boolean;
-  selected: any;
-  table: any;
+  selected: { enabled?: boolean } & Record<string, unknown>;
+  table: { key: string } & Record<string, unknown>;
   showAdvancedFields: boolean;
   detailRows: Array<{ key?: string; label: string; value: string }>;
   advancedDetailRows: Array<{ key: string; label: string; value: string }>;
@@ -266,7 +294,7 @@ export function InspectorPanel(props: {
   return (
     <div className="inspector-shell">
       <section className="inspector-section">
-        <h4>{props.readOnlyTable ? "Chi tiết nhật ký" : "Chi tiết vận hành"}</h4>
+        <h4>{props.readOnlyTable ? c.readDetail : c.editDetail}</h4>
         <div className="inspector-grid">
           {(props.readOnlyTable ? props.auditLogRows : props.detailRows).map((item) => (
             <span key={String("key" in item ? item.key : item.label)}>
@@ -286,7 +314,7 @@ export function InspectorPanel(props: {
                 {item.value}
               </span>
             ))}
-            {!props.advancedDetailRows.length ? <span>{c.advancedEmpty}</span> : null}
+            {!props.advancedDetailRows.length ? <span>{c.noField}</span> : null}
           </div>
         </section>
       ) : null}
