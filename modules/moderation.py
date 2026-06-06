@@ -154,7 +154,8 @@ class ModerationModule(BotModule):
             message.message_id,
             message.content_type,
         )
-        if self.setting_bool(chat_id, "delete_system_messages", True):
+        delete_service_message = self.setting_bool(chat_id, "delete_system_messages", True) or self.is_bot_membership_service_message(message)
+        if delete_service_message:
             deleted = self.safe_delete(message, f"service:{message.content_type}")
             if not deleted:
                 retry_seconds = self.setting_int(chat_id, "violation_delete_retry_seconds", 2)
@@ -163,6 +164,14 @@ class ModerationModule(BotModule):
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
+
+    def is_bot_membership_service_message(self, message):
+        if message.content_type == "new_chat_members":
+            return any(getattr(user, "is_bot", False) for user in message.new_chat_members or [])
+        if message.content_type == "left_chat_member":
+            left_member = getattr(message, "left_chat_member", None)
+            return bool(getattr(left_member, "is_bot", False))
+        return False
 
     def handle_my_chat_member(self, update):
         chat = getattr(update, "chat", None)
@@ -367,6 +376,11 @@ class ModerationModule(BotModule):
             self.state.mark_activity(message.chat.id)
             if self.detect_forward(message):
                 return
+            return
+        via_bot = getattr(message, "via_bot", None)
+        if via_bot and getattr(via_bot, "is_bot", False):
+            if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, via_bot):
+                self.safe_delete(message, "bot_message")
             return
         if getattr(message.from_user, "is_bot", False):
             if self.setting_bool(message.chat.id, "delete_messages_from_bots", True) and not self.bot_allowed(message.chat.id, message.from_user):
