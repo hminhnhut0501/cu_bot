@@ -62,40 +62,14 @@ export function AutomationScreen(props: {
         <div className="schedule-readiness-grid">
           <span className={props.scheduleReadiness.hasBot ? "ok" : "warn"}>{props.scheduleReadiness.hasBot ? c.bot : c.missingBot}</span>
           <span className={props.scheduleReadiness.hasGroup ? "ok" : "warn"}>{props.scheduleReadiness.hasGroup ? c.group : c.missingGroup}</span>
-          <span className={props.scheduleReadiness.hasMessagePool ? "ok" : "warn"}>{props.scheduleReadiness.hasMessagePool ? c.tin : c.missingTin}</span>
-          <span className={props.scheduleReadiness.hasVideoPool ? "ok" : "warn"}>{props.scheduleReadiness.hasVideoPool ? c.video : c.missingVideo}</span>
         </div>
       </div>
-      <div className="module-screen-grid">
+      <div className="module-screen-grid module-screen-grid-compact">
         <article className={props.scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
           <h4>{c.schedule}</h4>
           <strong>{props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}</strong>
           <p>Group: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedGroup || "-"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
           {props.scheduleIssues.length ? <ul>{props.scheduleIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : null}
-        </article>
-        <article className="pool-preview">
-          <div>
-            <h4>{c.poolMessages}</h4>
-            <button type="button" className="ghost" onClick={() => props.goToScheduleContent("messages")}>{c.open}</button>
-          </div>
-          <strong>{props.scheduleMessagePool || c.choosePool}</strong>
-          <p>{props.scheduleMessagePreview.length} {c.tinCount}</p>
-          <div className="pool-preview-list">
-            {props.scheduleMessagePreview.slice(0, 3).map((row) => <span key={row.id || row.message}>{String(row.message || row.content || "")}</span>)}
-            {!props.scheduleMessagePreview.length ? <span>{c.noMessages}</span> : null}
-          </div>
-        </article>
-        <article className="pool-preview">
-          <div>
-            <h4>{c.poolVideos}</h4>
-            <button type="button" className="ghost" onClick={() => props.goToScheduleContent("video_messages")}>{c.open}</button>
-          </div>
-          <strong>{props.scheduleVideoPool || c.choosePool}</strong>
-          <p>{props.scheduleVideoPreview.length} {c.videoCount}</p>
-          <div className="pool-preview-list">
-            {props.scheduleVideoPreview.slice(0, 3).map((row) => <span key={row.id || `${row.from_chat_id}-${row.message_id}`}>{String(row.message || row.content || "")}</span>)}
-            {!props.scheduleVideoPreview.length ? <span>{c.noVideos}</span> : null}
-          </div>
         </article>
       </div>
       <div className="schedule-actions">
@@ -215,8 +189,6 @@ export function BotScreen(props: {
       </div>
       <section className="workbench-actions-grid">
         <button type="button" onClick={() => props.openTaskData("bots")}><Bot size={20} /><strong>{c.connect}</strong><span>{c.token}</span></button>
-        <button type="button" onClick={() => props.openTaskData("admins")}><ShieldCheck size={20} /><strong>{c.permissions}</strong><span>{c.ownerMod}</span></button>
-        <button type="button" onClick={() => props.selectLayer("modules")}><Sparkles size={20} /><strong>{c.module}</strong><span>{c.viewModules}</span></button>
       </section>
     </section>
   );
@@ -246,8 +218,6 @@ export function GroupScreen(props: {
       </div>
       <section className="workbench-actions-grid">
         <button type="button" onClick={() => props.openTaskData("groups")}><Users size={20} /><strong>{c.group}</strong><span>{c.addGroup}</span></button>
-        <button type="button" onClick={() => props.openTaskData("bot_allowlist")}><ShieldCheck size={20} /><strong>{c.permissions}</strong><span>{c.botRole}</span></button>
-        <button type="button" onClick={() => props.selectLayer("modules")}><Sparkles size={20} /><strong>{c.module}</strong><span>{c.viewModules}</span></button>
       </section>
     </section>
   );

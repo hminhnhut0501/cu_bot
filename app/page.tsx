@@ -3660,39 +3660,6 @@ export default function HomePage() {
             <span>{selectedGroup ? "Mở flow." : "Chọn group."}</span>
           </div>
         </section>
-        <section className="command-center">
-          <div className="command-copy">
-            <span className="eyebrow">Ưu tiên</span>
-            <h2>Việc cần làm</h2>
-            <p>{commandInsights[0]?.body}</p>
-            <div className={`severity-ribbon ${commandInsights[0]?.severity}`}>
-              <strong>{commandInsights[0]?.severity?.toUpperCase()}</strong>
-              <span>{commandInsights[0]?.impact}</span>
-            </div>
-            <div className="command-actions">
-              {commandInsights.map((insight) => (
-                <button key={insight.title} type="button" className={insight.severity === "healthy" ? "secondary" : "primary"} onClick={() => goToInsight(insight)}>
-                  {insight.action}
-                </button>
-              ))}
-              <button type="button" className="ghost dark" onClick={() => setCommandOpen(true)}>
-                Mở command palette
-              </button>
-            </div>
-          </div>
-          <div className="live-feed">
-            <div className="live-feed-head">
-              <span className="live-dot on" />
-              <strong>Hoạt động live</strong>
-            </div>
-            {liveActivity.map((item) => (
-              <span key={item.text} className={`event-line ${item.severity}`}>
-                <i />
-                {item.text}
-              </span>
-            ))}
-          </div>
-        </section>
 
         <section className="ops-task-board">
           <div className="ops-task-head">
@@ -3705,7 +3672,7 @@ export default function HomePage() {
             </button>
           </div>
           <div className="ops-task-grid">
-            {operationTasks.slice(0, 4).map((task) => {
+            {operationTasks.slice(0, 3).map((task) => {
               const TaskIcon = task.icon;
               return (
                 <button key={task.title} type="button" className={`ops-task-card ${task.tone}`} onClick={task.action}>
@@ -3719,60 +3686,6 @@ export default function HomePage() {
               );
             })}
           </div>
-        </section>
-
-        <section className="production-readiness">
-          <div>
-            <span className="eyebrow">Ready</span>
-            <h3>Nền deploy</h3>
-            <p>Kiểm tra env và trạng thái chạy.</p>
-            {deleteFailureAlert.recentCount ? (
-              <p className="error-inline">
-                {deleteFailureAlert.recentCount} lỗi xóa gần đây.
-                {deleteFailureAlert.latestAt ? ` Lần gần nhất: ${formatDateTime(deleteFailureAlert.latestAt)}.` : ""}
-                {deleteFailureAlert.latestReason ? ` Lý do: ${deleteFailureAlert.latestReason}.` : ""}
-              </p>
-            ) : null}
-          </div>
-          <div className="readiness-grid">
-            {[
-              { label: "URL", ok: meta.envStatus?.supabaseUrl },
-              { label: "Key", ok: meta.envStatus?.serviceRoleKey },
-              { label: "Pass", ok: meta.envStatus?.cpPassword },
-              { label: "Token", ok: meta.envStatus?.botToken },
-              { label: "Bot key", ok: meta.envStatus?.botKey },
-              { label: "Runtime", ok: true, value: meta.envStatus?.runtimeMode || "unknown" },
-              { label: "Xóa msg", ok: deleteFailureAlert.recentCount === 0, value: deleteFailureAlert.recentCount ? `${deleteFailureAlert.recentCount}` : "OK" }
-            ].map((item) => (
-              <span key={item.label} className={item.ok ? "ok" : "warn"}>
-                <b>{item.label}</b>
-                {item.value || (item.ok ? "OK" : "Thiếu")}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section className="status-dashboard">
-          <article className={healthSummary.disabledBots ? "status-card warning" : "status-card ok"}>
-            <span>Bot</span>
-            <strong>{healthSummary.activeBots}</strong>
-            <p>{healthSummary.disabledBots ? `${healthSummary.disabledBots} bot tắt` : "Sẵn sàng"}</p>
-          </article>
-          <article className="status-card ok">
-            <span>Module</span>
-            <strong>{healthSummary.enabledModules}</strong>
-            <p>{healthSummary.offModules ? `${healthSummary.offModules} module ẩn` : "Đang hiện"}</p>
-          </article>
-          <article className={healthSummary.groups ? "status-card ok" : "status-card warning"}>
-            <span>Group</span>
-            <strong>{healthSummary.groups}</strong>
-            <p>{healthSummary.groups ? "Có phạm vi" : "Thiếu group"}</p>
-          </article>
-          <article className={healthSummary.issues ? "status-card danger" : "status-card ok"}>
-            <span>Việc</span>
-            <strong>{healthSummary.issues}</strong>
-            <p>{healthSummary.issues ? "Có việc cần làm" : "Ổn"}</p>
-          </article>
         </section>
         </>
         ) : null}
