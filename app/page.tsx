@@ -37,6 +37,8 @@ import {
 
 import { FieldConfig, TableConfig } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
+import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
+import { UI_COPY } from "@/lib/uiCopy";
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
@@ -4011,210 +4013,55 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "automation" ? (
-          <section className="module-screen module-screen-automation">
-            <div className="module-screen-head">
-            <div>
-                <span className="eyebrow">Automation workbench</span>
-                <h3>Lịch gửi</h3>
-                <p>Chọn bot, group, pool.</p>
-              </div>
-              <button type="button" className="primary" onClick={startScheduledMessageFlow}>
-                <Plus size={17} />
-                Mở wizard
-              </button>
-            </div>
-            <div className={`schedule-readiness ${scheduleReadiness.ready ? "ready" : "warning"}`}>
-              <div>
-                <span className="eyebrow">Trạng thái</span>
-                <strong>{scheduleReadiness.ready ? "Sẵn sàng" : "Cần kiểm tra"}</strong>
-                <p>{scheduleReadiness.pending}</p>
-              </div>
-              <div className="schedule-readiness-grid">
-                <span className={scheduleReadiness.hasBot ? "ok" : "warn"}>{scheduleReadiness.hasBot ? "Bot" : "Thiếu bot"}</span>
-                <span className={scheduleReadiness.hasGroup ? "ok" : "warn"}>{scheduleReadiness.hasGroup ? "Group" : "Thiếu group"}</span>
-                <span className={scheduleReadiness.hasMessagePool ? "ok" : "warn"}>{scheduleReadiness.hasMessagePool ? "Tin" : "Thiếu tin"}</span>
-                <span className={scheduleReadiness.hasVideoPool ? "ok" : "warn"}>{scheduleReadiness.hasVideoPool ? "Video" : "Thiếu video"}</span>
-              </div>
-            </div>
-            <div className="module-screen-grid">
-              <article className={scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
-                <h4>Lịch</h4>
-                <strong>{scheduleIssues.length ? `${scheduleIssues.length} cần xử lý` : "Sẵn sàng"}</strong>
-                <p>
-                  Group: {scheduleSubject.group_name || scheduleSubject.group_id || selectedGroup || "-"} ·
-                  Giờ: {scheduleSubject.daily_window_start || "09:00"} - {scheduleSubject.daily_window_end || "09:00"}
-                </p>
-                {scheduleIssues.length ? (
-                  <ul>
-                    {scheduleIssues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </article>
-              <article className="pool-preview">
-                <div>
-                  <h4>Pool tin nhắn</h4>
-                  <button type="button" className="ghost" onClick={() => goToScheduleContent("messages")}>Mở kho tin</button>
-                </div>
-                <strong>{scheduleMessagePool || "Chưa chọn"}</strong>
-                <p>{scheduleMessagePreview.length} tin</p>
-                <div className="pool-preview-list">
-                  {scheduleMessagePreview.slice(0, 3).map((row) => (
-                    <span key={row.id || row.message}>{poolPreviewText(row, "message")}</span>
-                  ))}
-                  {!scheduleMessagePreview.length ? <span>Chưa có tin.</span> : null}
-                </div>
-              </article>
-              <article className="pool-preview">
-                <div>
-                  <h4>Pool video</h4>
-                  <button type="button" className="ghost" onClick={() => goToScheduleContent("video_messages")}>Mở kho video</button>
-                </div>
-                <strong>{scheduleVideoPool || "Chưa chọn"}</strong>
-                <p>{scheduleVideoPreview.length} video</p>
-                <div className="pool-preview-list">
-                  {scheduleVideoPreview.slice(0, 3).map((row) => (
-                    <span key={row.id || `${row.from_chat_id}-${row.message_id}`}>{poolPreviewText(row, "video")}</span>
-                  ))}
-                  {!scheduleVideoPreview.length ? <span>Chưa có video.</span> : null}
-                </div>
-              </article>
-            </div>
-            <div className="schedule-actions">
-              <button type="button" className="secondary" onClick={() => goToScheduleContent("messages")}>Thêm tin</button>
-              <button type="button" className="secondary" onClick={() => goToScheduleContent("video_messages")}>Thêm video</button>
-              <button type="button" className="primary" onClick={startScheduledMessageFlow}>
-                {lookups.groups.length ? "Đặt giờ" : "Thêm group"}
-              </button>
-            </div>
-          </section>
+          <AutomationScreen
+            scheduleReadiness={scheduleReadiness}
+            scheduleIssues={scheduleIssues}
+            scheduleSubject={scheduleSubject}
+            selectedGroup={selectedGroup}
+            scheduleMessagePool={scheduleMessagePool}
+            scheduleMessagePreview={scheduleMessagePreview}
+            scheduleVideoPool={scheduleVideoPool}
+            scheduleVideoPreview={scheduleVideoPreview}
+            goToScheduleContent={goToScheduleContent}
+            startScheduledMessageFlow={startScheduledMessageFlow}
+            lookupsGroupsLength={lookups.groups.length}
+          />
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
-          <section className="module-screen module-screen-moderation">
-            <div className="module-screen-head">
-              <div>
-                <span className="eyebrow">Moderation workbench</span>
-                <h3>Bảo vệ</h3>
-                <p>Chọn group rồi cấu hình luật.</p>
-              </div>
-              <div className="protection-score">
-                <strong>{selectedGroupProtection.enabledChecks}/{selectedGroupProtection.totalChecks}</strong>
-                <span>{selectedGroupProtection.ready ? "Sẵn sàng" : selectedGroupProtection.warnings[0]}</span>
-              </div>
-            </div>
-            <section className="policy-summary-grid">
-              {moderationPolicySummary.map((item) => <article key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
-            </section>
-            <section className="guided-flow">
-              <article><b>1</b><div><strong>Luật</strong><p>Spam, link, bot.</p></div><button type="button" onClick={() => openTaskData("keywords")}>Mở</button></article>
-              <article><b>2</b><div><strong>Test</strong><p>Paste nội dung.</p></div><button type="button" onClick={() => openTaskData("keywords")}>Test</button></article>
-              <article><b>3</b><div><strong>Logs</strong><p>Xem xử lý.</p></div><button type="button" onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Mở</button></article>
-            </section>
-            <section className="workbench-footer-actions">
-              <button type="button" className="primary" onClick={startGroupProtectionFlow}><SlidersHorizontal size={17} />Mở bảo vệ</button>
-              <button type="button" className="secondary" onClick={() => openTaskData("domain_blacklist")}>Link nguy hiểm</button>
-              <button type="button" className="secondary" onClick={() => openTaskData("bot_allowlist")}>Ngoại lệ bot</button>
-            </section>
-          </section>
+          <ModerationScreen
+            selectedGroupProtection={selectedGroupProtection}
+            moderationPolicySummary={moderationPolicySummary}
+            startGroupProtectionFlow={startGroupProtectionFlow}
+            openTaskData={openTaskData}
+            goToInsight={goToInsight}
+          />
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "anti_scam" ? (
-          <section className="module-screen module-screen-scam">
-            <div className="module-screen-head">
-              <div>
-                <span className="eyebrow">Anti scam</span>
-                <h3>Duyệt report</h3>
-                <p>Cập nhật hồ sơ.</p>
-              </div>
-              <div className="task-workbench-score">
-                <strong>{pendingScamReports}</strong>
-                <span>report chờ</span>
-              </div>
-            </div>
-            <section className="policy-summary-grid">
-              <article><span>Chờ duyệt</span><strong>{scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}</strong></article>
-              <article><span>Đã xác nhận</span><strong>{scamWorkbenchRows.filter((row) => row.status === "confirmed").length}</strong></article>
-              <article><span>Đã từ chối</span><strong>{scamWorkbenchRows.filter((row) => row.status === "rejected").length}</strong></article>
-              <article><span>Bot</span><strong>{currentBot?.name || selectedBot || "Tất cả"}</strong></article>
-            </section>
-            <section className="review-queue-preview">
-              <div className="review-queue-head"><div><h3>Hàng đợi</h3><p>Ưu tiên mới.</p></div><button type="button" className="primary" onClick={() => { openTaskData("scam_reports"); setQuickFilter("pending"); }}>Mở</button></div>
-              <div className="review-queue-list">
-                {scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").slice(0, 4).map((row) => (
-                  <article key={row.id || `${row.target_uid}-${row.target_username}`}>
-                    <strong>{row.target_username || row.target_uid || row.bank_account || "Chưa rõ"}</strong>
-                    <span>{row.evidence ? "Có bằng chứng" : "Thiếu bằng chứng"}</span>
-                    <small>Report: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}</small>
-                  </article>
-                ))}
-                {!scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? <div className="workbench-empty"><Check size={20} />Không còn report pending.</div> : null}
-              </div>
-            </section>
-            <section className="workbench-footer-actions">
-              <button type="button" className="primary" onClick={() => openTaskData("scam_reports")}><ClipboardList size={17} />Duyệt</button>
-              <button type="button" className="secondary" onClick={() => openTaskData("scam_entities")}>Hồ sơ</button>
-            </section>
-          </section>
+          <ScamScreen
+            pendingScamReports={pendingScamReports}
+            scamWorkbenchRows={scamWorkbenchRows}
+            currentBotName={currentBot?.name || selectedBot || "Tất cả"}
+            selectedBot={selectedBot}
+            openTaskData={openTaskData}
+            setQuickFilter={setQuickFilter}
+          />
         ) : null}
 
         {activeLayer === "bot" ? (
-          <section className="module-screen module-screen-bot">
-            <div className="module-screen-head">
-              <div>
-                <span className="eyebrow">Bot</span>
-                <h3>Kết nối bot</h3>
-                <p>Kiểm tra trạng thái.</p>
-              </div>
-              <div className="task-workbench-score">
-                <strong>{setupChecklist.filter((item) => item.done).length}/{setupChecklist.length}</strong>
-                <span>điều kiện xong</span>
-              </div>
-            </div>
-            <section className="guided-steps">
-              {setupChecklist.slice(0, 3).map((item, index) => (
-                <article key={item.label} className={item.done ? "done" : "needs-action"}>
-                  <span>{item.done ? <Check size={18} /> : index + 1}</span>
-                  <div><strong>{item.label}</strong><p>{item.detail}</p></div>
-                </article>
-              ))}
-            </section>
-            <section className="workbench-actions-grid">
-              <button type="button" onClick={() => openTaskData("bots")}><Bot size={20} /><strong>Kết nối</strong><span>Token, trạng thái.</span></button>
-              <button type="button" onClick={() => openTaskData("admins")}><ShieldCheck size={20} /><strong>Quyền</strong><span>Owner, mod.</span></button>
-              <button type="button" onClick={() => selectLayer("modules")}><Sparkles size={20} /><strong>Module</strong><span>Xem module.</span></button>
-            </section>
-          </section>
+          <BotScreen setupChecklist={setupChecklist} openTaskData={openTaskData} selectLayer={selectLayer} />
         ) : null}
 
         {activeLayer === "group" ? (
-          <section className="module-screen module-screen-group">
-            <div className="module-screen-head">
-              <div>
-                <span className="eyebrow">Group</span>
-                <h3>Phạm vi</h3>
-                <p>Chọn group và quyền.</p>
-              </div>
-              <div className="task-workbench-score">
-                <strong>{setupIssues.length ? "Cần kiểm tra" : "Sẵn sàng"}</strong>
-                <span>{selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : "Chưa chọn"}</span>
-              </div>
-            </div>
-            <section className="guided-steps">
-              {setupChecklist.slice(1).map((item, index) => (
-                <article key={item.label} className={item.done ? "done" : "needs-action"}>
-                  <span>{item.done ? <Check size={18} /> : index + 1}</span>
-                  <div><strong>{item.label}</strong><p>{item.detail}</p></div>
-                </article>
-              ))}
-            </section>
-            <section className="workbench-actions-grid">
-              <button type="button" onClick={() => openTaskData("groups")}><Users size={20} /><strong>Group</strong><span>Thêm group.</span></button>
-              <button type="button" onClick={() => openTaskData("bot_allowlist")}><ShieldCheck size={20} /><strong>Quyền</strong><span>Bot và role.</span></button>
-              <button type="button" onClick={() => selectLayer("modules")}><Sparkles size={20} /><strong>Module</strong><span>Xem module.</span></button>
-            </section>
-          </section>
+          <GroupScreen
+            setupIssues={setupIssues}
+            setupChecklist={setupChecklist}
+            selectedGroupRow={selectedGroupRow}
+            selectedGroup={selectedGroup}
+            openTaskData={openTaskData}
+            selectLayer={selectLayer}
+          />
         ) : null}
 
         {showPrimaryTask ? (
@@ -5441,61 +5288,24 @@ export default function HomePage() {
                   </button>
                 </div>
                 ) : null}
-                <section className="inspector-section">
-                  <h4>{readOnlyTable ? "Chi tiết nhật ký" : "Chi tiết vận hành"}</h4>
-                  <div className="inspector-grid">
-                    {(readOnlyTable ? auditLogRows(selected) : detailRows(selected, table)).map((item) => (
-                      <span key={String("key" in item ? item.key : item.label)}>
-                        <b>{item.label}</b>
-                        {item.value}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-                {showAdvancedFields && !readOnlyTable ? (
-                  <section className="inspector-section advanced-section">
-                    <h4>Advanced</h4>
-                    <div className="inspector-grid">
-                      {advancedDetailRows(selected, table).map((item) => (
-                        <span key={item.key}>
-                          <b>{item.label}</b>
-                          {item.value}
-                        </span>
-                      ))}
-                      {!advancedDetailRows(selected, table).length ? <span>Không có field kỹ thuật trong mục này.</span> : null}
-                    </div>
-                  </section>
-                ) : null}
-                {!readOnlyTable ? (
-                <>
-                <section className="inspector-section">
-                  <h4>Runtime</h4>
-                  <div className="diagnostic-grid">
-                    <span className="ok">Đã tải</span>
-                    <span className="ok">Đã xác định</span>
-                    <span className={selected.enabled === false ? "warn" : "ok"}>{selected.enabled === false ? "Tắt" : "Bật"}</span>
-                  </div>
-                </section>
-                <section className="inspector-section">
-                  <h4>Hoạt động</h4>
-                  <div className="activity-stream">
-                    {cockpitActivity(selected, table).map((item) => (
-                      <span key={item}><i />{item}</span>
-                    ))}
-                  </div>
-                </section>
-                <section className="inspector-section suggestion-box">
-                  <h4>Bước sau</h4>
-                  <p>{selected.enabled === false ? "Bật nếu cần." : "Test hoặc logs."}</p>
-                </section>
-                <section className="inspector-section">
-                  <h4>Công cụ test</h4>
-                  <button type="button" className="ghost" onClick={() => setNotice("Test UI đã sẵn sàng.")}>
-                    Test
-                  </button>
-                </section>
-                </>
-                ) : null}
+                <InspectorPanel
+                  readOnlyTable={readOnlyTable}
+                  selected={selected}
+                  table={table}
+                  showAdvancedFields={showAdvancedFields}
+                  detailRows={detailRows(selected, table)}
+                  advancedDetailRows={advancedDetailRows(selected, table)}
+                  auditLogRows={auditLogRows(selected)}
+                  cockpitActivity={cockpitActivity(selected, table)}
+                  selectedEnabled={selected.enabled}
+                  onToggleAdvanced={() => setShowAdvancedFields((value) => !value)}
+                  onStartEdit={() => startEdit(selected)}
+                  onConfirm={() => confirmScamReport(selected)}
+                  onReject={() => rejectScamReport(selected)}
+                  onDelete={() => remove(selected)}
+                  onTest={() => setNotice(UI_COPY.inspector.testReady)}
+                  noticeText={notice}
+                />
               </div>
             ) : null}
           </section>
