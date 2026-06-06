@@ -2433,7 +2433,7 @@ export default function HomePage() {
     try {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const scopedGroupQuery = selectedGroup ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedGroup)}` : "";
-      const auditQuery = `${scopedBotQuery || scopedGroupQuery ? "?" : "?"}search=${encodeURIComponent("delete_message_failed")}${scopedBotQuery ? `&bot_key=${encodeURIComponent(selectedBot)}` : ""}${selectedGroup ? `&group_id=${encodeURIComponent(selectedGroup)}` : ""}`;
+      const auditQuery = selectedGroup ? `?group_id=${encodeURIComponent(selectedGroup)}` : "";
       const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
@@ -2444,7 +2444,7 @@ export default function HomePage() {
         api(`/api/audit_logs${auditQuery}`)
       ]);
       const deleteFailedRows = (auditPayload.rows || [])
-        .filter((row: Row) => String(row.action || "").toLowerCase() === "delete_message_failed")
+        .filter((row: Row) => ["delete_message_failed", "delete_message"].includes(String(row.action || "").toLowerCase()))
         .slice(0, 300);
       const cutoff = Date.now() - 12 * 60 * 60 * 1000;
       const recentDeleteFailures = deleteFailedRows.filter((row: Row) => {
