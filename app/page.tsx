@@ -39,7 +39,7 @@ import { FieldConfig, TableConfig } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
 import { UI_COPY } from "@/lib/uiCopy";
-import { buildEditorFieldGroups, buildGroupEditorTabs, buildModerationPolicySummary, buildScamWorkbenchRows, buildScopeCrumbs } from "@/lib/workbench-helpers";
+import { buildCommandInsights, buildEditorFieldGroups, buildGroupEditorTabs, buildLiveActivity, buildModerationPolicySummary, buildOperationTasks, buildScamWorkbenchRows, buildScopeCrumbs, filterVisibleRows } from "@/lib/workbench-helpers";
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
@@ -2033,23 +2033,13 @@ export default function HomePage() {
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
   const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
-  const visibleRows = useMemo(() => rows.filter((row) => {
-    if (table?.key === "bots" && selectedBot && row.bot_key !== selectedBot) {
-      return false;
-    }
-    if (table?.key !== "bots" && selectedBot && row.bot_key && row.bot_key !== selectedBot) {
-      return false;
-    }
-    if (selectedGroup) {
-      const rowGroup = String(row.group_id || row.chat_id || "");
-      if (rowGroup && rowGroup !== selectedGroup) {
-        return false;
-      }
-    }
-    if (!rowMatchesQuickFilter(row, quickFilter)) {
-      return false;
-    }
-    return true;
+  const visibleRows = useMemo(() => filterVisibleRows({
+    rows,
+    tableKey: table?.key,
+    selectedBot,
+    selectedGroup,
+    quickFilter,
+    rowMatchesQuickFilter
   }), [rows, selectedBot, selectedGroup, table?.key, quickFilter]);
   const channelRows = useMemo(
     () => visibleRows.filter((row) => channelPostTabFor(row) === channelTab).sort((left, right) => Date.parse(String(right.updated_at || right.created_at || 0)) - Date.parse(String(left.updated_at || left.created_at || 0))),
@@ -2349,84 +2339,22 @@ export default function HomePage() {
       issues: disabledBots + missingSetup + pendingScamReports + (deleteFailureAlert.recentCount > 0 ? 1 : 0)
     };
   }, [deleteFailureAlert.recentCount, lookups.bots, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
-  const commandInsights = useMemo<CommandInsight[]>(() => {
-    const insights: CommandInsight[] = [];
-    if (healthSummary.disabledBots) {
-      insights.push({
-        severity: "critical",
-        title: `${healthSummary.disabledBots} bot đang offline`,
-        body: "Kiểm tra token và trạng thái.",
-        impact: "Runtime đang giảm.",
-        action: "Kiểm tra bot",
-        targetLayer: "bot",
-        targetTable: "bots"
-      });
-    }
-    if (!healthSummary.groups) {
-      insights.push({
-        severity: "warning",
-        title: "Chưa có group hoạt động",
-        body: "Nối bot với group trước.",
-        impact: "Chưa có phạm vi điều khiển.",
-        action: "Kết nối nhóm",
-        targetLayer: "group",
-        targetTable: "groups"
-      });
-    }
-    if (healthSummary.missingSetup) {
-      insights.push({
-        severity: "info",
-        title: `${healthSummary.missingSetup} bước setup còn thiếu`,
-        body: "Bổ sung env, group và pool còn thiếu.",
-        impact: "Setup chưa xong.",
-        action: "Setup nhanh",
-        targetLayer: "modules",
-        targetTable: "module_settings"
-      });
-    }
-    if (healthSummary.pendingScamReports) {
-      insights.push({
-        severity: "warning",
-        title: `${healthSummary.pendingScamReports} report scam chờ duyệt`,
-        body: "Duyệt hoặc từ chối report.",
-        impact: "Cần xử lý ngay.",
-        action: "Duyệt scam",
-        targetLayer: "module:anti_scam",
-        targetTable: "scam_reports"
-      });
-    }
-    if (healthSummary.deleteFailures) {
-      insights.push({
-        severity: "warning",
-        title: `${healthSummary.deleteFailures} lỗi xóa tin hệ thống gần đây`,
-        body: "Kiểm tra quyền xóa và timing.",
-        impact: "Có thể còn sót message hệ thống.",
-        action: "Mở nhật ký",
-        targetLayer: "logs",
-        targetTable: "audit_logs"
-      });
-    }
-    if (!insights.length) {
-      insights.push({
-        severity: "healthy",
-        title: "Hệ thống ổn định",
-        body: "Không có vấn đề nổi bật.",
-        impact: "Trạng thái ổn định.",
-        action: "Xem hoạt động",
-        targetLayer: "logs",
-        targetTable: "audit_logs"
-      });
-    }
-    return insights.slice(0, 3);
-  }, [healthSummary]);
-  const liveActivity = useMemo(() => [
-    { severity: healthSummary.issues ? "warning" : "healthy", text: `${healthSummary.enabledModules} module / ${healthSummary.groups} group` },
-    { severity: "info", text: `${visibleRows.length} mục` },
-    { severity: healthSummary.issues ? "critical" : "healthy", text: healthSummary.issues ? `${healthSummary.issues} lỗi cần kiểm tra` : "Không có lỗi nghiêm trọng" },
-    { severity: healthSummary.pendingScamReports ? "warning" : "info", text: healthSummary.pendingScamReports ? `${healthSummary.pendingScamReports} report chờ duyệt` : "Không có report pending" },
-    { severity: healthSummary.deleteFailures ? "warning" : "info", text: healthSummary.deleteFailures ? `${healthSummary.deleteFailures} lỗi xóa gần đây` : "Không có lỗi xóa gần đây" },
-    { severity: "info", text: healthSummary.offModules ? `${healthSummary.offModules} module ẩn` : "Sidebar gọn" }
-  ], [healthSummary, table?.label, visibleRows.length]);
+  const commandInsights = useMemo(() => buildCommandInsights({
+    disabledBots: healthSummary.disabledBots,
+    groups: healthSummary.groups,
+    missingSetup: healthSummary.missingSetup,
+    pendingScamReports: healthSummary.pendingScamReports,
+    deleteFailures: healthSummary.deleteFailures
+  }), [healthSummary]);
+  const liveActivity = useMemo(() => buildLiveActivity({
+    enabledModules: healthSummary.enabledModules,
+    groups: healthSummary.groups,
+    visibleCount: visibleRows.length,
+    issues: healthSummary.issues,
+    pendingScamReports: healthSummary.pendingScamReports,
+    deleteFailures: healthSummary.deleteFailures,
+    offModules: healthSummary.offModules
+  }), [healthSummary, visibleRows.length]);
   const quickFilters = useMemo(() => {
     if (table?.key === "audit_logs") {
       const actions = Array.from(new Set(rows.map((row) => String(row.action || "").toLowerCase()).filter(Boolean))).slice(0, 6);
@@ -2460,52 +2388,17 @@ export default function HomePage() {
     { title: "Mở verify", hint: "Captcha", action: () => goToInsight({ targetLayer: "module:verification", targetTable: "verification_settings" }) },
     { title: "Tạo mới", hint: `${table?.label || "màn hiện tại"}`, action: () => startCreate() }
   ], [table?.label]);
-  const operationTasks = useMemo(() => {
-    const icons: Record<string, typeof Bot> = {
-      "connect-bot": Bot,
-      "protect-community": ShieldCheck,
-      "publish-content": Send,
-      "schedule-content": CalendarClock,
-      "review-incidents": Activity,
-      "review-scam": Archive,
-      "build-auto-reply": MessageSquare,
-      "manage-modules": Sparkles
-    };
-    return ADMIN_TASKS.map((task) => {
-      let metaText = task.outcome;
-      let tone = task.priority === "high" ? "info" : "healthy";
-      if (task.id === "connect-bot") {
-        metaText = setupIssues.length ? `${setupIssues.length} bước còn thiếu` : "Đủ điều kiện nền";
-        tone = setupIssues.length ? "warning" : "healthy";
-      } else if (task.id === "protect-community") {
-        metaText = `${healthSummary.groups} group trong phạm vi`;
-        tone = healthSummary.groups ? "healthy" : "warning";
-      } else if (task.id === "schedule-content") {
-        metaText = `${messagePools.length + videoPools.length} pool khả dụng`;
-        tone = messagePools.length || videoPools.length ? "healthy" : "warning";
-      } else if (task.id === "review-scam") {
-        metaText = scamInboxStats.pending ? `${scamInboxStats.pending} report chờ duyệt` : "Không có report pending";
-        tone = scamInboxStats.pending ? "scam" : "healthy";
-      }
-      return {
-        ...task,
-        desc: task.description,
-        meta: metaText,
-        icon: icons[task.id] || Activity,
-        tone,
-        action: () => {
-          if (task.id === "schedule-content") {
-            startScheduledMessageFlow();
-            return;
-          }
-          goToInsight(task);
-          if (task.id === "review-scam") {
-            setQuickFilter("pending");
-          }
-        }
-      };
-    });
-  }, [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
+  const operationTasks = useMemo(() => buildOperationTasks({
+    adminTasks: ADMIN_TASKS as unknown as any[],
+    setupIssues: setupIssues.length,
+    groups: healthSummary.groups,
+    messagePoolCount: messagePools.length,
+    videoPoolCount: videoPools.length,
+    pendingScamReports: scamInboxStats.pending,
+    startScheduledMessageFlow,
+    goToInsight: (task) => goToInsight(task),
+    setQuickFilter
+  }), [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
     if (!query) {

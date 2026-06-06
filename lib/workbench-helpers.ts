@@ -1,6 +1,35 @@
 import { TableConfig } from "@/lib/tables";
+import { Activity, Archive, Bot, CalendarClock, MessageSquare, Send, ShieldCheck, Sparkles } from "lucide-react";
 
 type Row = Record<string, any>;
+
+export type CommandInsight = {
+  severity: "critical" | "high" | "warning" | "info" | "healthy";
+  title: string;
+  body: string;
+  impact: string;
+  action: string;
+  targetLayer: string;
+  targetTable: string;
+};
+
+export type WorkflowCard = {
+  id: string;
+  title: string;
+  outcome: string;
+  description: string;
+  priority: string;
+  targetLayer: string;
+  targetTable: string;
+};
+
+export type WorkflowTask = WorkflowCard & {
+  desc: string;
+  meta: string;
+  tone: string;
+  icon: any;
+  action: () => void;
+};
 
 function actionLabel(value: unknown) {
   const action = String(value || "").toLowerCase();
@@ -112,4 +141,180 @@ export function buildEditorFieldGroups(args: {
       return [sectionName, nextFields] as [string, any[]];
     })
     .filter(([, fields]) => fields.length);
+}
+
+export function filterVisibleRows(args: {
+  rows: Row[];
+  tableKey?: string;
+  selectedBot: string;
+  selectedGroup: string;
+  quickFilter: string;
+  rowMatchesQuickFilter: (row: Row, filter: string) => boolean;
+}) {
+  return args.rows.filter((row) => {
+    if (args.tableKey === "bots" && args.selectedBot && row.bot_key !== args.selectedBot) {
+      return false;
+    }
+    if (args.tableKey !== "bots" && args.selectedBot && row.bot_key && row.bot_key !== args.selectedBot) {
+      return false;
+    }
+    if (args.selectedGroup) {
+      const rowGroup = String(row.group_id || row.chat_id || "");
+      if (rowGroup && rowGroup !== args.selectedGroup) return false;
+    }
+    return args.rowMatchesQuickFilter(row, args.quickFilter);
+  });
+}
+
+export function buildCommandInsights(args: {
+  disabledBots: number;
+  groups: number;
+  missingSetup: number;
+  pendingScamReports: number;
+  deleteFailures: number;
+}): CommandInsight[] {
+  const insights: CommandInsight[] = [];
+  if (args.disabledBots) {
+    insights.push({
+      severity: "critical",
+      title: `${args.disabledBots} bot đang offline`,
+      body: "Kiểm tra token và trạng thái.",
+      impact: "Runtime đang giảm.",
+      action: "Kiểm tra bot",
+      targetLayer: "bot",
+      targetTable: "bots"
+    });
+  }
+  if (!args.groups) {
+    insights.push({
+      severity: "warning",
+      title: "Chưa có group hoạt động",
+      body: "Nối bot với group trước.",
+      impact: "Chưa có phạm vi điều khiển.",
+      action: "Kết nối nhóm",
+      targetLayer: "group",
+      targetTable: "groups"
+    });
+  }
+  if (args.missingSetup) {
+    insights.push({
+      severity: "info",
+      title: `${args.missingSetup} bước setup còn thiếu`,
+      body: "Bổ sung env, group và pool còn thiếu.",
+      impact: "Setup chưa xong.",
+      action: "Setup nhanh",
+      targetLayer: "modules",
+      targetTable: "module_settings"
+    });
+  }
+  if (args.pendingScamReports) {
+    insights.push({
+      severity: "warning",
+      title: `${args.pendingScamReports} report scam chờ duyệt`,
+      body: "Duyệt hoặc từ chối report.",
+      impact: "Cần xử lý ngay.",
+      action: "Duyệt scam",
+      targetLayer: "module:anti_scam",
+      targetTable: "scam_reports"
+    });
+  }
+  if (args.deleteFailures) {
+    insights.push({
+      severity: "warning",
+      title: `${args.deleteFailures} lỗi xóa tin hệ thống gần đây`,
+      body: "Kiểm tra quyền xóa và timing.",
+      impact: "Có thể còn sót message hệ thống.",
+      action: "Mở nhật ký",
+      targetLayer: "logs",
+      targetTable: "audit_logs"
+    });
+  }
+  if (!insights.length) {
+    insights.push({
+      severity: "healthy",
+      title: "Hệ thống ổn định",
+      body: "Không có vấn đề nổi bật.",
+      impact: "Trạng thái ổn định.",
+      action: "Xem hoạt động",
+      targetLayer: "logs",
+      targetTable: "audit_logs"
+    });
+  }
+  return insights.slice(0, 3);
+}
+
+export function buildLiveActivity(args: {
+  enabledModules: number;
+  groups: number;
+  visibleCount: number;
+  issues: number;
+  pendingScamReports: number;
+  deleteFailures: number;
+  offModules: number;
+}) {
+  return [
+    { severity: args.issues ? "warning" : "healthy", text: `${args.enabledModules} module / ${args.groups} group` },
+    { severity: "info", text: `${args.visibleCount} mục` },
+    { severity: args.issues ? "critical" : "healthy", text: args.issues ? `${args.issues} lỗi cần kiểm tra` : "Không có lỗi nghiêm trọng" },
+    { severity: args.pendingScamReports ? "warning" : "info", text: args.pendingScamReports ? `${args.pendingScamReports} report chờ duyệt` : "Không có report pending" },
+    { severity: args.deleteFailures ? "warning" : "info", text: args.deleteFailures ? `${args.deleteFailures} lỗi xóa gần đây` : "Không có lỗi xóa gần đây" },
+    { severity: "info", text: args.offModules ? `${args.offModules} module ẩn` : "Sidebar gọn" }
+  ];
+}
+
+export function buildOperationTasks(args: {
+  adminTasks: WorkflowCard[];
+  setupIssues: number;
+  groups: number;
+  messagePoolCount: number;
+  videoPoolCount: number;
+  pendingScamReports: number;
+  startScheduledMessageFlow: () => void;
+  goToInsight: (task: WorkflowCard) => void;
+  setQuickFilter: (value: string) => void;
+}): WorkflowTask[] {
+  const icons: Record<string, typeof Activity> = {
+    "connect-bot": Bot,
+    "protect-community": ShieldCheck,
+    "publish-content": Send,
+    "schedule-content": CalendarClock,
+    "review-incidents": Activity,
+    "review-scam": Archive,
+    "build-auto-reply": MessageSquare,
+    "manage-modules": Sparkles
+  };
+  return args.adminTasks.map((task) => {
+    let metaText = task.outcome;
+    let tone = task.priority === "high" ? "info" : "healthy";
+    if (task.id === "connect-bot") {
+      metaText = args.setupIssues ? `${args.setupIssues} bước còn thiếu` : "Đủ điều kiện nền";
+      tone = args.setupIssues ? "warning" : "healthy";
+    } else if (task.id === "protect-community") {
+      metaText = `${args.groups} group trong phạm vi`;
+      tone = args.groups ? "healthy" : "warning";
+    } else if (task.id === "schedule-content") {
+      metaText = `${args.messagePoolCount + args.videoPoolCount} pool khả dụng`;
+      tone = args.messagePoolCount || args.videoPoolCount ? "healthy" : "warning";
+    } else if (task.id === "review-scam") {
+      metaText = args.pendingScamReports ? `${args.pendingScamReports} report chờ duyệt` : "Không có report pending";
+      tone = args.pendingScamReports ? "scam" : "healthy";
+    }
+    return {
+      ...task,
+      desc: task.description,
+      meta: metaText,
+      icon: icons[task.id] || Activity,
+      tone,
+      action: () => {
+        if (task.id === "schedule-content") {
+          args.startScheduledMessageFlow();
+          return;
+        }
+        args.goToInsight(task);
+        if (task.id === "review-scam") {
+          args.setQuickFilter("pending");
+        }
+      }
+    };
+  });
 }
