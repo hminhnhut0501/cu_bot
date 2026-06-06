@@ -3697,15 +3697,15 @@ export default function HomePage() {
         <section className="ops-task-board">
           <div className="ops-task-head">
             <div>
-              <span className="eyebrow">Công việc thường dùng</span>
-              <h3>Bắt đầu theo kết quả cần đạt</h3>
+              <span className="eyebrow">Công việc</span>
+              <h3>Hành động chính</h3>
             </div>
             <button type="button" className="ghost" onClick={() => setCommandOpen(true)}>
               Mở tìm nhanh
             </button>
           </div>
           <div className="ops-task-grid">
-            {operationTasks.map((task) => {
+            {operationTasks.slice(0, 4).map((task) => {
               const TaskIcon = task.icon;
               return (
                 <button key={task.title} type="button" className={`ops-task-card ${task.tone}`} onClick={task.action}>

@@ -56,12 +56,9 @@ export function AutomationScreen(props: {
           {c.action}
         </button>
       </div>
-      <div className={`schedule-readiness ${props.scheduleReadiness.ready ? "ready" : "warning"}`}>
-        <div>
-          <span className="eyebrow">{c.readiness}</span>
-          <strong>{props.scheduleReadiness.ready ? c.ready : c.check}</strong>
-          <p>{props.scheduleReadiness.pending}</p>
-        </div>
+      <div className="schedule-readiness schedule-readiness-compact">
+        <strong>{props.scheduleReadiness.ready ? c.ready : c.check}</strong>
+        <p>{props.scheduleReadiness.pending}</p>
         <div className="schedule-readiness-grid">
           <span className={props.scheduleReadiness.hasBot ? "ok" : "warn"}>{props.scheduleReadiness.hasBot ? c.bot : c.missingBot}</span>
           <span className={props.scheduleReadiness.hasGroup ? "ok" : "warn"}>{props.scheduleReadiness.hasGroup ? c.group : c.missingGroup}</span>
@@ -211,19 +208,11 @@ export function BotScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
-        <div className="task-workbench-score">
-          <strong>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}</strong>
-          <span>{c.doneCount}</span>
-        </div>
+        <button type="button" className="primary" onClick={() => props.openTaskData("bots")}>
+          <Plus size={17} />
+          {c.connect}
+        </button>
       </div>
-      <section className="guided-steps">
-        {props.setupChecklist.slice(0, 3).map((item, index) => (
-          <article key={item.label} className={item.done ? "done" : "needs-action"}>
-            <span>{item.done ? <Check size={18} /> : index + 1}</span>
-            <div><strong>{item.label}</strong><p>{item.detail}</p></div>
-          </article>
-        ))}
-      </section>
       <section className="workbench-actions-grid">
         <button type="button" onClick={() => props.openTaskData("bots")}><Bot size={20} /><strong>{c.connect}</strong><span>{c.token}</span></button>
         <button type="button" onClick={() => props.openTaskData("admins")}><ShieldCheck size={20} /><strong>{c.permissions}</strong><span>{c.ownerMod}</span></button>
@@ -250,19 +239,11 @@ export function GroupScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
-        <div className="task-workbench-score">
-          <strong>{props.setupIssues.length ? c.check : c.statusReady}</strong>
-          <span>{props.selectedGroupRow ? String(props.selectedGroupRow.group_name || props.selectedGroup) : c.unselected}</span>
-        </div>
+        <button type="button" className="primary" onClick={() => props.openTaskData("groups")}>
+          <Plus size={17} />
+          {c.addGroup}
+        </button>
       </div>
-      <section className="guided-steps">
-        {props.setupChecklist.slice(1).map((item, index) => (
-          <article key={item.label} className={item.done ? "done" : "needs-action"}>
-            <span>{item.done ? <Check size={18} /> : index + 1}</span>
-            <div><strong>{item.label}</strong><p>{item.detail}</p></div>
-          </article>
-        ))}
-      </section>
       <section className="workbench-actions-grid">
         <button type="button" onClick={() => props.openTaskData("groups")}><Users size={20} /><strong>{c.group}</strong><span>{c.addGroup}</span></button>
         <button type="button" onClick={() => props.openTaskData("bot_allowlist")}><ShieldCheck size={20} /><strong>{c.permissions}</strong><span>{c.botRole}</span></button>
