@@ -37,9 +37,11 @@ class ScheduledPostsModule(BotModule):
 
     def module_active(self):
         for row in self.store.rows("module_settings"):
+            if (row.get("bot_key") or "").strip() != self.settings.bot_key:
+                continue
             if (row.get("module_key") or "").strip() == self.name:
                 return as_bool(row.get("enabled"), True)
-        return True
+        return False
 
     def inactive_reason(self):
         if not self.bot_active():
@@ -251,6 +253,8 @@ class ScheduledPostsModule(BotModule):
     def target_groups(self):
         groups = []
         for row in self.store.enabled_rows("groups"):
+            if (row.get("bot_key") or "").strip() not in {"", self.settings.bot_key}:
+                continue
             chat_id = row.get("group_id") or row.get("chat_id")
             if not chat_id:
                 continue

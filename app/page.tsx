@@ -2148,6 +2148,21 @@ export default function HomePage() {
     scheduleSubject.video_enabled && scheduleVideoPool && !scheduleVideoPreview.length ? `Pool video "${scheduleVideoPool}" đang rỗng hoặc toàn mục tắt.` : "",
     scheduleSubject.daily_enabled === false ? "Gửi tin hằng ngày đang tắt trên group này." : ""
   ].filter(Boolean), [currentBot?.name, lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.daily_enabled, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedGroup]);
+  const scheduleReadiness = useMemo(() => {
+    const hasBot = Boolean(selectedBot || currentBot?.bot_key);
+    const hasGroup = Boolean(scheduleSubject.group_id || scheduleSubject.chat_id || selectedGroup);
+    const hasMessagePool = Boolean(scheduleMessagePool && scheduleMessagePreview.length);
+    const hasVideoPool = !scheduleSubject.video_enabled || Boolean(scheduleVideoPool && scheduleVideoPreview.length);
+    const ready = hasBot && hasGroup && hasMessagePool && hasVideoPool && !scheduleIssues.length;
+    return {
+      ready,
+      hasBot,
+      hasGroup,
+      hasMessagePool,
+      hasVideoPool,
+      pending: ready ? "Đã có bot, group và nội dung. Bot chỉ còn chờ tới giờ gửi." : "Chưa đủ điều kiện để tự gửi."
+    };
+  }, [currentBot?.bot_key, scheduleIssues.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedGroup]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -3997,6 +4012,19 @@ export default function HomePage() {
                     {step.desc}
                   </span>
                 ))}
+              </div>
+              <div className={`schedule-readiness ${scheduleReadiness.ready ? "ready" : "warning"}`}>
+                <div>
+                  <span className="eyebrow">Trạng thái chờ gửi</span>
+                  <strong>{scheduleReadiness.ready ? "Đã sẵn sàng" : "Cần kiểm tra"}</strong>
+                  <p>{scheduleReadiness.pending}</p>
+                </div>
+                <div className="schedule-readiness-grid">
+                  <span className={scheduleReadiness.hasBot ? "ok" : "warn"}>{scheduleReadiness.hasBot ? "Bot đã chọn" : "Chưa chọn bot"}</span>
+                  <span className={scheduleReadiness.hasGroup ? "ok" : "warn"}>{scheduleReadiness.hasGroup ? "Group đã chọn" : "Chưa chọn group"}</span>
+                  <span className={scheduleReadiness.hasMessagePool ? "ok" : "warn"}>{scheduleReadiness.hasMessagePool ? "Tin nhắn có nội dung" : "Tin nhắn chưa sẵn sàng"}</span>
+                  <span className={scheduleReadiness.hasVideoPool ? "ok" : "warn"}>{scheduleReadiness.hasVideoPool ? "Video sẵn sàng" : "Video chưa sẵn sàng"}</span>
+                </div>
               </div>
               <div className="schedule-preview-grid">
                 <article className={scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
