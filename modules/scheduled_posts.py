@@ -198,10 +198,16 @@ class ScheduledPostsModule(BotModule):
         if send_if_silent_value in (None, ""):
             send_if_silent_value = self.store.value("send_if_silent", "false")
         send_if_silent = as_bool(send_if_silent_value, False)
-        if not force and not send_if_silent and isinstance(chat_id, int) and not self.state.consume_activity(chat_id):
-            LOGGER.info("Skip bot %s group %s because group is silent.", self.settings.bot_key, chat_id)
-            self.record_audit(chat_id, "scheduled_message_skipped", {"reason": "group_silent"})
-            return
+        if isinstance(chat_id, int):
+            had_activity = self.state.consume_activity(chat_id)
+            LOGGER.info(
+                "Scheduled send gate for bot %s group %s: send_if_silent=%s had_activity=%s force=%s",
+                self.settings.bot_key,
+                chat_id,
+                send_if_silent,
+                had_activity,
+                force,
+            )
 
         pool = group.get("message_pool") or "default"
         candidates = [
