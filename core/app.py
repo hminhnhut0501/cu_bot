@@ -5,6 +5,7 @@ import pkgutil
 import threading
 import time
 
+import requests
 from telebot.apihelper import ApiTelegramException
 
 from core.supabase_store import SupabaseStore
@@ -61,8 +62,8 @@ class BotApplication:
             try:
                 self.bot.infinity_polling(
                     skip_pending=first_run,
-                    timeout=60,
-                    long_polling_timeout=60,
+                    timeout=30,
+                    long_polling_timeout=25,
                     logger_level=logging.ERROR,
                 )
                 first_run = False
@@ -81,6 +82,18 @@ class BotApplication:
                     first_run = False
                     continue
                 raise
+            except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError, TimeoutError) as exc:
+                LOGGER.warning(
+                    "Polling timeout/network interruption for bot_key=%s: %s. Retrying in %s second(s).",
+                    self.settings.bot_key,
+                    exc,
+                    conflict_retry_seconds,
+                )
+                time.sleep(conflict_retry_seconds)
+                conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
+                self.remove_existing_webhook()
+                first_run = False
+                continue
             except Exception as exc:
                 if self.is_polling_conflict_error(exc):
                     LOGGER.warning(
