@@ -15,6 +15,7 @@ from modules.base import BotModule
 
 
 LOGGER = logging.getLogger(__name__)
+TELEBOT_LOGGER = logging.getLogger("TeleBot")
 
 
 class BotApplication:
@@ -62,8 +63,8 @@ class BotApplication:
             try:
                 self.bot.infinity_polling(
                     skip_pending=first_run,
-                    timeout=30,
-                    long_polling_timeout=25,
+                    timeout=25,
+                    long_polling_timeout=20,
                     logger_level=logging.ERROR,
                 )
                 first_run = False
@@ -76,12 +77,20 @@ class BotApplication:
                         self.settings.bot_key,
                         conflict_retry_seconds,
                     )
-                    time.sleep(conflict_retry_seconds)
-                    conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
-                    self.remove_existing_webhook()
-                    first_run = False
-                    continue
-                raise
+                elif self.is_transient_polling_error(exc):
+                    LOGGER.warning(
+                        "Telegram API transient error for bot_key=%s (%s). Retrying in %s second(s).",
+                        self.settings.bot_key,
+                        getattr(exc, "error_code", "unknown"),
+                        conflict_retry_seconds,
+                    )
+                else:
+                    raise
+                time.sleep(conflict_retry_seconds)
+                conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
+                self.remove_existing_webhook()
+                first_run = False
+                continue
             except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError, TimeoutError) as exc:
                 LOGGER.warning(
                     "Polling timeout/network interruption for bot_key=%s: %s. Retrying in %s second(s).",
@@ -95,9 +104,9 @@ class BotApplication:
                 first_run = False
                 continue
             except Exception as exc:
-                if self.is_polling_conflict_error(exc):
+                if self.is_polling_conflict_error(exc) or self.is_transient_polling_error(exc):
                     LOGGER.warning(
-                        "Polling conflict detected from generic exception for bot_key=%s. "
+                        "Polling interruption detected from generic exception for bot_key=%s. "
                         "Retrying in %s second(s).",
                         self.settings.bot_key,
                         conflict_retry_seconds,
@@ -126,6 +135,12 @@ class BotApplication:
         code = getattr(exc, "error_code", None)
         message = str(exc).lower()
         return code == 409 or ("terminated by other getupdates request" in message and "conflict" in message)
+
+    @staticmethod
+    def is_transient_polling_error(exc):
+        code = getattr(exc, "error_code", None)
+        message = str(exc).lower()
+        return code in {429, 500, 502, 503, 504} or "bad gateway" in message or "gateway" in message or "timeout" in message
 
     def _load_modules(self):
         module_classes = []

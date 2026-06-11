@@ -100,6 +100,8 @@ def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    logging.getLogger("TeleBot").setLevel(logging.WARNING)
+    logging.getLogger("telebot").setLevel(logging.WARNING)
 
     if bool_env("MULTI_BOT_ENABLED", False):
         start_multi_bot_mode()
