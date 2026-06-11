@@ -619,18 +619,11 @@ class ModerationModule(BotModule):
 
     def forward_detection_flags(self, message):
         flags = []
-        for attr in (
-            "forward_from",
-            "forward_from_chat",
-            "forward_sender_name",
-            "is_automatic_forward",
-            "forward_signature",
-            "forward_from_message_id",
-        ):
-            if getattr(message, attr, None):
-                flags.append(attr)
-        if getattr(message, "forward_origin", None):
+        origin = getattr(message, "forward_origin", None)
+        if origin:
             flags.append("forward_origin")
+        if getattr(message, "is_automatic_forward", False):
+            flags.append("is_automatic_forward")
         if getattr(message, "story", None):
             flags.append("story")
         if getattr(message, "external_reply", None):
@@ -866,8 +859,6 @@ class ModerationModule(BotModule):
         )
 
     def forward_audit_details(self, message, forward_flags=None):
-        forward_chat = getattr(message, "forward_from_chat", None)
-        forward_user = getattr(message, "forward_from", None)
         origin = getattr(message, "forward_origin", None)
         story = getattr(message, "story", None)
         story_chat = getattr(story, "chat", None)
@@ -876,11 +867,6 @@ class ModerationModule(BotModule):
         return {
             "forward_detected": "true",
             "forward_flags": ",".join(forward_flags or []),
-            "forward_from_user_id": getattr(forward_user, "id", ""),
-            "forward_from_username": getattr(forward_user, "username", ""),
-            "forward_from_chat_id": getattr(forward_chat, "id", ""),
-            "forward_from_chat_title": getattr(forward_chat, "title", ""),
-            "forward_sender_name": getattr(message, "forward_sender_name", ""),
             "forward_origin_type": getattr(origin, "type", ""),
             "forward_origin_chat_id": getattr(getattr(origin, "chat", None), "id", ""),
             "forward_origin_chat_title": getattr(getattr(origin, "chat", None), "title", ""),
