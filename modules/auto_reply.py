@@ -40,7 +40,7 @@ class AutoReplyModule(BotModule):
             return
         if getattr(getattr(message, "from_user", None), "is_bot", False):
             return
-        if getattr(message, "forward_date", None) or getattr(message, "forward_origin", None):
+        if getattr(message, "forward_origin", None) or getattr(message, "is_automatic_forward", False):
             return
         if getattr(message, "is_automatic_forward", False):
             return
