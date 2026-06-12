@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Archive,
@@ -3718,7 +3718,7 @@ export default function HomePage() {
           </div>
           <div className="ops-context-actions">
             {lookups.bots.length ? (
-              <div className="bot-switcher" role="tablist" aria-label="Chọn bot">
+              <div className="bot-switcher" role="tablist" aria-label="Chọn bot" style={{ "--bot-switcher-count": String(lookups.bots.length) } as CSSProperties}>
                 <span>Bot</span>
                 <div className="bot-switcher-track">
                   {lookups.bots.map((bot) => {

@@ -646,7 +646,8 @@ nav button:hover {
 }
 
 .bot-switcher-track {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(var(--bot-switcher-count, 3), minmax(0, 1fr));
   align-items: stretch;
   gap: 6px;
   width: 100%;
@@ -657,21 +658,16 @@ nav button:hover {
   box-shadow:
     0 10px 24px color-mix(in srgb, var(--accent) 8%, transparent),
     var(--shadow-sm);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.bot-switcher-track::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 .bot-switcher-pill {
-  flex: 0 0 auto;
-  min-height: 48px;
-  min-width: 118px;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 8px 14px;
   background: transparent;
   color: var(--muted);
   display: grid;
@@ -681,15 +677,18 @@ nav button:hover {
 }
 
 .bot-switcher-pill strong {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: -0.01em;
+  line-height: 1.15;
+  word-break: break-word;
 }
 
 .bot-switcher-pill small {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: color-mix(in srgb, var(--muted) 70%, white 30%);
+  line-height: 1.15;
 }
 
 .bot-switcher-pill.active {
