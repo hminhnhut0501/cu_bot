@@ -2327,13 +2327,25 @@ export default function HomePage() {
     moduleKey: module.key,
     landingKey: module.configKeys?.length ? "config" : module.tables[0]
   })), [activeOperationModuleCards]);
+  const allModuleLayers = useMemo(() => moduleCards.map((module) => ({
+    key: `module:${module.key}`,
+    title: module.title,
+    shortTitle: module.title,
+    desc: module.desc,
+    icon: module.icon,
+    tone: module.tone,
+    tables: module.tables,
+    moduleKey: module.key,
+    landingKey: module.configKeys?.length ? "config" : module.tables[0],
+    isOn: module.isOn
+  })), [moduleCards]);
   const sidebarLayers = useMemo(() => [...CORE_LAYERS, ...moduleLayers], [moduleLayers]);
   const advancedLayer = useMemo(() => SYSTEM_LAYERS.find((layer) => layer.key === "advanced"), []);
   const sidebarNavLayers = useMemo(() => {
     const core = CORE_LAYERS.filter((layer) => layer.navSection !== "Nâng cao");
-    const advanced = advancedUnlocked && advancedLayer ? [advancedLayer] : [];
-    return [...core, ...advanced, ...moduleLayers];
-  }, [advancedLayer, advancedUnlocked, moduleLayers]);
+    const advanced = advancedLayer ? [advancedLayer] : [];
+    return [...core, ...advanced, ...allModuleLayers];
+  }, [advancedLayer, allModuleLayers]);
   const activeLayerHub = useMemo(
     () => sidebarLayers.find((layer) => layer.key === activeLayer) || (activeLayer === "advanced" ? advancedLayer : null) || CORE_LAYERS[0],
     [activeLayer, advancedLayer, sidebarLayers]
@@ -3624,7 +3636,7 @@ export default function HomePage() {
                 ? CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan")
                 : section === "Vận hành"
                   ? CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành")
-                  : advancedUnlocked && advancedLayer
+                  : advancedLayer
                     ? [advancedLayer]
                     : []
               ).map((layer) => {
@@ -3632,9 +3644,13 @@ export default function HomePage() {
                 return (
                   <button
                     key={layer.key}
-                    className={layer.key === activeLayer ? "active" : ""}
-                    onClick={() => selectLayer(layer.key)}
+                    className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
+                    onClick={() => {
+                      if (layer.key === "advanced" && !advancedUnlocked) return;
+                      selectLayer(layer.key);
+                    }}
                     type="button"
+                    disabled={layer.key === "advanced" && !advancedUnlocked}
                   >
                     <LayerIcon size={17} />
                     <span>{layer.shortTitle}</span>
@@ -3643,40 +3659,27 @@ export default function HomePage() {
               })}
             </section>
           ))}
-          {!advancedUnlocked ? (
-            <section className="nav-group nav-unlock">
-              <h2>Ẩn mặc định</h2>
-              <button type="button" onClick={() => { setAdvancedUnlocked(true); selectLayer("advanced"); }}>
-                <Wrench size={17} />
-                <span>Mở kỹ thuật</span>
-              </button>
-            </section>
-          ) : null}
-          {moduleLayers.length ? (
           <section className="nav-group">
             <h2>Công việc theo chức năng</h2>
-            {moduleLayers.map((layer) => {
+            {allModuleLayers.map((layer) => {
               const LayerIcon = layer.icon;
               return (
                 <button
                   key={layer.key}
-                  className={layer.key === activeLayer ? "active" : ""}
-                  onClick={() => selectLayer(layer.key)}
+                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.isOn ? "" : "disabled"}`}
+                  onClick={() => {
+                    if (!layer.isOn) return;
+                    selectLayer(layer.key);
+                  }}
                   type="button"
+                  disabled={!layer.isOn}
                 >
                   <LayerIcon size={17} />
                   <span>{layer.shortTitle}</span>
                 </button>
                 );
               })}
-            {!moduleLayers.length ? (
-              <button type="button" onClick={() => selectLayer("modules")}>
-                <Sparkles size={17} />
-                <span>Mở danh sách module</span>
-              </button>
-            ) : null}
           </section>
-          ) : null}
         </nav>
       </aside>
 
