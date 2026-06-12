@@ -11,7 +11,6 @@ import {
   CheckSquare,
   Clock3,
   ClipboardList,
-  ChevronDown,
   Database,
   Edit3,
   Eye,
@@ -2106,15 +2105,16 @@ export default function HomePage() {
   const videoPoolCounts = useMemo(() => uniquePoolCounts(lookups.videos), [lookups.videos]);
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
-  const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
+  const activeBotKey = selectedBot || lookups.bots[0]?.bot_key || "";
+  const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === activeBotKey), [activeBotKey, lookups.bots]);
   const visibleRows = useMemo(() => filterVisibleRows({
     rows,
     tableKey: table?.key,
-    selectedBot,
+    selectedBot: activeBotKey,
     selectedGroup: selectedScope,
     quickFilter,
     rowMatchesQuickFilter
-  }), [rows, selectedBot, selectedScope, table?.key, quickFilter]);
+  }), [rows, activeBotKey, selectedScope, table?.key, quickFilter]);
   const channelRows = useMemo(
     () => visibleRows.filter((row) => channelPostTabFor(row) === channelTab).sort((left, right) => Date.parse(String(right.updated_at || right.created_at || 0)) - Date.parse(String(left.updated_at || left.created_at || 0))),
     [channelTab, visibleRows]
@@ -2227,7 +2227,7 @@ export default function HomePage() {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
     return MODULE_HUBS.find((module) => module.key === moduleKey);
   }, [activeLayer]);
-  const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !selectedBot || row.bot_key === selectedBot), [lookups.moduleSettings, selectedBot]);
+  const moduleRows = useMemo(() => lookups.moduleSettings.filter((row) => !activeBotKey || row.bot_key === activeBotKey), [activeBotKey, lookups.moduleSettings]);
   const scopedConfigRows = useMemo(() => {
     if (table?.key !== "config") {
       return visibleRows;
@@ -2236,8 +2236,8 @@ export default function HomePage() {
       const moderationRow = moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "moderation");
       const settings = readSettingsObject(moderationRow?.settings);
       return (configScopeModule?.configKeys || []).map((key) => ({
-        id: moderationRow?.id ? `module-setting:${moderationRow.id}:${key}` : `module-setting:new:${selectedBot || "main"}:${key}`,
-        bot_key: selectedBot || "main",
+        id: moderationRow?.id ? `module-setting:${moderationRow.id}:${key}` : `module-setting:new:${activeBotKey || "main"}:${key}`,
+        bot_key: activeBotKey || "main",
         key,
         value: settings[key] ?? CONFIG_DEFAULT_VALUES[key] ?? "",
         enabled: true,
@@ -2249,11 +2249,11 @@ export default function HomePage() {
       return materializeConfigRows(
         visibleRows.filter((row) => configScopeModule.configKeys?.includes(String(row.key || ""))),
         configScopeModule.configKeys,
-        selectedBot || "main"
+        activeBotKey || "main"
       );
     }
     return visibleRows;
-  }, [activeLayer, configScopeModule, moduleRows, selectedBot, table?.key, visibleRows]);
+  }, [activeLayer, configScopeModule, moduleRows, activeBotKey, table?.key, visibleRows]);
   const configTabs = useMemo(() => {
     const sections = CONFIG_SECTIONS;
     const usedKeys = new Set(sections.flatMap((section) => section.keys));
@@ -3710,7 +3710,7 @@ export default function HomePage() {
           <div className="ops-context-copy">
             <span>Phạm vi đang điều khiển</span>
             <strong>
-              {currentBot?.name || selectedBot || "Chưa chọn bot"} · {selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}
+              {currentBot?.name || activeBotKey || "Chưa chọn bot"} · {selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}
             </strong>
             <p>
               {activeLayerHub.title} · {TABLE_TASK_LABELS[table.key] || table.label}
@@ -3718,20 +3718,27 @@ export default function HomePage() {
           </div>
           <div className="ops-context-actions">
             {lookups.bots.length ? (
-              <label className="bot-picker">
+              <div className="bot-switcher" role="tablist" aria-label="Chọn bot">
                 <span>Bot</span>
-                <div className="bot-picker-control">
-                  <select value={selectedBot} onChange={(event) => selectBot(event.target.value)} aria-label="Chọn bot">
-                    <option value="">Tất cả bot</option>
-                    {lookups.bots.map((bot) => (
-                      <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
-                        {bot.name || bot.bot_key}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={16} aria-hidden="true" />
+                <div className="bot-switcher-track">
+                  {lookups.bots.map((bot) => {
+                    const botKey = String(bot.bot_key || "");
+                    const isActive = activeBotKey === botKey;
+                    return (
+                      <button
+                        key={bot.id || botKey}
+                        type="button"
+                        className={`bot-switcher-pill ${isActive ? "active" : ""}`}
+                        onClick={() => selectBot(botKey)}
+                        aria-pressed={isActive}
+                      >
+                        <strong>{bot.name || botKey || "Bot"}</strong>
+                        <small>{bot.status === "paused" ? "Tạm dừng" : bot.enabled === false ? "Tắt" : "Hoạt động"}</small>
+                      </button>
+                    );
+                  })}
                 </div>
-              </label>
+              </div>
             ) : (
               <button type="button" className="secondary" onClick={() => setActiveKey("bots")}>
                 <Plus size={16} />

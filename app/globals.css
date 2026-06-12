@@ -630,14 +630,14 @@ nav button:hover {
   font-size: 13px;
 }
 
-.bot-picker {
+.bot-switcher {
   display: grid;
   gap: 8px;
-  min-width: 290px;
+  min-width: min(100%, 420px);
   justify-items: end;
 }
 
-.bot-picker span {
+.bot-switcher > span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 900;
@@ -645,56 +645,71 @@ nav button:hover {
   text-transform: uppercase;
 }
 
-.bot-picker-control {
-  position: relative;
+.bot-switcher-track {
   display: flex;
-  align-items: center;
-  min-height: 52px;
+  align-items: stretch;
+  gap: 6px;
   width: 100%;
   padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line) 68%);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line) 76%);
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--panel) 98%, white 2%), color-mix(in srgb, var(--panel) 92%, black 8%));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 98%, white 2%), color-mix(in srgb, var(--panel) 93%, black 7%));
   box-shadow:
-    0 8px 24px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 10px 24px color-mix(in srgb, var(--accent) 8%, transparent),
     var(--shadow-sm);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.bot-picker select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  min-height: 44px;
-  width: 100%;
-  border: 0;
+.bot-switcher-track::-webkit-scrollbar {
+  display: none;
+}
+
+.bot-switcher-pill {
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 118px;
+  border: 1px solid transparent;
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--accent) 3%, transparent));
-  color: var(--text);
-  padding: 0 44px 0 18px;
-  font-size: 16px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  text-align: left;
+}
+
+.bot-switcher-pill strong {
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
-.bot-picker-control svg {
-  position: absolute;
-  right: 16px;
-  color: color-mix(in srgb, var(--accent) 60%, var(--muted) 40%);
-  pointer-events: none;
+.bot-switcher-pill small {
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--muted) 70%, white 30%);
 }
 
-.bot-picker select:focus-visible {
+.bot-switcher-pill.active {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 92%, white 8%), color-mix(in srgb, var(--accent) 82%, black 18%));
+  color: white;
+  box-shadow: 0 10px 18px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.bot-switcher-pill.active small {
+  color: color-mix(in srgb, white 86%, var(--accent) 14%);
+}
+
+.bot-switcher-pill:not(.active):hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+}
+
+.bot-switcher-pill:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 36%, white 64%);
   outline-offset: 2px;
-}
-
-.bot-picker-control:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 65%, white 35%);
-  box-shadow:
-    0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent),
-    var(--shadow-sm);
 }
 
 .ops-context-panel {
