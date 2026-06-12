@@ -594,28 +594,40 @@ nav button:hover {
 .bot-switcher {
   display: flex;
   gap: 8px;
+  align-items: center;
   justify-content: flex-end;
   overflow-x: auto;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: var(--shadow-sm);
 }
 
 .bot-switcher button {
-  min-height: 38px;
+  min-height: 42px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #344054;
-  padding: 0 10px;
+  gap: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 16px;
   white-space: nowrap;
   font-weight: 800;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
 }
 
 .bot-switcher button.active {
-  border-color: #9de3d8;
-  background: #ecfdf9;
-  color: var(--accent-dark);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 95%, white 5%), color-mix(in srgb, var(--accent-dark) 88%, black 12%));
+  color: white;
+  box-shadow: 0 10px 24px rgba(20, 184, 166, 0.28);
+}
+
+.bot-switcher button:not(.active):hover {
+  background: color-mix(in srgb, var(--panel-strong) 92%, white 8%);
+  color: var(--text);
 }
 
 .workflow-mode-bar {

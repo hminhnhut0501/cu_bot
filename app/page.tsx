@@ -3696,14 +3696,23 @@ export default function HomePage() {
           </div>
           <div className="ops-context-actions">
             {lookups.bots.length ? (
-              <select value={selectedBot} onChange={(event) => selectBot(event.target.value)} aria-label="Chọn bot">
-                <option value="">Tất cả bot</option>
-                {lookups.bots.map((bot) => (
-                  <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
-                    {bot.name || bot.bot_key}
-                  </option>
-                ))}
-              </select>
+              <div className="bot-switcher" role="tablist" aria-label="Chọn bot">
+                {lookups.bots.map((bot) => {
+                  const botKey = bot.bot_key || "";
+                  const active = selectedBot === botKey;
+                  return (
+                    <button
+                      key={botKey || bot.id}
+                      type="button"
+                      className={active ? "active" : ""}
+                      onClick={() => selectBot(botKey)}
+                      aria-pressed={active}
+                    >
+                      {bot.name || bot.bot_key}
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
               <button type="button" className="secondary" onClick={() => setActiveKey("bots")}>
                 <Plus size={16} />
