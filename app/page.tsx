@@ -932,22 +932,13 @@ function configSelectOptions(key: string) {
 }
 
 function configInputGuide(key: string) {
-  if (CONFIG_BOOLEAN_KEYS.has(key)) {
-    return "Dùng công tắc bật/tắt. Không cần nhập giá trị thủ công.";
-  }
-  if (key.endsWith("_action")) {
-    return "Dùng dropdown để chọn hành động cố định, không nhập tay.";
-  }
   if (key.endsWith("_seconds")) {
-    return "Nhập số giây, ví dụ 300 = 5 phút.";
+    return "Nhập số giây.";
   }
   if (key.endsWith("_count")) {
-    return "Nhập số lượng, ví dụ 3 hoặc 5.";
+    return "Nhập số lượng.";
   }
-  if (key.endsWith("_text") || key.includes("reason") || key.includes("commands")) {
-    return "Nhập nội dung văn bản. Có thể chèn placeholder nếu field có hỗ trợ.";
-  }
-  return "Nhập đúng giá trị mà bot cần đọc từ config.";
+  return "";
 }
 
 function friendlySaveError(error: unknown) {
@@ -4620,7 +4611,6 @@ export default function HomePage() {
                       >
                         <span />
                       </button>
-                      <small>{configInputGuide(String(draft.key || ""))}</small>
                     </label>
                   ) : configEditorKind(String(draft.key || "")) === "select" ? (
                     <label>
@@ -4632,7 +4622,6 @@ export default function HomePage() {
                           </option>
                         ))}
                       </select>
-                      <small>{configInputGuide(String(draft.key || ""))}</small>
                     </label>
                   ) : configEditorKind(String(draft.key || "")) === "number" ? (
                     <label>
@@ -4642,7 +4631,7 @@ export default function HomePage() {
                         value={String(draft.value ?? "")}
                         onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                       />
-                      <small>{configInputGuide(String(draft.key || ""))} {fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
+                      <small>{fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
                     </label>
                   ) : (
                     <label>
@@ -4652,11 +4641,7 @@ export default function HomePage() {
                         onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                         rows={String(draft.value || "").length > 120 ? 6 : 3}
                       />
-                      {configPlaceholders(String(draft.key || "")).length ? (
-                        <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                      ) : (
-                        <small>{configInputGuide(String(draft.key || ""))}</small>
-                      )}
+                      {configPlaceholders(String(draft.key || "")).length ? <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small> : null}
                     </label>
                   )}
                   <label>
@@ -4668,7 +4653,6 @@ export default function HomePage() {
                     >
                       <span />
                     </button>
-                    <small>On = bot dùng giá trị này. Off = bot bỏ qua.</small>
                   </label>
                   <div className="setting-edit-actions">
                     <button type="button" className="ghost" onClick={closeFocusedPanel}>
@@ -4800,8 +4784,7 @@ export default function HomePage() {
                                 >
                                   <span />
                                 </button>
-                                <small>{configInputGuide(String(row.key || ""))}</small>
-                              </label>
+                                                              </label>
                             ) : editorKind === "select" ? (
                               <label>
                                 <span>Chọn giá trị cố định</span>
@@ -4812,7 +4795,6 @@ export default function HomePage() {
                                     </option>
                                   ))}
                                 </select>
-                                <small>{configInputGuide(String(row.key || ""))}</small>
                               </label>
                             ) : editorKind === "number" ? (
                               <label>
@@ -4822,7 +4804,7 @@ export default function HomePage() {
                                   value={String(draft.value ?? "")}
                                   onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                                 />
-                                <small>{configInputGuide(String(row.key || ""))} {fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
+                                <small>{fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
                               </label>
                             ) : (
                               <label>
@@ -4834,9 +4816,7 @@ export default function HomePage() {
                                 />
                                 {configPlaceholders(String(draft.key || "")).length ? (
                                   <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                                ) : (
-                                  <small>{configInputGuide(String(draft.key || ""))}</small>
-                                )}
+                                ) : null}
                               </label>
                             )}
                             <label>
@@ -4848,7 +4828,6 @@ export default function HomePage() {
                               >
                                 <span />
                               </button>
-                              <small>On = bot dùng giá trị này. Off = bot bỏ qua.</small>
                             </label>
                             <div className="setting-edit-actions">
                               <button type="button" className="ghost" onClick={closeFocusedPanel}>
