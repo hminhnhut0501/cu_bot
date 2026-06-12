@@ -56,7 +56,7 @@ export function buildScopeCrumbs(args: {
 }) {
   return [
     { label: "Bot", value: args.currentBotName || args.selectedBot || "Tất cả bot" },
-    { label: "Group", value: args.selectedGroupName || args.selectedGroup || "Tất cả group" },
+    { label: "Phạm vi", value: args.selectedGroupName || args.selectedGroup || "Toàn hệ thống" },
     { label: "Khu vực", value: args.activeLayerTitle },
     { label: "Việc", value: args.tableTaskLabel || args.tableLabel || "Chưa chọn" }
   ];

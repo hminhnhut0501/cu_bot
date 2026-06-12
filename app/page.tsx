@@ -1379,7 +1379,7 @@ function tableSupportsScope(table: TableConfig | undefined, scope: "bot" | "grou
   return tableHasField(table, "group_id") || tableHasField(table, "chat_id");
 }
 
-function buildScopedQuery(table: TableConfig, searchText: string, selectedBot: string, selectedGroup: string) {
+function buildScopedQuery(table: TableConfig, searchText: string, selectedBot: string, selectedScope: string) {
   const params = new URLSearchParams();
   if (searchText.trim()) {
     params.set("search", searchText.trim());
@@ -1387,8 +1387,8 @@ function buildScopedQuery(table: TableConfig, searchText: string, selectedBot: s
   if (selectedBot && tableSupportsScope(table, "bot")) {
     params.set("bot_key", selectedBot);
   }
-  if (selectedGroup && tableSupportsScope(table, "group")) {
-    params.set("group_id", selectedGroup);
+  if (selectedScope && tableSupportsScope(table, "group")) {
+    params.set("group_id", selectedScope);
   }
   const query = params.toString();
   return query ? `?${query}` : "";
@@ -1979,7 +1979,7 @@ export default function HomePage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
   const [selectedBot, setSelectedBot] = useState("main");
-  const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedScope, setSelectedScope] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConfigTab, setActiveConfigTab] = useState("");
   const [activeLayer, setActiveLayer] = useState("overview");
@@ -2046,10 +2046,10 @@ export default function HomePage() {
     rows,
     tableKey: table?.key,
     selectedBot,
-    selectedGroup,
+    selectedGroup: selectedScope,
     quickFilter,
     rowMatchesQuickFilter
-  }), [rows, selectedBot, selectedGroup, table?.key, quickFilter]);
+  }), [rows, selectedBot, selectedScope, table?.key, quickFilter]);
   const channelRows = useMemo(
     () => visibleRows.filter((row) => channelPostTabFor(row) === channelTab).sort((left, right) => Date.parse(String(right.updated_at || right.created_at || 0)) - Date.parse(String(left.updated_at || left.created_at || 0))),
     [channelTab, visibleRows]
@@ -2063,12 +2063,12 @@ export default function HomePage() {
   const selectedVisibleRows = useMemo(() => visibleRows.filter((row) => selectedIds.has(String(row.id))), [visibleRows, selectedIds]);
   const workflow = useMemo(() => workflowFor(activeKey, visibleRows, selectedVisibleRows.length), [activeKey, visibleRows, selectedVisibleRows.length]);
   const WorkflowIcon = workflow?.icon;
-  const selectedGroupRow = useMemo(() => {
-    if (!selectedGroup) {
+  const selectedScopeRow = useMemo(() => {
+    if (!selectedScope) {
       return null;
     }
-    return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup) || null;
-  }, [lookups.groups, selectedGroup]);
+    return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope) || null;
+  }, [lookups.groups, selectedScope]);
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
   const scamInboxStats = useMemo(() => {
@@ -2095,14 +2095,14 @@ export default function HomePage() {
       latestTime: latest ? formatDateTime(latest.created_at) : "Chưa có log"
     };
   }, [rows, table?.key]);
-  const selectedGroupProtection = useMemo(() => {
-    const row = selectedGroupRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedGroup) || null;
+  const selectedScopeProtection = useMemo(() => {
+    const row = selectedScopeRow || visibleRows.find((item) => table?.key === "groups" && String(item.group_id || item.chat_id || "") === selectedScope) || null;
     if (!row) {
       return {
         ready: false,
         enabledChecks: 0,
         totalChecks: 6,
-        warnings: ["Chưa chọn group cụ thể để đánh giá bảo vệ."]
+        warnings: ["Chưa chọn đích cụ thể để đánh giá bảo vệ."]
       };
     }
     const checks = [
@@ -2124,40 +2124,39 @@ export default function HomePage() {
       totalChecks: checks.length,
       warnings
     };
-  }, [selectedGroup, selectedGroupRow, table?.key, visibleRows]);
+  }, [selectedScope, selectedScopeRow, table?.key, visibleRows]);
   const scheduleSubject = useMemo(() => {
     if (table?.key === "groups" && Object.keys(draft).length) {
       return draft;
     }
-    return selectedGroupRow || (table?.key === "groups" ? visibleRows[0] : null) || {};
-  }, [draft, selectedGroupRow, table?.key, visibleRows]);
+    return selectedScopeRow || (table?.key === "groups" ? visibleRows[0] : null) || {};
+  }, [draft, selectedScopeRow, table?.key, visibleRows]);
   const scheduleMessagePool = String(scheduleSubject.message_pool || messagePools[0] || "");
   const scheduleVideoPool = String(scheduleSubject.video_pool || videoPools[0] || "");
   const scheduleMessagePreview = useMemo(() => poolRows(lookups.messages, scheduleMessagePool), [lookups.messages, scheduleMessagePool]);
   const scheduleVideoPreview = useMemo(() => poolRows(lookups.videos, scheduleVideoPool), [lookups.videos, scheduleVideoPool]);
   const scheduleIssues = useMemo(() => [
-    !lookups.groups.length ? `Bot ${currentBot?.name || selectedBot || "đang chọn"} chưa có group/kênh nhận tin.` : "",
-    !scheduleSubject.group_id && !scheduleSubject.chat_id && !selectedGroup ? "Chưa chọn group/kênh cụ thể. Pool có nội dung nhưng bot chưa biết gửi đi đâu." : "",
+    !lookups.groups.length ? `Bot ${currentBot?.name || selectedBot || "đang chọn"} chưa có chat/channel khả dụng.` : "",
     !scheduleMessagePool ? "Chưa chọn message pool." : "",
     scheduleMessagePool && !scheduleMessagePreview.length ? `Pool tin nhắn "${scheduleMessagePool}" đang rỗng hoặc toàn mục tắt.` : "",
     scheduleSubject.video_enabled && scheduleVideoPool && !scheduleVideoPreview.length ? `Pool video "${scheduleVideoPool}" đang rỗng hoặc toàn mục tắt.` : "",
     scheduleSubject.daily_enabled === false ? "Gửi tin hằng ngày đang tắt trên group này." : ""
-  ].filter(Boolean), [currentBot?.name, lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.daily_enabled, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedGroup]);
+  ].filter(Boolean), [currentBot?.name, lookups.groups.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.daily_enabled, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedScope]);
   const scheduleReadiness = useMemo(() => {
     const hasBot = Boolean(selectedBot || currentBot?.bot_key);
-    const hasGroup = Boolean(scheduleSubject.group_id || scheduleSubject.chat_id || selectedGroup);
+    const hasGroup = Boolean(lookups.groups.length || scheduleSubject.group_id || scheduleSubject.chat_id || selectedScope);
     const hasMessagePool = Boolean(scheduleMessagePool && scheduleMessagePreview.length);
     const hasVideoPool = !scheduleSubject.video_enabled || Boolean(scheduleVideoPool && scheduleVideoPreview.length);
-    const ready = hasBot && hasGroup && hasMessagePool && hasVideoPool && !scheduleIssues.length;
+    const ready = hasBot && hasMessagePool && hasVideoPool && !scheduleIssues.length;
     return {
       ready,
       hasBot,
       hasGroup,
       hasMessagePool,
       hasVideoPool,
-      pending: ready ? "Đã có bot, group và nội dung. Bot chỉ còn chờ tới giờ gửi." : "Chưa đủ điều kiện để tự gửi."
+      pending: ready ? "Đã có bot và nội dung. Nếu cần đích cụ thể, chọn ngay trong form." : "Chưa đủ điều kiện để tự gửi."
     };
-  }, [currentBot?.bot_key, scheduleIssues.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedGroup]);
+  }, [currentBot?.bot_key, lookups.groups.length, scheduleIssues.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedScope]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -2235,9 +2234,9 @@ export default function HomePage() {
       detail: currentBot ? "Kiểm tra bot." : "Chưa có bot."
     },
     {
-      label: "Có group trong phạm vi",
-      done: Boolean(selectedGroupRow || lookups.groups.length),
-      detail: selectedGroupRow ? "Đã có group." : "Chưa có group."
+      label: "Có chat/channel quản lý",
+      done: Boolean(lookups.groups.length),
+      detail: lookups.groups.length ? "Bot có đích quản lý." : "Chưa có chat/channel."
     },
     {
       label: "Module nền đã tạo",
@@ -2254,7 +2253,7 @@ export default function HomePage() {
       done: pendingScamReports === 0,
       detail: pendingScamReports ? "Có report pending." : "Inbox sạch."
     }
-  ], [currentBot, lookups.groups.length, messagePools.length, meta?.envStatus, moduleRows.length, pendingScamReports, selectedGroup, selectedGroupRow, videoPools.length]);
+  ], [currentBot, lookups.groups.length, messagePools.length, meta?.envStatus, moduleRows.length, pendingScamReports, selectedScope, selectedScopeRow, videoPools.length]);
   const setupIssues = useMemo(() => setupChecklist.filter((item) => !item.done), [setupChecklist]);
   const moduleState = useMemo(() => {
     const map = new Map<string, Row>();
@@ -2441,8 +2440,8 @@ export default function HomePage() {
   async function loadLookups() {
     try {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
-      const scopedGroupQuery = selectedGroup ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedGroup)}` : "";
-      const auditQuery = selectedGroup ? `?group_id=${encodeURIComponent(selectedGroup)}` : "";
+      const scopedGroupQuery = selectedScope ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedScope)}` : "";
+      const auditQuery = selectedScope ? `?group_id=${encodeURIComponent(selectedScope)}` : "";
       const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
@@ -2489,7 +2488,7 @@ export default function HomePage() {
     setLoading(true);
     setError("");
     try {
-      const query = buildScopedQuery(table, nextSearch, selectedBot, selectedGroup);
+      const query = buildScopedQuery(table, nextSearch, selectedBot, selectedScope);
       const payload = await api(`/api/${table.key}${query}`);
       setRows(payload.rows || []);
       setSelected(null);
@@ -2522,7 +2521,7 @@ export default function HomePage() {
       setQuickTestInput("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeKey, savedPassword, selectedBot, selectedGroup, table?.key]);
+  }, [activeKey, savedPassword, selectedBot, selectedScope, table?.key]);
 
   useEffect(() => {
     setChannelPage(1);
@@ -2698,12 +2697,12 @@ export default function HomePage() {
     if (table.key !== "bots" && selectedBot && table.fields.some((field) => field.key === "bot_key")) {
       nextDraft.bot_key = selectedBot;
     }
-    if (selectedGroup && table.key !== "groups") {
+    if (selectedScope && table.key !== "groups") {
       if (table.fields.some((field) => field.key === "group_id")) {
-        nextDraft.group_id = selectedGroup;
+        nextDraft.group_id = selectedScope;
       }
       if (table.fields.some((field) => field.key === "chat_id")) {
-        nextDraft.chat_id = selectedGroup;
+        nextDraft.chat_id = selectedScope;
       }
     }
     setDraft(nextDraft);
@@ -2718,16 +2717,8 @@ export default function HomePage() {
     if (!groupTable) {
       return;
     }
-    if (!selectedGroup && table?.key !== "groups" && !visibleRows.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup)) {
-      setActiveLayer("group");
-      setActiveKey("groups");
-      setShowTaskData(true);
-      setWorkMode("operate");
-      setError("Chọn group trước khi mở lịch gửi. Flow này luôn gắn với một group cụ thể.");
-      return;
-    }
-    const groupRow = selectedGroup
-      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedGroup)
+    const groupRow = selectedScope
+      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope)
       : table?.key === "groups"
         ? visibleRows[0]
         : null;
@@ -2739,7 +2730,7 @@ export default function HomePage() {
     setDraft({
       ...(groupRow ? draftFromRow(groupRow) : emptyValues(groupTable)),
       bot_key: selectedBot || "main",
-      group_id: selectedGroup || groupRow?.group_id || "",
+      group_id: selectedScope || groupRow?.group_id || "",
       daily_enabled: true,
       daily_window_start: groupRow?.daily_window_start || "09:00",
       daily_window_end: groupRow?.daily_window_end || "09:00",
@@ -2752,7 +2743,7 @@ export default function HomePage() {
     setWorkMode("edit");
     setShowAdvancedFields(false);
     setActiveGroupTab("Lịch gửi");
-    setNotice("Flow random tin hẹn giờ đã mở. Chọn group, chọn Nhóm nội dung, đặt giờ rồi lưu.");
+    setNotice("Flow random tin hẹn giờ đã mở. Nếu cần đích cụ thể, chọn group/channel ngay trong form rồi lưu.");
   }
 
   async function saveBulk() {
@@ -3040,7 +3031,7 @@ export default function HomePage() {
   function openChannelComposer(row?: Row) {
     const source = row || {
       bot_key: selectedBot || "main",
-      target_chat_id: selectedGroup || "",
+      target_chat_id: selectedScope || "",
       title: "",
       content: "",
       disable_web_page_preview: false,
@@ -3235,7 +3226,7 @@ export default function HomePage() {
 
   function selectBot(botKey: string) {
     setSelectedBot(botKey);
-    setSelectedGroup("");
+    setSelectedScope("");
     setSelected(null);
     setDraft({});
     setShowAdvancedFields(false);
@@ -3347,14 +3338,6 @@ export default function HomePage() {
   }
 
   function startGroupProtectionFlow() {
-    if (!selectedGroup && table?.key !== "groups") {
-      setActiveLayer("group");
-      setActiveKey("groups");
-      setShowTaskData(true);
-      setWorkMode("operate");
-      setError("Chọn group trước khi mở luồng bảo vệ. Protection phải gắn vào một group cụ thể.");
-      return;
-    }
     setActiveLayer("module:moderation");
     setActiveModule("moderation");
     setActiveKey("config");
@@ -3463,12 +3446,12 @@ export default function HomePage() {
   const scopeCrumbs = useMemo(() => buildScopeCrumbs({
     currentBotName: currentBot?.name || "",
     selectedBot,
-    selectedGroupName: selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : "",
-    selectedGroup,
+    selectedGroupName: selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : "",
+    selectedGroup: selectedScope,
     activeLayerTitle: activeLayerHub.title,
     tableLabel: table?.label || "",
     tableTaskLabel: table ? TABLE_TASK_LABELS[table.key] || table.label : ""
-  }), [activeLayerHub.title, currentBot?.name, selectedBot, selectedGroup, selectedGroupRow, table]);
+  }), [activeLayerHub.title, currentBot?.name, selectedBot, selectedScope, selectedScopeRow, table]);
   const groupEditorTabs = useMemo(() => {
     if (table?.key !== "groups") {
       return [];
@@ -3670,7 +3653,7 @@ export default function HomePage() {
           <div className="ops-context-copy">
             <span>Phạm vi đang điều khiển</span>
             <strong>
-              {currentBot?.name || selectedBot || "Chưa chọn bot"} · {selectedGroupRow ? String(selectedGroupRow.group_name || selectedGroup) : selectedGroup || "Chưa chọn group"}
+              {currentBot?.name || selectedBot || "Chưa chọn bot"} · {selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}
             </strong>
             <p>
               {activeLayerHub.title} · {TABLE_TASK_LABELS[table.key] || table.label}
@@ -3692,21 +3675,8 @@ export default function HomePage() {
                 Thêm bot
               </button>
             )}
-            <select value={selectedGroup} onChange={(event) => setSelectedGroup(event.target.value)} aria-label="Chọn group">
-              <option value="">Chưa chọn group</option>
-              {lookups.groups
-                .filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot)
-                .map((group) => {
-                  const groupId = group.group_id || group.chat_id || "";
-                  return (
-                    <option key={groupId || group.id} value={groupId}>
-                      {group.group_name || groupId}
-                    </option>
-                  );
-                })}
-            </select>
             <div className="ops-context-badges">
-              <span className={selectedGroup ? "ok" : "warn"}>{selectedGroup ? "Group" : "Thiếu group"}</span>
+              <span className="ok">Toàn hệ thống</span>
               <span>{activeLayerHub.shortTitle}</span>
               <span>{TABLE_TASK_LABELS[table.key] || table.label}</span>
             </div>
@@ -3733,11 +3703,11 @@ export default function HomePage() {
         <section className="context-alerts">
           <div className="context-alert primary">
             <strong>Bot/group/module</strong>
-            <span>Chọn bot, group, rồi mới mở module.</span>
+            <span>Chọn bot để quản lý toàn bộ chat/channel bot có quyền, còn group chỉ chọn khi vào luồng gửi tự động hoặc trả lời tự động.</span>
           </div>
-          <div className={`context-alert ${selectedGroup ? "ok" : "warn"}`}>
-            <strong>{selectedGroup ? "Group" : "Thiếu group"}</strong>
-            <span>{selectedGroup ? "Mở flow." : "Chọn group."}</span>
+          <div className="context-alert ok">
+            <strong>Phạm vi mặc định</strong>
+            <span>Áp dụng cho toàn bộ chat/channel mà bot quản lý được.</span>
           </div>
         </section>
 
@@ -3888,7 +3858,7 @@ export default function HomePage() {
             scheduleReadiness={scheduleReadiness}
             scheduleIssues={scheduleIssues}
             scheduleSubject={scheduleSubject}
-            selectedGroup={selectedGroup}
+            selectedScope={selectedScope}
             scheduleMessagePool={scheduleMessagePool}
             scheduleMessagePreview={scheduleMessagePreview}
             scheduleVideoPool={scheduleVideoPool}
@@ -3901,7 +3871,7 @@ export default function HomePage() {
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
           <ModerationScreen
-            selectedGroupProtection={selectedGroupProtection}
+            selectedGroupProtection={selectedScopeProtection}
             moderationPolicySummary={moderationPolicySummary}
             hiddenLinksEnabled={moderationHiddenLinksEnabled}
             scanTextLink={moderationScanTextLink}
@@ -3938,8 +3908,8 @@ export default function HomePage() {
           <GroupScreen
             setupIssues={setupIssues}
             setupChecklist={setupChecklist}
-            selectedGroupRow={selectedGroupRow}
-            selectedGroup={selectedGroup}
+            selectedScopeRow={selectedScopeRow}
+            selectedScope={selectedScope}
             openTaskData={openTaskData}
             selectLayer={selectLayer}
           />

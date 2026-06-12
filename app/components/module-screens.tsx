@@ -33,7 +33,7 @@ export function AutomationScreen(props: {
   scheduleReadiness: ScheduleReadiness;
   scheduleIssues: string[];
   scheduleSubject: { group_name?: string; group_id?: string; daily_window_start?: string; daily_window_end?: string };
-  selectedGroup: string;
+  selectedScope: string;
   scheduleMessagePool: string;
   scheduleMessagePreview: NamedRow[];
   scheduleVideoPool: string;
@@ -68,7 +68,7 @@ export function AutomationScreen(props: {
         <article className={props.scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
           <h4>{c.schedule}</h4>
           <strong>{props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}</strong>
-          <p>Group: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedGroup || "-"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
+          <p>Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
           {props.scheduleIssues.length ? <ul>{props.scheduleIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : null}
         </article>
       </div>
@@ -244,8 +244,8 @@ export function BotScreen(props: {
 export function GroupScreen(props: {
   setupIssues: any[];
   setupChecklist: ChecklistItem[];
-  selectedGroupRow: { group_name?: string } | null;
-  selectedGroup: string;
+  selectedScopeRow: { group_name?: string } | null;
+  selectedScope: string;
   openTaskData: (key: string) => void;
   selectLayer: (key: string) => void;
 }) {
