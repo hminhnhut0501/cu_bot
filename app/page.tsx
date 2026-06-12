@@ -131,6 +131,10 @@ const CONFIG_BOOLEAN_KEYS = new Set([
   "moderation_enabled",
   "delete_system_messages",
   "delete_forwarded_messages",
+  "scan_hidden_links",
+  "scan_text_link",
+  "scan_text_mention",
+  "allow_in_group_mentions",
   "allow_automatic_forwards",
   "delete_inline_keyboard_messages",
   "delete_messages_from_bots",
@@ -349,6 +353,15 @@ const CONFIG_LABELS: Record<string, string> = {
   scam_review_channel_id: "Channel duyệt báo cáo scam",
   delete_system_messages: "Xóa tin hệ thống",
   delete_forwarded_messages: "Chặn tin forward",
+  scan_hidden_links: "Quét link ẩn",
+  scan_text_link: "Chặn text link",
+  scan_text_mention: "Chặn text mention",
+  allow_in_group_mentions: "Cho phép @user trong group",
+  hidden_link_action: "Cách xử lý link ẩn",
+  text_link_action: "Cách xử lý text link",
+  text_mention_action: "Cách xử lý text mention",
+  hidden_link_reason: "Lý do link ẩn",
+  hidden_link_delete_notice_seconds: "Tự xóa thông báo link ẩn",
   allow_automatic_forwards: "Cho phép forward tự động",
   delete_inline_keyboard_messages: "Chặn bài có nút bấm",
   delete_messages_from_bots: "Chặn bot lạ gửi tin",
@@ -622,20 +635,20 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   start_fallback_text: "Tin nhắn dự phòng khi /start không có nội dung riêng.",
   delete_system_messages: "Tự xóa tin join/leave/pin và các tin hệ thống.",
   delete_forwarded_messages: "Chặn tin nhắn forward từ nơi khác.",
+  scan_hidden_links: "Bật/tắt quét toàn bộ link ẩn trong message.",
+  scan_text_link: "Bật/tắt quét link ẩn gắn vào chữ bấm.",
+  scan_text_mention: "Bật/tắt quét mention gắn ẩn.",
+  allow_in_group_mentions: "Cho phép @user giữa thành viên trong group.",
+  hidden_link_action: "Chọn hành động khi bot gặp link ẩn.",
+  text_link_action: "Chọn hành động khi bot gặp text link.",
+  text_mention_action: "Chọn hành động khi bot gặp text mention.",
+  hidden_link_reason: "Lý do nội bộ gắn vào audit cho link ẩn hoặc mention ngoài scope.",
+  hidden_link_delete_notice_seconds: "Sau bao lâu bot tự xóa thông báo link ẩn.",
   allow_automatic_forwards: "Cho phép giữ lại tin auto-forward từ channel liên kết vào group.",
   delete_inline_keyboard_messages: "Chặn bài có nút bấm inline đáng ngờ.",
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
   exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
-  scan_hidden_links: "Bật/tắt toàn bộ rule link ẩn.",
-  scan_text_link: "Chặn link ẩn gắn vào chữ bấm.",
-  scan_text_mention: "Chặn mention người dùng được gắn ẩn.",
-  allow_in_group_mentions: "Cho phép @user giữa thành viên trong group.",
-  hidden_link_action: "Hành động mặc định cho rule link ẩn.",
-  text_link_action: "Hành động khi gặp text_link.",
-  text_mention_action: "Hành động khi gặp text_mention.",
-  hidden_link_reason: "Lý do nội bộ gắn vào audit cho link ẩn hoặc mention ngoài scope.",
-  hidden_link_delete_notice_seconds: "Sau bao lâu tự xóa thông báo vi phạm link ẩn.",
   spam_max_messages: "Bao nhiêu tin nhắn trong một khung thời gian sẽ bị coi là spam.",
   spam_window_seconds: "Khung thời gian để đếm spam. Ví dụ 15 nghĩa là 15 giây.",
   spam_action: "Hành động mặc định khi user spam: warn để cảnh báo, mute để khóa chat tạm, ban để chặn khỏi nhóm.",
@@ -860,6 +873,9 @@ function configDisplayValue(row: Row) {
   if (lower === "false") {
     return "Tắt";
   }
+  if (!value.trim() && key.endsWith("_action")) {
+    return "Cảnh báo";
+  }
   if (key.endsWith("_seconds") && value !== "") {
     const seconds = Number(value);
     if (seconds === 0) {
@@ -875,6 +891,9 @@ function configDisplayValue(row: Row) {
 
 function configValueCaption(row: Row) {
   const key = String(row.key || "");
+  if (["scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "scan_bio_links", "bio_link_delete_message", "duplicate_message_enabled", "send_on_boot", "send_if_silent", "show_policy_button"].includes(key)) {
+    return "Bật / tắt";
+  }
   if (key.endsWith("_seconds")) {
     return "Thời gian đang áp dụng";
   }
