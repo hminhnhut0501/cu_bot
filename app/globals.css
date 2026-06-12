@@ -752,6 +752,29 @@ nav button:hover {
   align-content: start;
 }
 
+.module-quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+.module-quick-nav button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--muted);
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.module-quick-nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--line) 72%);
+}
+
 .context-alert span {
   display: inline-flex;
   align-items: center;

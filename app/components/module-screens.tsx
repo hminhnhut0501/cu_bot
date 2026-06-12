@@ -95,6 +95,14 @@ export function ModerationScreen(props: {
           <span>{props.selectedGroupProtection.ready ? c.ready : props.selectedGroupProtection.warnings[0]}</span>
         </div>
       </div>
+      <div className="module-quick-nav">
+        <button type="button" className="active">Thiết lập dùng chung</button>
+        <button type="button" onClick={() => props.openTaskData("keywords")}>Quản lý từ khóa</button>
+        <button type="button" onClick={() => props.openTaskData("domain_blacklist")}>Domain nguy hiểm</button>
+        <button type="button" onClick={() => props.openTaskData("link_shorteners")}>Link rút gọn</button>
+        <button type="button" onClick={() => props.openTaskData("bot_allowlist")}>Bot tin cậy</button>
+        <button type="button" onClick={() => props.goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Logs</button>
+      </div>
       <section className="moderation-settings-strip moderation-settings-strip-compact">
         <div className="moderation-settings-actions moderation-settings-actions-grid moderation-compact-grid">
           <label className="toggle-field">
