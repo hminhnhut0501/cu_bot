@@ -51,31 +51,14 @@ export function AutomationScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
+      </div>
+      <div className="schedule-flow-card">
+        <h4>{c.schedule}</h4>
+        <strong>{props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}</strong>
+        <p>Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
         <button type="button" className="primary" onClick={props.startScheduledMessageFlow}>
-          <Plus size={17} />
-          {c.action}
+          {props.lookupsGroupsLength ? c.setTime : c.addGroup}
         </button>
-      </div>
-      <div className="schedule-readiness schedule-readiness-compact">
-        <strong>{props.scheduleReadiness.ready ? c.ready : c.check}</strong>
-        <p>{props.scheduleReadiness.pending}</p>
-        <div className="schedule-readiness-grid">
-          <span className={props.scheduleReadiness.hasBot ? "ok" : "warn"}>{props.scheduleReadiness.hasBot ? c.bot : c.missingBot}</span>
-          <span className={props.scheduleReadiness.hasGroup ? "ok" : "warn"}>{props.scheduleReadiness.hasGroup ? c.group : c.missingGroup}</span>
-        </div>
-      </div>
-      <div className="module-screen-grid module-screen-grid-compact">
-        <article className={props.scheduleIssues.length ? "schedule-status warning" : "schedule-status ready"}>
-          <h4>{c.schedule}</h4>
-          <strong>{props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}</strong>
-          <p>Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
-          {props.scheduleIssues.length ? <ul>{props.scheduleIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul> : null}
-        </article>
-      </div>
-      <div className="schedule-actions">
-        <button type="button" className="secondary" onClick={() => props.goToScheduleContent("messages")}>{c.addMessages}</button>
-        <button type="button" className="secondary" onClick={() => props.goToScheduleContent("video_messages")}>{c.addVideos}</button>
-        <button type="button" className="primary" onClick={props.startScheduledMessageFlow}>{props.lookupsGroupsLength ? c.setTime : c.addGroup}</button>
       </div>
     </section>
   );
@@ -112,16 +95,8 @@ export function ModerationScreen(props: {
           <span>{props.selectedGroupProtection.ready ? c.ready : props.selectedGroupProtection.warnings[0]}</span>
         </div>
       </div>
-      <section className="policy-summary-grid">
-        {props.moderationPolicySummary.map((item) => <article key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
-      </section>
-      <section className="moderation-settings-strip">
-        <div>
-          <span className="eyebrow">Cài đặt kiểm duyệt tự động</span>
-          <h4>Quét link ẩn và mention</h4>
-          <p>3 control này áp dụng cho bot/group đang chọn, không cần mở bảng kỹ thuật.</p>
-        </div>
-        <div className="moderation-settings-actions moderation-settings-actions-grid">
+      <section className="moderation-settings-strip moderation-settings-strip-compact">
+        <div className="moderation-settings-actions moderation-settings-actions-grid moderation-compact-grid">
           <label className="toggle-field">
             <span>Chặn text_link</span>
             <button type="button" className={props.scanTextLink ? "toggle on" : "toggle off"} onClick={props.onToggleScanTextLink}>
@@ -149,18 +124,8 @@ export function ModerationScreen(props: {
               <option value="ban">Ban</option>
             </select>
           </label>
-          <button type="button" className="ghost" onClick={props.startGroupProtectionFlow}>{c.openProtection}</button>
         </div>
-      </section>
-      <section className="guided-flow">
-        <article><b>1</b><div><strong>{c.step1Title}</strong><p>{c.step1Body}</p></div><button type="button" onClick={() => props.openTaskData("keywords")}>{c.open}</button></article>
-        <article><b>2</b><div><strong>{c.step2Title}</strong><p>{c.step2Body}</p></div><button type="button" onClick={() => props.openTaskData("keywords")}>{c.test}</button></article>
-        <article><b>3</b><div><strong>{c.step3Title}</strong><p>{c.step3Body}</p></div><button type="button" onClick={() => props.goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>{c.logs}</button></article>
-      </section>
-      <section className="workbench-footer-actions">
-        <button type="button" className="primary" onClick={props.startGroupProtectionFlow}><ShieldCheck size={17} />{c.openProtection}</button>
-        <button type="button" className="secondary" onClick={() => props.openTaskData("domain_blacklist")}>{c.dangerousLinks}</button>
-        <button type="button" className="secondary" onClick={() => props.openTaskData("bot_allowlist")}>{c.botExceptions}</button>
+        <button type="button" className="primary" onClick={props.startGroupProtectionFlow}><ShieldCheck size={17} />Lưu</button>
       </section>
     </section>
   );
@@ -209,7 +174,6 @@ export function ScamScreen(props: {
       </section>
       <section className="workbench-footer-actions">
         <button type="button" className="primary" onClick={() => props.openTaskData("scam_reports")}><ClipboardList size={17} />{c.review}</button>
-        <button type="button" className="secondary" onClick={() => props.openTaskData("scam_entities")}>{c.profile}</button>
       </section>
     </section>
   );
@@ -229,29 +193,11 @@ export function BotScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
-        <button type="button" className="primary" onClick={() => props.openTaskData("bots")}>
-          <Plus size={17} />
-          {c.connect}
-        </button>
       </div>
-      <section className="workbench-detail-stack">
-        <div className="workbench-detail-head">
-          <div>
-            <span className="eyebrow">Chi tiết</span>
-            <h4>Kết nối bot</h4>
-            <p>Trạng thái và checklist quan trọng được mở sẵn ngay từ đầu.</p>
-          </div>
-        </div>
-        <div className="ops-checklist-grid">
-          {props.setupChecklist.map((item) => (
-            <span key={item.label} className={item.done ? "done" : "missing"}>
-              {item.done ? <Check size={15} /> : <X size={15} />}
-              <b>{item.label}</b>
-              {item.detail}
-            </span>
-          ))}
-        </div>
-      </section>
+      <div className="module-screen-mini">
+        <strong>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}</strong>
+        <span>trạng thái sẵn sàng</span>
+      </div>
     </section>
   );
 }
@@ -273,29 +219,11 @@ export function GroupScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
-        <button type="button" className="primary" onClick={() => props.openTaskData("groups")}>
-          <Plus size={17} />
-          {c.addGroup}
-        </button>
       </div>
-      <section className="workbench-detail-stack">
-        <div className="workbench-detail-head">
-          <div>
-            <span className="eyebrow">Chi tiết</span>
-            <h4>Phạm vi group/channel</h4>
-            <p>Checklist và trạng thái hiện tại được mở sẵn, không cần bấm thêm.</p>
-          </div>
-        </div>
-        <div className="ops-checklist-grid">
-          {props.setupChecklist.map((item) => (
-            <span key={item.label} className={item.done ? "done" : "missing"}>
-              {item.done ? <Check size={15} /> : <X size={15} />}
-              <b>{item.label}</b>
-              {item.detail}
-            </span>
-          ))}
-        </div>
-      </section>
+      <div className="module-screen-mini">
+        <strong>{props.selectedScopeRow ? props.selectedScopeRow.group_name || props.selectedScope : "Toàn hệ thống"}</strong>
+        <span>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length} sẵn sàng</span>
+      </div>
     </section>
   );
 }

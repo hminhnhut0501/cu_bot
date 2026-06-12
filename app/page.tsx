@@ -17,6 +17,7 @@ import {
   Gift,
   History,
   Loader2,
+  MoreHorizontal,
   Plus,
   Power,
   RefreshCcw,
@@ -2026,6 +2027,7 @@ export default function HomePage() {
   const [activeGroupTab, setActiveGroupTab] = useState("Thông tin");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
+  const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
   const [channelPage, setChannelPage] = useState(1);
@@ -2061,16 +2063,6 @@ export default function HomePage() {
   const videoPools = useMemo(() => uniqueValues(lookups.videos, "pool"), [lookups.videos]);
   const messagePoolCounts = useMemo(() => uniquePoolCounts(lookups.messages), [lookups.messages]);
   const videoPoolCounts = useMemo(() => uniquePoolCounts(lookups.videos), [lookups.videos]);
-  const activeGuide = useMemo(() => {
-    if (activeLayer === "module:automation" && table?.key === "groups") {
-      return {
-        title: "Cách dùng random tin hẹn giờ",
-        body: "Runtime hiện tại gửi random theo Nhóm nội dung trong bảng Tin nhắn. Chọn đúng pool tại đây để bot lấy ngẫu nhiên mỗi ngày.",
-        steps: ["Tạo nhiều Tin nhắn cùng một Nhóm nội dung", "Vào group này và chọn Nhóm nội dung đó", "Đặt Bắt đầu và Kết thúc cùng giờ nếu muốn gửi đúng một thời điểm"]
-      };
-    }
-    return table ? TABLE_GUIDES[table.key] : undefined;
-  }, [activeLayer, table]);
   const hero = useMemo(() => heroFor(activeKey), [activeKey]);
   const HeroIcon = hero.icon;
   const currentBot = useMemo(() => lookups.bots.find((bot) => bot.bot_key === selectedBot), [lookups.bots, selectedBot]);
@@ -2254,39 +2246,6 @@ export default function HomePage() {
     return Object.entries(groups);
   }, [dashboardRows]);
   const activeModuleHub = useMemo(() => MODULE_HUBS.find((module) => module.key === activeModule) || MODULE_HUBS[0], [activeModule]);
-  const setupChecklist = useMemo(() => [
-    {
-      label: "Env CP sẵn sàng",
-      done: Boolean(meta?.envStatus?.supabaseUrl && meta?.envStatus?.serviceRoleKey && meta?.envStatus?.cpPassword),
-      detail: meta?.envStatus ? "Kiểm tra env CP." : "Chưa đọc được env."
-    },
-    {
-      label: "Bot đã bật",
-      done: Boolean(currentBot && currentBot.enabled !== false && currentBot.status !== "paused"),
-      detail: currentBot ? "Kiểm tra bot." : "Chưa có bot."
-    },
-    {
-      label: "Có chat/channel quản lý",
-      done: Boolean(lookups.groups.length),
-      detail: lookups.groups.length ? "Bot có đích quản lý." : "Chưa có chat/channel."
-    },
-    {
-      label: "Module nền đã tạo",
-      done: Boolean(moduleRows.length),
-      detail: moduleRows.length ? "Module đã sẵn sàng." : "Chưa có module."
-    },
-    {
-      label: "Pool nội dung khả dụng",
-      done: Boolean(messagePools.length || videoPools.length),
-      detail: messagePools.length || videoPools.length ? "Có pool nội dung." : "Chưa có pool."
-    },
-    {
-      label: "Scam inbox sạch",
-      done: pendingScamReports === 0,
-      detail: pendingScamReports ? "Có report pending." : "Inbox sạch."
-    }
-  ], [currentBot, lookups.groups.length, messagePools.length, meta?.envStatus, moduleRows.length, pendingScamReports, selectedScope, selectedScopeRow, videoPools.length]);
-  const setupIssues = useMemo(() => setupChecklist.filter((item) => !item.done), [setupChecklist]);
   const moduleState = useMemo(() => {
     const map = new Map<string, Row>();
     for (const row of moduleRows) {
@@ -2394,6 +2353,16 @@ export default function HomePage() {
     pendingScamReports: healthSummary.pendingScamReports,
     deleteFailures: healthSummary.deleteFailures
   }), [healthSummary]);
+  const setupChecklist = useMemo(() => ([
+    { label: "Bot online", detail: "Bot đã kết nối.", done: healthSummary.activeBots > 0 },
+    { label: "Scope", detail: "Có phạm vi đang chọn.", done: Boolean(selectedScopeRow || selectedBot) },
+    { label: "Module", detail: "Có module đang bật.", done: healthSummary.enabledModules > 0 }
+  ]), [healthSummary.activeBots, healthSummary.enabledModules, selectedBot, selectedScopeRow]);
+  const setupIssues = useMemo(() => ([
+    ...(healthSummary.activeBots > 0 ? [] : ["Chưa có bot online"]),
+    ...(selectedScopeRow || selectedBot ? [] : ["Chưa chọn scope"]),
+    ...(healthSummary.enabledModules > 0 ? [] : ["Chưa có module bật"])
+  ]), [healthSummary.activeBots, healthSummary.enabledModules, selectedBot, selectedScopeRow]);
   const liveActivity = useMemo(() => buildLiveActivity({
     enabledModules: healthSummary.enabledModules,
     groups: healthSummary.groups,
@@ -2438,7 +2407,7 @@ export default function HomePage() {
   ], [table?.label]);
   const operationTasks = useMemo(() => buildOperationTasks({
     adminTasks: ADMIN_TASKS as unknown as any[],
-    setupIssues: setupIssues.length,
+    setupIssues: 0,
     groups: healthSummary.groups,
     messagePoolCount: messagePools.length,
     videoPoolCount: videoPools.length,
@@ -2446,7 +2415,7 @@ export default function HomePage() {
     startScheduledMessageFlow,
     goToInsight: (task) => goToInsight(task),
     setQuickFilter
-  }), [healthSummary.groups, messagePools.length, scamInboxStats.pending, setupIssues.length, videoPools.length]);
+  }), [healthSummary.groups, messagePools.length, scamInboxStats.pending, videoPools.length]);
   const filteredCommandItems = useMemo(() => {
     const query = commandSearch.trim().toLowerCase();
     if (!query) {
@@ -3475,12 +3444,11 @@ export default function HomePage() {
   }
 
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
-  const showOverview = workMode === "overview";
-  const showOperations = workMode !== "overview";
   const moduleWorkbenchActive = activeLayer.startsWith("module:");
-  const setupWorkbench = ["bot", "group"].includes(activeLayer);
-  const taskWorkbenchActive = !showTaskData && setupWorkbench;
-  const showPrimaryTask = activeLayer !== "modules" && !taskWorkbenchActive;
+  const setupWorkbench = activeLayer === "bot" || activeLayer === "group";
+  const showOverview = workMode === "overview";
+  const showOperations = !showOverview;
+  const showPrimaryTask = activeLayer !== "modules" && !showOverview;
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
   const scopeCrumbs = useMemo(() => buildScopeCrumbs({
@@ -3625,57 +3593,73 @@ export default function HomePage() {
           </div>
         </div>
         <nav className="layer-nav">
-          {["Tổng quan", "Vận hành", "Nâng cao"].map((section) => (
-            <section className="nav-group" key={section}>
-              <h2>{section}</h2>
-              {(section === "Tổng quan"
-                ? CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan")
-                : section === "Vận hành"
-                  ? CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành")
-                  : advancedLayer
-                    ? [advancedLayer]
-                    : []
-              ).map((layer) => {
-                const LayerIcon = layer.icon;
-                return (
-                  <button
-                    key={layer.key}
-                    className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
-                    onClick={() => {
-                      if (layer.key === "advanced" && !advancedUnlocked) return;
-                      selectLayer(layer.key);
-                    }}
-                    type="button"
-                    disabled={layer.key === "advanced" && !advancedUnlocked}
-                  >
-                    <LayerIcon size={17} />
-                    <span>{layer.shortTitle}</span>
-                    {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
-                  </button>
-                );
-              })}
-            </section>
-          ))}
           <section className="nav-group">
-            <h2>Công việc theo chức năng</h2>
-            {allModuleLayers.map((layer) => {
+            <h2>Tổng quan</h2>
+            {CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan").map((layer) => {
               const LayerIcon = layer.icon;
               return (
                 <button
                   key={layer.key}
-                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.isOn ? "" : "disabled"}`}
+                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
                   onClick={() => {
+                    if (layer.key === "advanced" && !advancedUnlocked) return;
                     selectLayer(layer.key);
                   }}
                   type="button"
-                  aria-disabled={!layer.isOn}
+                  disabled={layer.key === "advanced" && !advancedUnlocked}
                 >
                   <LayerIcon size={17} />
                   <span>{layer.shortTitle}</span>
-                  {!layer.isOn ? <small className="nav-status">Tắt</small> : null}
+                  {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
                 </button>
-                );
-              })}
+              );
+            })}
+          </section>
+          <section className="nav-group">
+            <h2>Vận hành</h2>
+            {CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành").map((layer) => {
+              const LayerIcon = layer.icon;
+              return (
+                <button
+                  key={layer.key}
+                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
+                  onClick={() => {
+                    if (layer.key === "advanced" && !advancedUnlocked) return;
+                    selectLayer(layer.key);
+                  }}
+                  type="button"
+                  disabled={layer.key === "advanced" && !advancedUnlocked}
+                >
+                  <LayerIcon size={17} />
+                  <span>{layer.shortTitle}</span>
+                  {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
+                </button>
+              );
+            })}
+          </section>
+          <section className="nav-group nav-group-muted">
+            <h2>Ít dùng</h2>
+            {[advancedLayer, ...allModuleLayers].filter(Boolean).map((layer) => {
+              const navLayer = layer!;
+              const LayerIcon = navLayer.icon;
+              const disabled = navLayer.key === "advanced" ? !advancedUnlocked : "isOn" in navLayer ? navLayer.isOn === false : false;
+              return (
+                <button
+                  key={navLayer.key}
+                  className={`${navLayer.key === activeLayer ? "active" : ""} ${disabled ? "disabled" : ""}`}
+                  onClick={() => {
+                    if (navLayer.key === "advanced" && !advancedUnlocked) return;
+                    selectLayer(navLayer.key);
+                  }}
+                  type="button"
+                  disabled={navLayer.key === "advanced" && !advancedUnlocked}
+                >
+                  <LayerIcon size={17} />
+                  <span>{navLayer.shortTitle}</span>
+                  {navLayer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
+                </button>
+              );
+            })}
           </section>
         </nav>
       </aside>
@@ -3693,93 +3677,25 @@ export default function HomePage() {
           </div>
           <div className="ops-context-actions">
             {lookups.bots.length ? (
-              <div className="bot-switcher" role="tablist" aria-label="Chọn bot">
-                {lookups.bots.map((bot) => {
-                  const botKey = bot.bot_key || "";
-                  const active = selectedBot === botKey;
-                  return (
-                    <button
-                      key={botKey || bot.id}
-                      type="button"
-                      className={active ? "active" : ""}
-                      onClick={() => selectBot(botKey)}
-                      aria-pressed={active}
-                    >
+              <label className="bot-picker">
+                <span>Bot</span>
+                <select value={selectedBot} onChange={(event) => selectBot(event.target.value)} aria-label="Chọn bot">
+                  <option value="">Tất cả bot</option>
+                  {lookups.bots.map((bot) => (
+                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
                       {bot.name || bot.bot_key}
-                    </button>
-                  );
-                })}
-              </div>
+                    </option>
+                  ))}
+                </select>
+              </label>
             ) : (
               <button type="button" className="secondary" onClick={() => setActiveKey("bots")}>
                 <Plus size={16} />
                 Thêm bot
               </button>
             )}
-            <div className="ops-context-badges">
-              <span className="ok">Toàn hệ thống</span>
-              <span>{activeLayerHub.shortTitle}</span>
-              <span>{TABLE_TASK_LABELS[table.key] || table.label}</span>
-            </div>
           </div>
         </section>
-
-        <section className="workflow-mode-bar" aria-label="Chế độ làm việc">
-          <button type="button" className={workMode === "overview" ? "active" : ""} onClick={() => setWorkMode("overview")}>
-            <ClipboardList size={16} />
-            <span>Việc</span>
-          </button>
-          <button type="button" className={workMode === "operate" ? "active" : ""} onClick={() => setWorkMode("operate")}>
-            <Activity size={16} />
-            <span>Chi tiết</span>
-          </button>
-          <button type="button" className={workMode === "edit" ? "active" : ""} onClick={() => (hasFocusedPanel ? setWorkMode("edit") : startCreate())}>
-            <Edit3 size={16} />
-            <span>Form</span>
-          </button>
-        </section>
-
-        {showOverview ? (
-        <>
-        <section className="context-alerts">
-          <div className="context-alert primary">
-            <strong>Bot/group/module</strong>
-            <span>Chọn bot để quản lý toàn bộ chat/channel bot có quyền, còn group chỉ chọn khi vào luồng gửi tự động hoặc trả lời tự động.</span>
-          </div>
-          <div className="context-alert ok">
-            <strong>Phạm vi mặc định</strong>
-            <span>Áp dụng cho toàn bộ chat/channel mà bot quản lý được.</span>
-          </div>
-        </section>
-
-        <section className="ops-task-board">
-          <div className="ops-task-head">
-            <div>
-              <span className="eyebrow">Công việc</span>
-              <h3>Hành động chính</h3>
-            </div>
-            <button type="button" className="ghost" onClick={() => setCommandOpen(true)}>
-              Mở tìm nhanh
-            </button>
-          </div>
-          <div className="ops-task-grid">
-            {operationTasks.slice(0, 3).map((task) => {
-              const TaskIcon = task.icon;
-              return (
-                <button key={task.title} type="button" className={`ops-task-card ${task.tone}`} onClick={task.action}>
-                  <span className="ops-task-icon">
-                    <TaskIcon size={19} />
-                  </span>
-                  <strong>{task.title}</strong>
-                  <p>{task.desc}</p>
-                  <small>{task.meta}</small>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-        </>
-        ) : null}
 
         {showOperations ? (
         <>
@@ -3794,7 +3710,7 @@ export default function HomePage() {
               <p>{activeLayerHub.desc}</p>
             </div>
           </div>
-          {activeLayer !== "modules" ? (
+          {activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
           <div className="layer-links">
             {layerTables.map((item) => (
               <button
@@ -3983,48 +3899,66 @@ export default function HomePage() {
             <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
               <RefreshCcw size={17} />
             </button>
-            {table.key !== "channel_posts" ? <div className="mode-switch" aria-label="Chế độ hiển thị">
-              <button type="button" className={scanMode === "scan" ? "active" : ""} onClick={() => setScanMode("scan")}>
-                Scan
+            <div className="topbar-menu-wrap">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setTopbarMenuOpen((value) => !value)}
+                aria-expanded={topbarMenuOpen}
+                aria-haspopup="menu"
+              >
+                <MoreHorizontal size={17} />
+                Tác vụ
               </button>
-              <button type="button" className={scanMode === "detail" ? "active" : ""} onClick={() => setScanMode("detail")}>
-                Detail
-              </button>
-            </div> : null}
-            {table.key === "channel_posts" ? (
-              <button type="button" className="primary" onClick={() => openChannelComposer()}>
-                <Send size={17} />
-                Đăng bài mới
-              </button>
-            ) : readOnlyTable ? null : table.key !== "config" ? (
-              <>
-                <button type="button" className="primary" onClick={startCreate}>
-                  <Plus size={17} />
-                  {TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}
-                </button>
-                <button type="button" className="secondary" onClick={toggleAllVisible} disabled={!visibleRows.length}>
-                  <CheckSquare size={17} />
-                  {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
-                </button>
-                {selectedVisibleRows.length ? (
-                  <button type="button" className="danger" disabled={saving} onClick={removeSelected}>
-                    <Trash2 size={17} />
-                    Xóa {selectedVisibleRows.length} mục
-                  </button>
-                ) : null}
-              </>
-            ) : (
-              <button type="button" className="secondary" onClick={closeFocusedPanel} disabled={!Object.keys(draft).length}>
-                <X size={17} />
-                Đóng mục đang sửa
-              </button>
-            )}
-            {!readOnlyTable && bulkTables.has(table.key) ? (
-              <button type="button" className="secondary" onClick={() => setBulkOpen((value) => !value)}>
-                <Edit3 size={17} />
-                Nhập nhanh
-              </button>
-            ) : null}
+              {topbarMenuOpen ? (
+                <div className="topbar-menu" role="menu">
+                  {table.key !== "channel_posts" ? (
+                    <button type="button" className={scanMode === "scan" ? "active" : ""} onClick={() => { setScanMode("scan"); setTopbarMenuOpen(false); }}>
+                      Scan
+                    </button>
+                  ) : null}
+                  {table.key !== "channel_posts" ? (
+                    <button type="button" className={scanMode === "detail" ? "active" : ""} onClick={() => { setScanMode("detail"); setTopbarMenuOpen(false); }}>
+                      Detail
+                    </button>
+                  ) : null}
+                  {table.key === "channel_posts" ? (
+                    <button type="button" onClick={() => { openChannelComposer(); setTopbarMenuOpen(false); }}>
+                      <Send size={16} />
+                      Đăng bài mới
+                    </button>
+                  ) : readOnlyTable ? null : table.key !== "config" ? (
+                    <>
+                      <button type="button" onClick={() => { startCreate(); setTopbarMenuOpen(false); }}>
+                        <Plus size={16} />
+                        {TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}
+                      </button>
+                      <button type="button" onClick={() => { toggleAllVisible(); setTopbarMenuOpen(false); }} disabled={!visibleRows.length}>
+                        <CheckSquare size={16} />
+                        {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
+                      </button>
+                      {selectedVisibleRows.length ? (
+                        <button type="button" className="danger" disabled={saving} onClick={() => { removeSelected(); setTopbarMenuOpen(false); }}>
+                          <Trash2 size={16} />
+                          Xóa {selectedVisibleRows.length} mục
+                        </button>
+                      ) : null}
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => { closeFocusedPanel(); setTopbarMenuOpen(false); }} disabled={!Object.keys(draft).length}>
+                      <X size={16} />
+                      Đóng mục đang sửa
+                    </button>
+                  )}
+                  {!readOnlyTable && bulkTables.has(table.key) ? (
+                    <button type="button" onClick={() => { setBulkOpen((value) => !value); setTopbarMenuOpen(false); }}>
+                      <Edit3 size={16} />
+                      Nhập nhanh
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 
@@ -4075,116 +4009,6 @@ export default function HomePage() {
                 {filter.label}
               </button>
             ))}
-          </section>
-        ) : null}
-
-        {activeGuide && table.key !== "channel_posts" ? (
-          <section className="usage-guide">
-            <div>
-              <SlidersHorizontal size={19} />
-              <div>
-                <h3>{activeGuide.title}</h3>
-                <p>{activeGuide.body}</p>
-              </div>
-            </div>
-            <ol>
-              {activeGuide.steps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          </section>
-        ) : null}
-
-        {workflow && table.key !== "channel_posts" ? (
-          <section className="workflow-panel">
-            <div className="workflow-copy">
-              <div className="workflow-icon">
-                {WorkflowIcon ? <WorkflowIcon size={22} /> : null}
-              </div>
-              <div>
-                <h3>{workflow.title}</h3>
-                <p>{workflow.body}</p>
-              </div>
-            </div>
-            <div className="workflow-chips">
-              {workflow.chips.map((chip) => (
-                <span key={chip.label}>
-                  <b>{chip.value}</b>
-                  {chip.label}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {activeKey === "bot_metrics" || activeKey === "groups" || activeLayer === "overview" ? (
-          <section className={`ops-checklist ${setupIssues.length ? "needs-work" : "ready"}`}>
-            <div className="ops-checklist-head">
-              <div>
-                <h3>Checklist</h3>
-                <p>{setupIssues.length ? "Còn việc cần làm." : "Đã sẵn sàng."}</p>
-              </div>
-              <strong>{setupChecklist.length - setupIssues.length}/{setupChecklist.length}</strong>
-            </div>
-            <div className="ops-checklist-grid">
-              {setupChecklist.map((item) => (
-                <span key={item.label} className={item.done ? "done" : "missing"}>
-                  {item.done ? <Check size={15} /> : <X size={15} />}
-                  <b>{item.label}</b>
-                  {item.detail}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {table.key === "scheduled_posts" || (activeLayer.startsWith("module:") && activeModuleHub.key === "automation" && table.key === "groups") ? (
-          <section className="runtime-note">
-            <SlidersHorizontal size={20} />
-            <div>
-              <h3>Lịch gửi</h3>
-              <p>Chỉnh lịch trên group.</p>
-            </div>
-            <button type="button" className="secondary" onClick={startScheduledMessageFlow}>
-              Mở flow đúng
-            </button>
-          </section>
-        ) : null}
-
-        {showRuleTester ? (
-          <section className="rule-tester">
-            <div>
-              <h3>Test luật</h3>
-              <p>Paste nội dung để kiểm tra.</p>
-            </div>
-            <label>
-              <span>Nội dung test</span>
-              <input
-                value={quickTestInput}
-                onChange={(event) => setQuickTestInput(event.target.value)}
-                placeholder={table.key === "auto_replies" ? "Ví dụ: shop có hỗ trợ không?" : "Ví dụ: tin nhắn có keyword hoặc link cần kiểm tra"}
-              />
-            </label>
-            <div className="rule-test-results">
-              {quickTestInput ? (
-                ruleTestResults.length ? (
-                  ruleTestResults.slice(0, 5).map((result) => (
-                    <span key={`${result.label}-${result.detail}`} className="matched">
-                      <Check size={14} />
-                      <b>{result.label}</b>
-                      {result.detail}
-                    </span>
-                  ))
-                ) : (
-                  <span className="clean">
-                    <ShieldCheck size={14} />
-                    Không khớp rule nào đang bật
-                  </span>
-                )
-              ) : (
-                <span className="idle">Chưa nhập nội dung test</span>
-              )}
-            </div>
           </section>
         ) : null}
 
