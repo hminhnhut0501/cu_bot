@@ -3820,7 +3820,7 @@ export default function HomePage() {
             <span>{enabledModuleCards.length}/{moduleCards.length} bật</span>
           </div>
           <div className="plugin-manager" role="list" aria-label="Quản lý module">
-            {enabledModuleCards.map((module) => {
+            {moduleCards.map((module) => {
               const ModuleIcon = module.icon;
               return (
                 <article className={`plugin-card ${module.isOn ? "enabled" : "disabled"}`} key={module.key}>
@@ -3831,12 +3831,12 @@ export default function HomePage() {
                       <p>{module.desc}</p>
                       <div className="plugin-status-box">
                         <span>Trạng thái</span>
-                        <strong>{module.isOn ? "Bật" : "Tắt"}</strong>
-                      </div>
+                      <strong>{module.isOn ? "Bật" : "Tắt"}</strong>
                     </div>
                   </div>
-                  <div className="plugin-actions">
-                    <div className="plugin-action-row">
+                </div>
+                <div className="plugin-actions">
+                  <div className="plugin-action-row">
                       <button
                         type="button"
                         className={`module-switch ${module.isOn ? "on" : "off"}`}
@@ -3851,20 +3851,19 @@ export default function HomePage() {
                       >
                         <span />
                       </button>
-                    {module.isOn ? (
-                      <button
-                        type="button"
-                        className="module-edit-button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          selectLayer(`module:${module.key}`);
-                        }}
-                        title="Cài đặt module"
-                      >
-                        <Edit3 size={20} />
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      className="module-edit-button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        selectLayer(`module:${module.key}`);
+                      }}
+                      title={module.isOn ? "Cài đặt module" : "Bật rồi vào cài đặt"}
+                      disabled={saving && !module.isOn}
+                    >
+                      <Edit3 size={20} />
+                    </button>
                     </div>
                   </div>
                 </article>

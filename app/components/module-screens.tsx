@@ -90,10 +90,6 @@ export function ModerationScreen(props: {
           <h3>{c.title}</h3>
           <p>{c.body}</p>
         </div>
-        <div className="protection-score">
-          <strong>{props.selectedGroupProtection.enabledChecks}/{props.selectedGroupProtection.totalChecks}</strong>
-          <span>{props.selectedGroupProtection.ready ? c.ready : props.selectedGroupProtection.warnings[0]}</span>
-        </div>
       </div>
       <div className="module-quick-nav">
         <button type="button" className="active">Thiết lập dùng chung</button>
