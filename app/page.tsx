@@ -2304,10 +2304,6 @@ export default function HomePage() {
   }), [moduleState]);
   const enabledModuleCards = useMemo(() => moduleCards.filter((module) => module.isOn), [moduleCards]);
   const disabledModuleCards = useMemo(() => moduleCards.filter((module) => !module.isOn), [moduleCards]);
-  const activeOperationModuleCards = useMemo(
-    () => enabledModuleCards.filter((module) => ["moderation", "automation", "anti_scam"].includes(module.key)),
-    [enabledModuleCards]
-  );
   const moduleEnabled = useMemo(() => {
     const keys = activeModuleHub.moduleKeys || [activeModuleHub.key];
     const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
@@ -2316,7 +2312,7 @@ export default function HomePage() {
     }
     return states.some((row) => row?.enabled !== false);
   }, [activeModuleHub, moduleState]);
-  const moduleLayers = useMemo(() => activeOperationModuleCards.map((module) => ({
+  const moduleLayers = useMemo(() => enabledModuleCards.map((module) => ({
     key: `module:${module.key}`,
     title: module.title,
     shortTitle: module.title,
@@ -2326,7 +2322,7 @@ export default function HomePage() {
     tables: module.tables,
     moduleKey: module.key,
     landingKey: module.configKeys?.length ? "config" : module.tables[0]
-  })), [activeOperationModuleCards]);
+  })), [enabledModuleCards]);
   const allModuleLayers = useMemo(() => moduleCards.map((module) => ({
     key: `module:${module.key}`,
     title: module.title,
@@ -2639,11 +2635,11 @@ export default function HomePage() {
     if (!activeLayer.startsWith("module:")) {
       return;
     }
-    if (!moduleLayers.some((layer) => layer.key === activeLayer)) {
+    if (!allModuleLayers.some((layer) => layer.key === activeLayer)) {
       setActiveLayer("modules");
       setActiveKey("module_settings");
     }
-  }, [activeLayer, moduleLayers]);
+  }, [activeLayer, allModuleLayers]);
 
   useEffect(() => {
     if (table?.key !== "config") {
@@ -3481,7 +3477,7 @@ export default function HomePage() {
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const showOverview = workMode === "overview";
   const showOperations = workMode !== "overview";
-  const moduleWorkbenchActive = activeLayer.startsWith("module:") && ["moderation", "automation", "anti_scam"].includes(activeModuleHub.key);
+  const moduleWorkbenchActive = activeLayer.startsWith("module:");
   const setupWorkbench = ["bot", "group"].includes(activeLayer);
   const taskWorkbenchActive = !showTaskData && setupWorkbench;
   const showPrimaryTask = activeLayer !== "modules" && !taskWorkbenchActive;
@@ -3669,11 +3665,10 @@ export default function HomePage() {
                   key={layer.key}
                   className={`${layer.key === activeLayer ? "active" : ""} ${layer.isOn ? "" : "disabled"}`}
                   onClick={() => {
-                    if (!layer.isOn) return;
                     selectLayer(layer.key);
                   }}
                   type="button"
-                  disabled={!layer.isOn}
+                  aria-disabled={!layer.isOn}
                 >
                   <LayerIcon size={17} />
                   <span>{layer.shortTitle}</span>
