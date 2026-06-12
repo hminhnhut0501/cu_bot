@@ -4668,44 +4668,6 @@ export default function HomePage() {
           </section>
         ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") ? (
           <section className="config-center">
-            {activeLayer === "module:moderation" ? (
-              <section className="config-quick-strip moderation-quick-strip">
-                <div>
-                  <span className="eyebrow">Cài đặt kiểm duyệt tự động</span>
-                  <h4>Quét link ẩn và mention</h4>
-                  <p>Điều chỉnh ngay trên cùng màn này theo bot/group đang chọn.</p>
-                </div>
-                <div className="moderation-settings-actions moderation-settings-actions-grid moderation-quick-controls">
-                  <label className="toggle-field">
-                    <span>Chặn text_link</span>
-                    <button type="button" className={moderationScanTextLink ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextLink}>
-                      <span />
-                    </button>
-                  </label>
-                  <label className="toggle-field">
-                    <span>Chặn text_mention</span>
-                    <button type="button" className={moderationScanTextMention ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextMention}>
-                      <span />
-                    </button>
-                  </label>
-                  <label className="toggle-field">
-                    <span>Cho phép @user trong group</span>
-                    <button type="button" className={moderationAllowInGroupMentions ? "toggle on" : "toggle off"} onClick={toggleModerationAllowInGroupMentions}>
-                      <span />
-                    </button>
-                  </label>
-                  <label>
-                    <span>Cách xử lý</span>
-                    <select value={moderationHiddenLinkAction} onChange={(event) => changeModerationHiddenLinkAction(event.target.value)}>
-                      <option value="warn">Warn</option>
-                      <option value="delete">Delete</option>
-                      <option value="restrict">Restrict</option>
-                      <option value="ban">Ban</option>
-                    </select>
-                  </label>
-                </div>
-              </section>
-            ) : null}
             <div className="config-tabs" aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
                 const TabIcon = section.icon;
@@ -4740,6 +4702,44 @@ export default function HomePage() {
                     <p>{activeConfigSection.desc}</p>
                   </div>
                 </div>
+                {activeLayer === "module:moderation" && activeConfigSection.title === "Thiết lập dùng chung" ? (
+                  <section className="config-quick-strip moderation-quick-strip">
+                    <div>
+                      <span className="eyebrow">Cài đặt kiểm duyệt tự động</span>
+                      <h4>Quét link ẩn và mention</h4>
+                      <p>Điều chỉnh ngay trên tab này theo bot/group đang chọn.</p>
+                    </div>
+                    <div className="moderation-settings-actions moderation-settings-actions-grid moderation-quick-controls">
+                      <label className="toggle-field">
+                        <span>Chặn text_link</span>
+                        <button type="button" className={moderationScanTextLink ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextLink}>
+                          <span />
+                        </button>
+                      </label>
+                      <label className="toggle-field">
+                        <span>Chặn text_mention</span>
+                        <button type="button" className={moderationScanTextMention ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextMention}>
+                          <span />
+                        </button>
+                      </label>
+                      <label className="toggle-field">
+                        <span>Cho phép @user trong group</span>
+                        <button type="button" className={moderationAllowInGroupMentions ? "toggle on" : "toggle off"} onClick={toggleModerationAllowInGroupMentions}>
+                          <span />
+                        </button>
+                      </label>
+                      <label>
+                        <span>Cách xử lý</span>
+                        <select value={moderationHiddenLinkAction} onChange={(event) => changeModerationHiddenLinkAction(event.target.value)}>
+                          <option value="warn">Warn</option>
+                          <option value="delete">Delete</option>
+                          <option value="restrict">Restrict</option>
+                          <option value="ban">Ban</option>
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+                ) : null}
                 <div className="settings-grid">
                   {activeConfigSection.rows.map((row) => {
                     const editing = selected?.id === row.id && Object.keys(draft).length > 0;
