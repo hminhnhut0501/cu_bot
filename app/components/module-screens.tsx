@@ -105,6 +105,17 @@ export function ModerationScreen(props: {
       <section className="policy-summary-grid">
         {props.moderationPolicySummary.map((item) => <article key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
       </section>
+      <section className="moderation-settings-strip">
+        <div>
+          <span className="eyebrow">Cài đặt scope hiện tại</span>
+          <h4>Chỉnh theo bot/group đang chọn</h4>
+          <p>Rule này dùng cấu hình đang áp dụng cho scope hiện tại, không cần mở bảng kỹ thuật.</p>
+        </div>
+        <div className="moderation-settings-actions">
+          <button type="button" className="secondary" onClick={() => props.openTaskData("config")}>Mở cài đặt</button>
+          <button type="button" className="ghost" onClick={props.startGroupProtectionFlow}>{c.openProtection}</button>
+        </div>
+      </section>
       <section className="guided-flow">
         <article><b>1</b><div><strong>{c.step1Title}</strong><p>{c.step1Body}</p></div><button type="button" onClick={() => props.openTaskData("keywords")}>{c.open}</button></article>
         <article><b>2</b><div><strong>{c.step2Title}</strong><p>{c.step2Body}</p></div><button type="button" onClick={() => props.openTaskData("keywords")}>{c.test}</button></article>

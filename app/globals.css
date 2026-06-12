@@ -1246,6 +1246,32 @@ nav button:hover {
   min-height: 86px;
 }
 
+.moderation-settings-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px 16px;
+}
+
+.moderation-settings-strip h4 {
+  margin: 4px 0 6px;
+}
+
+.moderation-settings-strip p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.moderation-settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .policy-summary-grid article.warning {
   border-color: #fedf89;
   background: #fffcf5;

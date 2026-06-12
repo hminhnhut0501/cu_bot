@@ -475,7 +475,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds", "scan_hidden_links", "hidden_link_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
   },
   {
     key: "menu_policy",
@@ -614,6 +614,10 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
   exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
+  scan_hidden_links: "Quét entity Telegram như text_link, text_mention và mention ngoài scope.",
+  hidden_link_action: "Hành động khi bot gặp link ẩn hoặc tag ngoài scope.",
+  hidden_link_reason: "Lý do nội bộ gắn vào audit cho link ẩn hoặc mention ngoài scope.",
+  hidden_link_delete_notice_seconds: "Sau bao lâu tự xóa thông báo vi phạm link ẩn.",
   spam_max_messages: "Bao nhiêu tin nhắn trong một khung thời gian sẽ bị coi là spam.",
   spam_window_seconds: "Khung thời gian để đếm spam. Ví dụ 15 nghĩa là 15 giây.",
   spam_action: "Hành động mặc định khi user spam: warn để cảnh báo, mute để khóa chat tạm, ban để chặn khỏi nhóm.",

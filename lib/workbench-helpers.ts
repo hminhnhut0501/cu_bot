@@ -67,7 +67,8 @@ export function buildModerationPolicySummary(settingsMap: Map<string, string>) {
     { label: "Forward", value: settingsMap.get("delete_forwarded_messages") === "false" ? "Cho phép" : actionLabel(settingsMap.get("forward_action") || "warn") },
     { label: "Spam", value: `${settingsMap.get("spam_max_messages") || "6"} tin / ${settingsMap.get("spam_window_seconds") || "12"} giây` },
     { label: "Nội dung lặp", value: settingsMap.get("duplicate_message_enabled") === "false" ? "Tắt" : actionLabel(settingsMap.get("duplicate_message_action") || "warn") },
-    { label: "Bio có link", value: settingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" }
+    { label: "Bio có link", value: settingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" },
+    { label: "Link ẩn", value: settingsMap.get("scan_hidden_links") === "false" ? "Không quét" : actionLabel(settingsMap.get("hidden_link_action") || "warn") }
   ];
 }
 
