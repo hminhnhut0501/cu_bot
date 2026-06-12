@@ -2010,7 +2010,7 @@ export default function HomePage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
-  const [selectedBot, setSelectedBot] = useState("main");
+  const [selectedBot, setSelectedBot] = useState("");
   const [selectedScope, setSelectedScope] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [activeConfigTab, setActiveConfigTab] = useState("");
