@@ -101,6 +101,10 @@ class ModerationModule(BotModule):
         "media_spam_max_messages",
         "media_spam_window_seconds",
         "media_spam_action",
+        "scan_hidden_links",
+        "hidden_link_action",
+        "hidden_link_reason",
+        "hidden_link_delete_notice_seconds",
     }
 
     name = "moderation"
@@ -406,6 +410,8 @@ class ModerationModule(BotModule):
             return
         if self.detect_content_spam(message):
             return
+        if self.detect_hidden_links_and_mentions(message):
+            return
         if self.detect_blacklisted_link(message):
             return
         if self.detect_forbidden_keyword(message):
@@ -577,6 +583,57 @@ class ModerationModule(BotModule):
                     return True
         return False
 
+    def detect_hidden_links_and_mentions(self, message):
+        if not self.setting_bool(message.chat.id, "scan_hidden_links", True):
+            return False
+
+        entities = []
+        entities.extend(getattr(message, "entities", None) or [])
+        entities.extend(getattr(message, "caption_entities", None) or [])
+        if not entities:
+            return False
+
+        matched = []
+        for entity in entities:
+            entity_type = (getattr(entity, "type", "") or "").strip().lower()
+            if entity_type not in {"text_link", "text_mention", "mention"}:
+                continue
+
+            detail = {"entity_type": entity_type}
+            if entity_type == "text_link":
+                url = getattr(entity, "url", "") or ""
+                if not url:
+                    continue
+                detail["entity_url"] = url
+            elif entity_type == "text_mention":
+                user = getattr(entity, "user", None)
+                if not user:
+                    continue
+                detail["entity_user_id"] = getattr(user, "id", "")
+                detail["entity_user_username"] = getattr(user, "username", "")
+                detail["entity_user_is_bot"] = getattr(user, "is_bot", False)
+            else:
+                detail["entity_text"] = self.truncate_text(self.entity_text(message, entity), 120)
+            matched.append(detail)
+
+        if not matched:
+            return False
+
+        reason = self.setting(
+            message.chat.id,
+            "hidden_link_reason",
+            "Không được gắn link ẩn hoặc tag bot/user/channel/group bên ngoài.",
+        )
+        action = self.setting(message.chat.id, "hidden_link_action", "warn")
+        self.delete_violation_message(
+            message,
+            "hidden_link_or_mention",
+            reason_label="Link/mention ẩn trong tin",
+            matched_entities=json.dumps(matched, ensure_ascii=False),
+        )
+        self.apply_action(message, action, reason, trigger="hidden_link_or_mention")
+        return True
+
     def message_domains(self, text):
         domains = []
         for match in self.URL_PATTERN.findall(text or ""):
@@ -585,6 +642,17 @@ class ModerationModule(BotModule):
             if domain:
                 domains.append(domain)
         return domains
+
+    def entity_text(self, message, entity):
+        text = self.message_text(message) or getattr(message, "caption", "") or ""
+        offset = getattr(entity, "offset", None)
+        length = getattr(entity, "length", None)
+        if offset is None or length is None:
+            return ""
+        try:
+            return text[int(offset): int(offset) + int(length)]
+        except Exception:
+            return ""
 
     def detect_forward(self, message):
         if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
