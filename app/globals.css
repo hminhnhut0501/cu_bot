@@ -3128,6 +3128,38 @@ button.primary:hover,
   color: var(--text);
 }
 
+.workbench-detail-stack {
+  display: grid;
+  gap: 12px;
+  padding: 16px 0 0;
+}
+
+.workbench-detail-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workbench-detail-head h4 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.workbench-detail-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.module-screen .workbench-detail-stack .ops-checklist-grid span {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, white 12%);
+  box-shadow: var(--shadow-sm);
+}
+
 .runtime-note {
   align-items: center;
   border-color: #fedf89;

@@ -1,4 +1,4 @@
-import { Check, ClipboardList, Plus, ShieldCheck, Sparkles, Users, Bot } from "lucide-react";
+import { Check, ClipboardList, Plus, ShieldCheck, Sparkles, Users, Bot, X } from "lucide-react";
 import { UI_COPY } from "@/lib/uiCopy";
 
 type ScheduleReadiness = {
@@ -234,8 +234,23 @@ export function BotScreen(props: {
           {c.connect}
         </button>
       </div>
-      <section className="workbench-actions-grid">
-        <button type="button" onClick={() => props.openTaskData("bots")}><Bot size={20} /><strong>{c.connect}</strong><span>{c.token}</span></button>
+      <section className="workbench-detail-stack">
+        <div className="workbench-detail-head">
+          <div>
+            <span className="eyebrow">Chi tiết</span>
+            <h4>Kết nối bot</h4>
+            <p>Trạng thái và checklist quan trọng được mở sẵn ngay từ đầu.</p>
+          </div>
+        </div>
+        <div className="ops-checklist-grid">
+          {props.setupChecklist.map((item) => (
+            <span key={item.label} className={item.done ? "done" : "missing"}>
+              {item.done ? <Check size={15} /> : <X size={15} />}
+              <b>{item.label}</b>
+              {item.detail}
+            </span>
+          ))}
+        </div>
       </section>
     </section>
   );
@@ -263,8 +278,23 @@ export function GroupScreen(props: {
           {c.addGroup}
         </button>
       </div>
-      <section className="workbench-actions-grid">
-        <button type="button" onClick={() => props.openTaskData("groups")}><Users size={20} /><strong>{c.group}</strong><span>{c.addGroup}</span></button>
+      <section className="workbench-detail-stack">
+        <div className="workbench-detail-head">
+          <div>
+            <span className="eyebrow">Chi tiết</span>
+            <h4>Phạm vi group/channel</h4>
+            <p>Checklist và trạng thái hiện tại được mở sẵn, không cần bấm thêm.</p>
+          </div>
+        </div>
+        <div className="ops-checklist-grid">
+          {props.setupChecklist.map((item) => (
+            <span key={item.label} className={item.done ? "done" : "missing"}>
+              {item.done ? <Check size={15} /> : <X size={15} />}
+              <b>{item.label}</b>
+              {item.detail}
+            </span>
+          ))}
+        </div>
       </section>
     </section>
   );
