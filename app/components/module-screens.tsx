@@ -84,9 +84,13 @@ export function AutomationScreen(props: {
 export function ModerationScreen(props: {
   selectedGroupProtection: ProtectionState;
   moderationPolicySummary: SummaryItem[];
+  hiddenLinksEnabled: boolean;
+  hiddenLinkAction: string;
   startGroupProtectionFlow: () => void;
   openTaskData: (key: string) => void;
   goToInsight: (insight: any) => void;
+  onToggleHiddenLinks: () => void;
+  onHiddenLinkActionChange: (value: string) => void;
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
@@ -112,7 +116,21 @@ export function ModerationScreen(props: {
           <p>Rule này dùng cấu hình đang áp dụng cho scope hiện tại, không cần mở bảng kỹ thuật.</p>
         </div>
         <div className="moderation-settings-actions">
-          <button type="button" className="secondary" onClick={() => props.openTaskData("config")}>Mở cài đặt</button>
+          <label className="toggle-field">
+            <span>Quét link ẩn</span>
+            <button type="button" className={props.hiddenLinksEnabled ? "toggle on" : "toggle off"} onClick={props.onToggleHiddenLinks}>
+              <span />
+            </button>
+          </label>
+          <label>
+            <span>Cách xử lý</span>
+            <select value={props.hiddenLinkAction} onChange={(event) => props.onHiddenLinkActionChange(event.target.value)}>
+              <option value="warn">Warn</option>
+              <option value="delete">Delete</option>
+              <option value="restrict">Restrict</option>
+              <option value="ban">Ban</option>
+            </select>
+          </label>
           <button type="button" className="ghost" onClick={props.startGroupProtectionFlow}>{c.openProtection}</button>
         </div>
       </section>

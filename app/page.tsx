@@ -2950,6 +2950,60 @@ export default function HomePage() {
     }
   }
 
+  async function saveModerationSetting(key: string, value: string) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const moderationRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "moderation");
+      const nextSettings = {
+        ...readSettingsObject(moderationRow?.settings),
+        [key]: value
+      };
+      if (moderationRow?.id) {
+        await api("/api/module_settings", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: moderationRow.id,
+            values: {
+              ...moderationRow,
+              settings: nextSettings
+            }
+          })
+        });
+      } else {
+        await api("/api/module_settings", {
+          method: "POST",
+          body: JSON.stringify({
+            bot_key: selectedBot || "main",
+            module_key: "moderation",
+            module_name: "Kiểm duyệt tự động",
+            category: "Kiểm duyệt tự động",
+            settings: nextSettings,
+            enabled: true
+          })
+        });
+      }
+      setNotice("Đã lưu cấu hình moderation.");
+      flashToast("Đã lưu cấu hình moderation.");
+      await refreshAfterMutation("module_settings", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleModerationHiddenLinks() {
+    await saveModerationSetting("scan_hidden_links", moderationHiddenLinksEnabled ? "false" : "true");
+  }
+
+  async function changeModerationHiddenLinkAction(value: string) {
+    await saveModerationSetting("hidden_link_action", value);
+  }
+
   async function queueChannelPost(row: Row) {
     if (!row.target_chat_id || !row.content) {
       const message = "Cần nhập Channel/Group nhận bài và Nội dung gửi trước khi gửi.";
@@ -3463,6 +3517,8 @@ export default function HomePage() {
     return map;
   }, [activeModuleHub.key, scopedConfigRows]);
   const moderationPolicySummary = useMemo(() => buildModerationPolicySummary(moderationSettingsMap), [moderationSettingsMap]);
+  const moderationHiddenLinksEnabled = moderationSettingsMap.get("scan_hidden_links") !== "false";
+  const moderationHiddenLinkAction = moderationSettingsMap.get("hidden_link_action") || "warn";
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -3827,9 +3883,13 @@ export default function HomePage() {
           <ModerationScreen
             selectedGroupProtection={selectedGroupProtection}
             moderationPolicySummary={moderationPolicySummary}
+            hiddenLinksEnabled={moderationHiddenLinksEnabled}
+            hiddenLinkAction={moderationHiddenLinkAction}
             startGroupProtectionFlow={startGroupProtectionFlow}
             openTaskData={openTaskData}
             goToInsight={goToInsight}
+            onToggleHiddenLinks={toggleModerationHiddenLinks}
+            onHiddenLinkActionChange={changeModerationHiddenLinkAction}
           />
         ) : null}
 

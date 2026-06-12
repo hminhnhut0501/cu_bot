@@ -1272,6 +1272,50 @@ nav button:hover {
   flex-wrap: wrap;
 }
 
+.moderation-settings-actions label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+}
+
+.toggle-field {
+  align-items: center;
+  grid-auto-flow: column;
+}
+
+.toggle {
+  width: 44px;
+  min-height: 26px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #e5e7eb;
+  display: inline-flex;
+  align-items: center;
+}
+
+.toggle span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(0);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.toggle.on {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+.toggle.on span {
+  transform: translateX(18px);
+}
+
+.toggle.off {
+  background: #e5e7eb;
+}
+
 .policy-summary-grid article.warning {
   border-color: #fedf89;
   background: #fffcf5;
