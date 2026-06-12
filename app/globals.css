@@ -633,30 +633,24 @@ nav button:hover {
 .bot-switcher {
   display: grid;
   gap: 8px;
-  min-width: min(100%, 420px);
-  justify-items: end;
-}
-
-.bot-switcher > span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  width: min(100%, 560px);
+  min-width: 0;
+  justify-items: stretch;
+  justify-self: end;
 }
 
 .bot-switcher-track {
   display: grid;
   grid-template-columns: repeat(var(--bot-switcher-count, 3), minmax(0, 1fr));
   align-items: stretch;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line) 76%);
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line) 80%);
   border-radius: 999px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 98%, white 2%), color-mix(in srgb, var(--panel) 93%, black 7%));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 99%, white 1%), color-mix(in srgb, var(--panel) 95%, black 5%));
   box-shadow:
-    0 10px 24px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 10px 24px color-mix(in srgb, var(--accent) 6%, transparent),
     var(--shadow-sm);
   overflow: hidden;
 }
@@ -664,10 +658,10 @@ nav button:hover {
 .bot-switcher-pill {
   width: 100%;
   min-width: 0;
-  min-height: 52px;
+  min-height: 56px;
   border: 1px solid transparent;
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   background: transparent;
   color: var(--muted);
   display: grid;
@@ -677,18 +671,21 @@ nav button:hover {
 }
 
 .bot-switcher-pill strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.15;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bot-switcher-pill small {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: color-mix(in srgb, var(--muted) 70%, white 30%);
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 .bot-switcher-pill.active {

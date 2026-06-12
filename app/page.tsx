@@ -3719,7 +3719,6 @@ export default function HomePage() {
           <div className="ops-context-actions">
             {lookups.bots.length ? (
               <div className="bot-switcher" role="tablist" aria-label="Chọn bot" style={{ "--bot-switcher-count": String(lookups.bots.length) } as CSSProperties}>
-                <span>Bot</span>
                 <div className="bot-switcher-track">
                   {lookups.bots.map((bot) => {
                     const botKey = String(bot.bot_key || "");
