@@ -713,6 +713,45 @@ nav button:hover {
   padding: 0 10px;
 }
 
+.overview-compact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 4px;
+}
+
+.overview-compact article {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.86);
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.overview-compact span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overview-compact strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.overview-compact p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.overview-compact-action {
+  align-content: start;
+}
+
 .context-alert span {
   display: inline-flex;
   align-items: center;

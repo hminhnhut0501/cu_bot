@@ -36,7 +36,7 @@ import {
   X
 } from "lucide-react";
 
-import { FieldConfig, TableConfig } from "@/lib/tables";
+import { FieldConfig, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
 import { UI_COPY } from "@/lib/uiCopy";
@@ -69,6 +69,18 @@ type Meta = {
     botKey: boolean;
     runtimeMode: string;
   };
+};
+const FALLBACK_META: Meta = {
+  tables: TABLES,
+  passwordRequired: false,
+  envStatus: {
+    supabaseUrl: false,
+    serviceRoleKey: false,
+    cpPassword: false,
+    botToken: false,
+    botKey: false,
+    runtimeMode: "fallback"
+  }
 };
 type Lookups = {
   bots: Row[];
@@ -2048,12 +2060,21 @@ export default function HomePage() {
     setSavedPassword(stored);
     setPassword(stored);
     fetch("/api/meta")
-      .then((response) => response.json())
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`meta failed (${response.status})`);
+        }
+        return response.json();
+      })
       .then((payload: Meta) => {
         setMeta(payload);
         setActiveKey(payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "");
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        setMeta(FALLBACK_META);
+        setActiveKey(FALLBACK_META.tables.find((item) => item.key === "bot_metrics")?.key || FALLBACK_META.tables[0]?.key || "");
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -3556,7 +3577,7 @@ export default function HomePage() {
   }
 
   if (!meta || !table) {
-    return <main className="loading">Không đọc được cấu hình control panel.</main>;
+    return <main className="loading">Đang khởi tạo control panel...</main>;
   }
 
   if (meta.passwordRequired && !savedPassword) {
@@ -3696,6 +3717,30 @@ export default function HomePage() {
             )}
           </div>
         </section>
+
+        {showOverview ? (
+          <section className="overview-compact">
+            <article>
+              <span>Bot online</span>
+              <strong>{healthSummary.activeBots}</strong>
+              <p>Bot đang hoạt động và sẵn sàng xử lý.</p>
+            </article>
+            <article>
+              <span>Module bật</span>
+              <strong>{healthSummary.enabledModules}</strong>
+              <p>Module đang bật trong hệ thống.</p>
+            </article>
+            <article>
+              <span>Cần chú ý</span>
+              <strong>{healthSummary.issues}</strong>
+              <p>Trạng thái thiếu cấu hình hoặc pending.</p>
+            </article>
+            <article className="overview-compact-action">
+              <span>Đi nhanh</span>
+              <button type="button" className="primary" onClick={() => setActiveLayer("module:moderation")}>Mở kiểm duyệt</button>
+            </article>
+          </section>
+        ) : null}
 
         {showOperations ? (
         <>
