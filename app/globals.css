@@ -1272,6 +1272,11 @@ nav button:hover {
   flex-wrap: wrap;
 }
 
+.moderation-settings-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .moderation-settings-actions label {
   display: grid;
   gap: 6px;

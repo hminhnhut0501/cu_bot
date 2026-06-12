@@ -85,11 +85,17 @@ export function ModerationScreen(props: {
   selectedGroupProtection: ProtectionState;
   moderationPolicySummary: SummaryItem[];
   hiddenLinksEnabled: boolean;
+  scanTextLink: boolean;
+  scanTextMention: boolean;
+  allowInGroupMentions: boolean;
   hiddenLinkAction: string;
   startGroupProtectionFlow: () => void;
   openTaskData: (key: string) => void;
   goToInsight: (insight: any) => void;
   onToggleHiddenLinks: () => void;
+  onToggleScanTextLink: () => void;
+  onToggleScanTextMention: () => void;
+  onToggleAllowInGroupMentions: () => void;
   onHiddenLinkActionChange: (value: string) => void;
 }) {
   const c = UI_COPY.workbench.moderation;
@@ -113,12 +119,24 @@ export function ModerationScreen(props: {
         <div>
           <span className="eyebrow">Cài đặt scope hiện tại</span>
           <h4>Chỉnh theo bot/group đang chọn</h4>
-          <p>Rule này dùng cấu hình đang áp dụng cho scope hiện tại, không cần mở bảng kỹ thuật.</p>
+          <p>3 control này áp dụng cho scope hiện tại, không cần mở bảng kỹ thuật.</p>
         </div>
-        <div className="moderation-settings-actions">
+        <div className="moderation-settings-actions moderation-settings-actions-grid">
           <label className="toggle-field">
-            <span>Quét link ẩn</span>
-            <button type="button" className={props.hiddenLinksEnabled ? "toggle on" : "toggle off"} onClick={props.onToggleHiddenLinks}>
+            <span>Chặn text_link</span>
+            <button type="button" className={props.scanTextLink ? "toggle on" : "toggle off"} onClick={props.onToggleScanTextLink}>
+              <span />
+            </button>
+          </label>
+          <label className="toggle-field">
+            <span>Chặn text_mention</span>
+            <button type="button" className={props.scanTextMention ? "toggle on" : "toggle off"} onClick={props.onToggleScanTextMention}>
+              <span />
+            </button>
+          </label>
+          <label className="toggle-field">
+            <span>Cho phép @user trong group</span>
+            <button type="button" className={props.allowInGroupMentions ? "toggle on" : "toggle off"} onClick={props.onToggleAllowInGroupMentions}>
               <span />
             </button>
           </label>

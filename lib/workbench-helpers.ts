@@ -68,7 +68,9 @@ export function buildModerationPolicySummary(settingsMap: Map<string, string>) {
     { label: "Spam", value: `${settingsMap.get("spam_max_messages") || "6"} tin / ${settingsMap.get("spam_window_seconds") || "12"} giây` },
     { label: "Nội dung lặp", value: settingsMap.get("duplicate_message_enabled") === "false" ? "Tắt" : actionLabel(settingsMap.get("duplicate_message_action") || "warn") },
     { label: "Bio có link", value: settingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" },
-    { label: "Link ẩn", value: settingsMap.get("scan_hidden_links") === "false" ? "Không quét" : actionLabel(settingsMap.get("hidden_link_action") || "warn") }
+    { label: "Text link", value: settingsMap.get("scan_text_link") === "false" ? "Tắt" : actionLabel(settingsMap.get("text_link_action") || settingsMap.get("hidden_link_action") || "warn") },
+    { label: "Text mention", value: settingsMap.get("scan_text_mention") === "false" ? "Tắt" : actionLabel(settingsMap.get("text_mention_action") || settingsMap.get("hidden_link_action") || "warn") },
+    { label: "@user nội bộ", value: settingsMap.get("allow_in_group_mentions") === "false" ? "Chặn" : "Cho phép" }
   ];
 }
 

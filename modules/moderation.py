@@ -102,7 +102,12 @@ class ModerationModule(BotModule):
         "media_spam_window_seconds",
         "media_spam_action",
         "scan_hidden_links",
+        "scan_text_link",
+        "scan_text_mention",
+        "allow_in_group_mentions",
         "hidden_link_action",
+        "text_link_action",
+        "text_mention_action",
         "hidden_link_reason",
         "hidden_link_delete_notice_seconds",
     }
@@ -604,19 +609,25 @@ class ModerationModule(BotModule):
 
             detail = {"entity_type": entity_type}
             if entity_type == "text_link":
+                if not self.setting_bool(message.chat.id, "scan_text_link", True):
+                    continue
                 url = getattr(entity, "url", "") or ""
                 if not url:
                     continue
                 detail["entity_url"] = url
+                detail["rule_action"] = self.setting(message.chat.id, "text_link_action", self.setting(message.chat.id, "hidden_link_action", "warn"))
                 matched.append(detail)
                 continue
             elif entity_type == "text_mention":
+                if not self.setting_bool(message.chat.id, "scan_text_mention", True):
+                    continue
                 user = getattr(entity, "user", None)
                 if not user:
                     continue
                 detail["entity_user_id"] = getattr(user, "id", "")
                 detail["entity_user_username"] = getattr(user, "username", "")
                 detail["entity_user_is_bot"] = getattr(user, "is_bot", False)
+                detail["rule_action"] = self.setting(message.chat.id, "text_mention_action", self.setting(message.chat.id, "hidden_link_action", "warn"))
                 matched.append(detail)
                 continue
 
@@ -624,7 +635,7 @@ class ModerationModule(BotModule):
             if not mention_name:
                 continue
             detail["entity_mention"] = mention_name
-            if mention_name in current_group_usernames:
+            if self.setting_bool(message.chat.id, "allow_in_group_mentions", True) and mention_name in current_group_usernames:
                 continue
             if mention_name in known_bot_usernames:
                 detail["matched_target"] = "bot"
@@ -632,6 +643,7 @@ class ModerationModule(BotModule):
                 detail["matched_target"] = "group"
             else:
                 detail["matched_target"] = "unknown"
+            detail["rule_action"] = self.setting(message.chat.id, "hidden_link_action", "warn")
             matched.append(detail)
 
         if not matched:
@@ -649,7 +661,9 @@ class ModerationModule(BotModule):
             reason_label="Link/mention ẩn trong tin",
             matched_entities=json.dumps(matched, ensure_ascii=False),
         )
-        self.apply_action(message, action, reason, trigger="hidden_link_or_mention")
+        for item in matched:
+            self.apply_action(message, item.get("rule_action") or action, reason, trigger="hidden_link_or_mention")
+            break
         return True
 
     def message_domains(self, text):
