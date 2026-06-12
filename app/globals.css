@@ -632,32 +632,69 @@ nav button:hover {
 
 .bot-picker {
   display: grid;
-  gap: 6px;
-  min-width: 220px;
+  gap: 8px;
+  min-width: 290px;
+  justify-items: end;
 }
 
 .bot-picker span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.bot-picker select {
-  min-height: 42px;
+.bot-picker-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--panel) 96%, white 4%);
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--line) 68%);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 98%, white 2%), color-mix(in srgb, var(--panel) 92%, black 8%));
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--accent) 8%, transparent),
+    var(--shadow-sm);
+}
+
+.bot-picker select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  min-height: 44px;
+  width: 100%;
+  border: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--accent) 3%, transparent));
   color: var(--text);
-  padding: 0 14px;
-  box-shadow: var(--shadow-sm);
+  padding: 0 44px 0 18px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.bot-picker-control svg {
+  position: absolute;
+  right: 16px;
+  color: color-mix(in srgb, var(--accent) 60%, var(--muted) 40%);
+  pointer-events: none;
 }
 
 .bot-picker select:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 36%, white 64%);
   outline-offset: 2px;
+}
+
+.bot-picker-control:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 65%, white 35%);
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--accent) 14%, transparent),
+    var(--shadow-sm);
 }
 
 .ops-context-panel {

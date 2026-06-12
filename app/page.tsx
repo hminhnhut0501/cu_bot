@@ -11,6 +11,7 @@ import {
   CheckSquare,
   Clock3,
   ClipboardList,
+  ChevronDown,
   Database,
   Edit3,
   Eye,
@@ -3719,14 +3720,17 @@ export default function HomePage() {
             {lookups.bots.length ? (
               <label className="bot-picker">
                 <span>Bot</span>
-                <select value={selectedBot} onChange={(event) => selectBot(event.target.value)} aria-label="Chọn bot">
-                  <option value="">Tất cả bot</option>
-                  {lookups.bots.map((bot) => (
-                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
-                      {bot.name || bot.bot_key}
-                    </option>
-                  ))}
-                </select>
+                <div className="bot-picker-control">
+                  <select value={selectedBot} onChange={(event) => selectBot(event.target.value)} aria-label="Chọn bot">
+                    <option value="">Tất cả bot</option>
+                    {lookups.bots.map((bot) => (
+                      <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
+                        {bot.name || bot.bot_key}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} aria-hidden="true" />
+                </div>
               </label>
             ) : (
               <button type="button" className="secondary" onClick={() => setActiveKey("bots")}>
