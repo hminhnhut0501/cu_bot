@@ -117,9 +117,9 @@ export function ModerationScreen(props: {
       </section>
       <section className="moderation-settings-strip">
         <div>
-          <span className="eyebrow">Cài đặt scope hiện tại</span>
-          <h4>Chỉnh theo bot/group đang chọn</h4>
-          <p>3 control này áp dụng cho scope hiện tại, không cần mở bảng kỹ thuật.</p>
+          <span className="eyebrow">Cài đặt kiểm duyệt tự động</span>
+          <h4>Quét link ẩn và mention</h4>
+          <p>3 control này áp dụng cho bot/group đang chọn, không cần mở bảng kỹ thuật.</p>
         </div>
         <div className="moderation-settings-actions moderation-settings-actions-grid">
           <label className="toggle-field">
