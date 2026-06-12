@@ -594,6 +594,9 @@ class ModerationModule(BotModule):
             return False
 
         matched = []
+        current_group_usernames = self.current_scope_usernames(message.chat.id)
+        known_bot_usernames = self.known_bot_usernames()
+        known_group_usernames = self.known_group_usernames(message.chat.id)
         for entity in entities:
             entity_type = (getattr(entity, "type", "") or "").strip().lower()
             if entity_type not in {"text_link", "text_mention", "mention"}:
@@ -605,6 +608,8 @@ class ModerationModule(BotModule):
                 if not url:
                     continue
                 detail["entity_url"] = url
+                matched.append(detail)
+                continue
             elif entity_type == "text_mention":
                 user = getattr(entity, "user", None)
                 if not user:
@@ -612,8 +617,21 @@ class ModerationModule(BotModule):
                 detail["entity_user_id"] = getattr(user, "id", "")
                 detail["entity_user_username"] = getattr(user, "username", "")
                 detail["entity_user_is_bot"] = getattr(user, "is_bot", False)
+                matched.append(detail)
+                continue
+
+            mention_name = self.normalize_mention_name(self.entity_text(message, entity))
+            if not mention_name:
+                continue
+            detail["entity_mention"] = mention_name
+            if mention_name in current_group_usernames:
+                continue
+            if mention_name in known_bot_usernames:
+                detail["matched_target"] = "bot"
+            elif mention_name in known_group_usernames:
+                detail["matched_target"] = "group"
             else:
-                detail["entity_text"] = self.truncate_text(self.entity_text(message, entity), 120)
+                detail["matched_target"] = "unknown"
             matched.append(detail)
 
         if not matched:
@@ -653,6 +671,46 @@ class ModerationModule(BotModule):
             return text[int(offset): int(offset) + int(length)]
         except Exception:
             return ""
+
+    def normalize_mention_name(self, value):
+        text = normalize_text(value or "")
+        if text.startswith("@"):
+            text = text[1:]
+        return text.strip()
+
+    def current_scope_usernames(self, chat_id):
+        usernames = set()
+        scope_chat_id = str(chat_id)
+        for table in ("member_roles", "admins"):
+            for row in self.store.rows(table):
+                row_scope = str(row.get("chat_id") or row.get("group_id") or "").strip()
+                if row_scope and row_scope != scope_chat_id:
+                    continue
+                username = self.normalize_mention_name(row.get("username") or row.get("target_username") or "")
+                if username:
+                    usernames.add(username)
+        return usernames
+
+    def known_bot_usernames(self):
+        usernames = set()
+        for row in self.store.rows("bots"):
+            username = self.normalize_mention_name(row.get("username") or row.get("bot_username") or "")
+            if username:
+                usernames.add(username)
+        return usernames
+
+    def known_group_usernames(self, chat_id):
+        usernames = set()
+        scope_chat_id = str(chat_id)
+        for row in self.store.rows("groups"):
+            username = self.normalize_mention_name(row.get("group_username") or row.get("username") or "")
+            if not username:
+                continue
+            row_scope = str(row.get("group_id") or row.get("chat_id") or "").strip()
+            if row_scope and row_scope == scope_chat_id:
+                continue
+            usernames.add(username)
+        return usernames
 
     def detect_forward(self, message):
         if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
