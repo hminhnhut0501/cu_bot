@@ -918,7 +918,36 @@ function configEditorKind(key: string) {
 }
 
 function configSelectOptions(key: string) {
-  return key.endsWith("_action") ? CONFIG_SELECT_OPTIONS.warn : [];
+  if (!key.endsWith("_action")) {
+    return [];
+  }
+  return [
+    { value: "warn", label: "Warn - cảnh báo và xóa" },
+    { value: "delete", label: "Delete - xóa tin" },
+    { value: "restrict", label: "Restrict - hạn chế tạm" },
+    { value: "mute", label: "Mute - im lặng tạm" },
+    { value: "kick", label: "Kick - đá khỏi group" },
+    { value: "ban", label: "Ban - chặn khỏi group" }
+  ];
+}
+
+function configInputGuide(key: string) {
+  if (CONFIG_BOOLEAN_KEYS.has(key)) {
+    return "Dùng công tắc bật/tắt. Không cần nhập giá trị thủ công.";
+  }
+  if (key.endsWith("_action")) {
+    return "Dùng dropdown để chọn hành động cố định, không nhập tay.";
+  }
+  if (key.endsWith("_seconds")) {
+    return "Nhập số giây, ví dụ 300 = 5 phút.";
+  }
+  if (key.endsWith("_count")) {
+    return "Nhập số lượng, ví dụ 3 hoặc 5.";
+  }
+  if (key.endsWith("_text") || key.includes("reason") || key.includes("commands")) {
+    return "Nhập nội dung văn bản. Có thể chèn placeholder nếu field có hỗ trợ.";
+  }
+  return "Nhập đúng giá trị mà bot cần đọc từ config.";
 }
 
 function friendlySaveError(error: unknown) {
@@ -953,6 +982,18 @@ function fieldUnitHint(field: FieldConfig) {
   }
   if (key === "moderation_enabled") {
     return "Tắt để group này không chạy moderation.";
+  }
+  if (key === "scan_hidden_links") {
+    return "Bật để áp dụng toàn bộ rule link ẩn.";
+  }
+  if (key === "scan_text_link") {
+    return "Bật để chặn link ẩn gắn vào chữ bấm.";
+  }
+  if (key === "scan_text_mention") {
+    return "Bật để chặn mention ẩn.";
+  }
+  if (key === "allow_in_group_mentions") {
+    return "Bật nếu muốn cho phép @user giữa thành viên.";
   }
   if (key === "scan_bio_links") {
     return "Bật để bot quét bio người gửi.";
@@ -4570,17 +4611,20 @@ export default function HomePage() {
                     </button>
                   </div>
                   {configEditorKind(String(draft.key || "")) === "boolean" ? (
-                    <label className="checkbox-field">
-                      <span>Bật giá trị này</span>
-                      <input
-                        type="checkbox"
-                        checked={String(draft.value).toLowerCase() === "true"}
-                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
-                      />
+                    <label>
+                      <span>Trạng thái</span>
+                      <button
+                        type="button"
+                        className={`toggle-switch ${String(draft.value).toLowerCase() === "true" ? "on" : "off"}`}
+                        onClick={() => setDraft((current) => ({ ...current, value: String(current.value).toLowerCase() === "true" ? "false" : "true" }))}
+                      >
+                        <span />
+                      </button>
+                      <small>{configInputGuide(String(draft.key || ""))}</small>
                     </label>
                   ) : configEditorKind(String(draft.key || "")) === "select" ? (
                     <label>
-                      <span>Chọn giá trị</span>
+                      <span>Chọn giá trị cố định</span>
                       <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
                         {configSelectOptions(String(draft.key || "")).map((option) => (
                           <option key={option.value} value={option.value}>
@@ -4588,21 +4632,21 @@ export default function HomePage() {
                           </option>
                         ))}
                       </select>
-                      <small>{configFieldHint(String(draft.key || "")) || "Chọn một giá trị cố định thay vì nhập tay."}</small>
+                      <small>{configInputGuide(String(draft.key || ""))}</small>
                     </label>
                   ) : configEditorKind(String(draft.key || "")) === "number" ? (
                     <label>
-                      <span>Giá trị số</span>
+                      <span>Nhập giá trị số</span>
                       <input
                         type="number"
                         value={String(draft.value ?? "")}
                         onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                       />
-                      <small>{fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
+                      <small>{configInputGuide(String(draft.key || ""))} {fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
                     </label>
                   ) : (
                     <label>
-                      <span>Nội dung / giá trị</span>
+                      <span>Nhập nội dung / giá trị</span>
                       <textarea
                         value={draft.value ?? ""}
                         onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
@@ -4610,18 +4654,21 @@ export default function HomePage() {
                       />
                       {configPlaceholders(String(draft.key || "")).length ? (
                         <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                      ) : configFieldHint(String(draft.key || "")) ? (
-                        <small>{configFieldHint(String(draft.key || ""))}</small>
-                      ) : null}
+                      ) : (
+                        <small>{configInputGuide(String(draft.key || ""))}</small>
+                      )}
                     </label>
                   )}
-                  <label className="checkbox-field">
+                  <label>
                     <span>Kích hoạt cấu hình này</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(draft.enabled)}
-                      onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
-                    />
+                    <button
+                      type="button"
+                      className={`toggle-switch ${Boolean(draft.enabled) ? "on" : "off"}`}
+                      onClick={() => setDraft((current) => ({ ...current, enabled: !current.enabled }))}
+                    >
+                      <span />
+                    </button>
+                    <small>On = bot dùng giá trị này. Off = bot bỏ qua.</small>
                   </label>
                   <div className="setting-edit-actions">
                     <button type="button" className="ghost" onClick={closeFocusedPanel}>
@@ -4744,17 +4791,20 @@ export default function HomePage() {
                         {editing ? (
                           <form className="setting-edit" onSubmit={save}>
                             {editorKind === "boolean" ? (
-                              <label className="checkbox-field">
-                                <span>Bật chức năng này</span>
-                                <input
-                                  type="checkbox"
-                                  checked={String(draft.value).toLowerCase() === "true"}
-                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.checked ? "true" : "false" }))}
-                                />
+                              <label>
+                                <span>Trạng thái</span>
+                                <button
+                                  type="button"
+                                  className={`toggle-switch ${String(draft.value).toLowerCase() === "true" ? "on" : "off"}`}
+                                  onClick={() => setDraft((current) => ({ ...current, value: String(current.value).toLowerCase() === "true" ? "false" : "true" }))}
+                                >
+                                  <span />
+                                </button>
+                                <small>{configInputGuide(String(row.key || ""))}</small>
                               </label>
                             ) : editorKind === "select" ? (
                               <label>
-                                <span>Chọn giá trị</span>
+                                <span>Chọn giá trị cố định</span>
                                 <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
                                   {configSelectOptions(String(row.key || "")).map((option) => (
                                     <option key={option.value} value={option.value}>
@@ -4762,21 +4812,21 @@ export default function HomePage() {
                                     </option>
                                   ))}
                                 </select>
-                                <small>{configFieldHint(String(row.key || "")) || "Chọn một giá trị cố định thay vì nhập tay."}</small>
+                                <small>{configInputGuide(String(row.key || ""))}</small>
                               </label>
                             ) : editorKind === "number" ? (
                               <label>
-                                <span>Giá trị số</span>
+                                <span>Nhập giá trị số</span>
                                 <input
                                   type="number"
                                   value={String(draft.value ?? "")}
                                   onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
                                 />
-                                <small>{fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
+                                <small>{configInputGuide(String(row.key || ""))} {fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
                               </label>
                             ) : (
                               <label>
-                                <span>Nội dung / giá trị</span>
+                                <span>Nhập nội dung / giá trị</span>
                                 <textarea
                                   value={draft.value ?? ""}
                                   onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
@@ -4784,18 +4834,21 @@ export default function HomePage() {
                                 />
                                 {configPlaceholders(String(draft.key || "")).length ? (
                                   <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                                ) : configFieldHint(String(draft.key || "")) ? (
-                                  <small>{configFieldHint(String(draft.key || ""))}</small>
-                                ) : null}
+                                ) : (
+                                  <small>{configInputGuide(String(draft.key || ""))}</small>
+                                )}
                               </label>
                             )}
-                            <label className="checkbox-field">
+                            <label>
                               <span>Kích hoạt cài đặt này</span>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(draft.enabled)}
-                                onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
-                              />
+                              <button
+                                type="button"
+                                className={`toggle-switch ${Boolean(draft.enabled) ? "on" : "off"}`}
+                                onClick={() => setDraft((current) => ({ ...current, enabled: !current.enabled }))}
+                              >
+                                <span />
+                              </button>
+                              <small>On = bot dùng giá trị này. Off = bot bỏ qua.</small>
                             </label>
                             <div className="setting-edit-actions">
                               <button type="button" className="ghost" onClick={closeFocusedPanel}>
