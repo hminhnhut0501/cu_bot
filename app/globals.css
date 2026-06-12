@@ -152,6 +152,36 @@ nav button {
   gap: 10px;
 }
 
+.layer-nav button .nav-status {
+  margin-left: auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #8ea0b8;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.layer-nav button.disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  color: #7f8ca3;
+  background: transparent;
+}
+
+.layer-nav button.disabled svg {
+  color: #6e7d95;
+}
+
+.layer-nav button.disabled:hover {
+  background: transparent;
+  color: #7f8ca3;
+  transform: none;
+  box-shadow: none;
+}
+
 .layer-nav button svg {
   color: #8ea0b8;
   flex: 0 0 auto;

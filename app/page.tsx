@@ -3654,6 +3654,7 @@ export default function HomePage() {
                   >
                     <LayerIcon size={17} />
                     <span>{layer.shortTitle}</span>
+                    {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
                   </button>
                 );
               })}
@@ -3676,6 +3677,7 @@ export default function HomePage() {
                 >
                   <LayerIcon size={17} />
                   <span>{layer.shortTitle}</span>
+                  {!layer.isOn ? <small className="nav-status">Tắt</small> : null}
                 </button>
                 );
               })}
