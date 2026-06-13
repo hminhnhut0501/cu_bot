@@ -801,6 +801,169 @@ nav button:hover {
   align-content: start;
 }
 
+.overview-log-panel {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 98%, white 2%), color-mix(in srgb, var(--panel) 92%, black 8%));
+  box-shadow: var(--shadow);
+}
+
+.overview-log-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.overview-log-head > div > span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.overview-log-head h3 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.overview-log-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.overview-log-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(88px, auto));
+  gap: 10px;
+}
+
+.overview-log-stats article {
+  min-width: 94px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, var(--accent) 30%);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 96%, white 4%);
+}
+
+.overview-log-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.overview-log-stats strong {
+  display: block;
+  font-size: 24px;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+
+.overview-log-action {
+  align-self: stretch;
+  justify-self: end;
+  min-width: 112px;
+}
+
+.overview-log-groups {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.overview-log-group {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 97%, white 3%);
+}
+
+.overview-log-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.overview-log-group-head strong {
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.overview-log-group-head span {
+  min-width: 30px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.overview-log-group.critical .overview-log-group-head span {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.overview-log-group.warning .overview-log-group-head span {
+  background: color-mix(in srgb, var(--orange) 18%, transparent);
+}
+
+.overview-log-group.info .overview-log-group-head span {
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.overview-log-group article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 96%, white 4%);
+}
+
+.overview-log-group strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.overview-log-group p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.overview-log-group small {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.overview-log-empty {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 98%, white 2%);
+}
+
 .module-quick-nav {
   display: flex;
   flex-wrap: wrap;

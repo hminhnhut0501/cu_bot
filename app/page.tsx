@@ -89,6 +89,7 @@ type Lookups = {
   videos: Row[];
   moduleSettings: Row[];
   scamReports: Row[];
+  auditLogs: Row[];
 };
 type CommandInsight = {
   severity: "critical" | "high" | "warning" | "info" | "healthy";
@@ -1066,6 +1067,22 @@ function formatDateTime(value: unknown) {
     month: "2-digit",
     year: "numeric"
   });
+}
+
+function vietnamDayKey(value: unknown) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
 }
 
 function parseDetails(value: unknown) {
@@ -2059,7 +2076,7 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [] });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
@@ -2413,6 +2430,33 @@ export default function HomePage() {
     deleteFailures: healthSummary.deleteFailures,
     offModules: healthSummary.offModules
   }), [healthSummary, visibleRows.length]);
+  const todayAuditLogs = useMemo(() => {
+    const botLogs = lookups.auditLogs.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot);
+    const today = vietnamDayKey(new Date());
+    return botLogs
+      .filter((row) => vietnamDayKey(row.created_at || row.updated_at) === today)
+      .sort((left, right) => Date.parse(String(right.created_at || right.updated_at || 0)) - Date.parse(String(left.created_at || left.updated_at || 0)))
+      .slice(0, 6);
+  }, [lookups.auditLogs, selectedBot]);
+  const todayAuditSummary = useMemo(() => {
+    const total = todayAuditLogs.length;
+    const critical = todayAuditLogs.filter((row) => auditLogSeverity(row) === "critical").length;
+    const warning = todayAuditLogs.filter((row) => auditLogSeverity(row) === "warning").length;
+    const info = todayAuditLogs.filter((row) => auditLogSeverity(row) === "info").length;
+    return { total, critical, warning, info };
+  }, [todayAuditLogs]);
+  const todayAuditGroups = useMemo(() => {
+    const groups: Record<"critical" | "warning" | "info", Row[]> = { critical: [], warning: [], info: [] };
+    for (const row of todayAuditLogs) {
+      const severity = auditLogSeverity(row);
+      if (severity === "critical" || severity === "warning") {
+        groups[severity].push(row);
+      } else {
+        groups.info.push(row);
+      }
+    }
+    return groups;
+  }, [todayAuditLogs]);
   const quickFilters = useMemo(() => {
     if (table?.key === "audit_logs") {
       const actions = Array.from(new Set(rows.map((row) => String(row.action || "").toLowerCase()).filter(Boolean))).slice(0, 6);
@@ -2523,11 +2567,12 @@ export default function HomePage() {
         messages: messagesPayload.rows || [],
         videos: videosPayload.rows || [],
         moduleSettings: modulePayload.rows || [],
-        scamReports: scamReportsPayload.rows || []
+        scamReports: scamReportsPayload.rows || [],
+        auditLogs: auditPayload.rows || []
       });
     } catch {
       setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [] });
     }
   }
 
@@ -3768,6 +3813,55 @@ export default function HomePage() {
               <span>Đi nhanh</span>
               <button type="button" className="primary" onClick={() => setActiveLayer("module:moderation")}>Mở kiểm duyệt</button>
             </article>
+          </section>
+        ) : null}
+
+        {showOverview ? (
+          <section className="overview-log-panel">
+            <div className="overview-log-head">
+              <div>
+                <span>Nhật ký hôm nay</span>
+                <h3>Log bot trong ngày</h3>
+                <p>Hiển thị log gần nhất của bot đang chọn trong ngày hiện tại.</p>
+              </div>
+              <div className="overview-log-stats">
+                <article><span>Tổng</span><strong>{todayAuditSummary.total}</strong></article>
+                <article><span>Cảnh báo</span><strong>{todayAuditSummary.warning}</strong></article>
+                <article><span>Nghiêm trọng</span><strong>{todayAuditSummary.critical}</strong></article>
+                <article><span>Thông tin</span><strong>{todayAuditSummary.info}</strong></article>
+                <button type="button" className="secondary overview-log-action" onClick={() => setActiveLayer("logs")}>Mở Logs</button>
+              </div>
+            </div>
+            <div className="overview-log-groups">
+              {(["critical", "warning", "info"] as const).map((severity) => {
+                const group = todayAuditGroups[severity];
+                const titleMap = { critical: "Nghiêm trọng", warning: "Cảnh báo", info: "Thông tin" } as const;
+                return (
+                  <section key={severity} className={`overview-log-group ${severity}`}>
+                    <div className="overview-log-group-head">
+                      <strong>{titleMap[severity]}</strong>
+                      <span>{group.length}</span>
+                    </div>
+                    {group.length ? group.slice(0, 3).map((row) => {
+                      const details = parseDetails(row.details);
+                      return (
+                        <article key={String(row.id || `${row.created_at}-${row.action}`)}>
+                          <div>
+                            <strong>{actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] })}</strong>
+                            <p>{String(row.message || details.message || details.reason || "Không có mô tả")}</p>
+                          </div>
+                          <small>{formatDateTime(row.created_at || row.updated_at)}</small>
+                        </article>
+                      );
+                    }) : (
+                      <div className="overview-log-empty">
+                        Chưa có log nào thuộc nhóm này trong hôm nay.
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           </section>
         ) : null}
 
