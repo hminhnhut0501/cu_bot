@@ -90,6 +90,7 @@ type Lookups = {
   moduleSettings: Row[];
   scamReports: Row[];
   auditLogs: Row[];
+  channelPosts: Row[];
 };
 type CommandInsight = {
   severity: "critical" | "high" | "warning" | "info" | "healthy";
@@ -2076,7 +2077,7 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [] });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
@@ -2396,6 +2397,8 @@ export default function HomePage() {
       enabledModules: moduleRows.filter((row) => row.enabled !== false).length,
       offModules,
       pendingScamReports,
+      pendingChannelPosts: lookups.channelPosts.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot).filter((row) => ["pending", "queued", "scheduled"].includes(String(row.status || "").toLowerCase())).length,
+      failedChannelPosts: lookups.channelPosts.filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot).filter((row) => ["failed", "delete_failed"].includes(String(row.status || "").toLowerCase())).length,
       groupsMissingMessagePool,
       groupsMissingVideoPool,
       envMissing,
@@ -2403,7 +2406,7 @@ export default function HomePage() {
       deleteFailures: deleteFailureAlert.recentCount,
       issues: disabledBots + missingSetup + pendingScamReports + (deleteFailureAlert.recentCount > 0 ? 1 : 0)
     };
-  }, [deleteFailureAlert.recentCount, lookups.bots, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
+  }, [deleteFailureAlert.recentCount, lookups.bots, lookups.channelPosts, lookups.groups, messagePoolCounts, meta?.envStatus, moduleRows, pendingScamReports, selectedBot, videoPoolCounts]);
   const commandInsights = useMemo(() => buildCommandInsights({
     disabledBots: healthSummary.disabledBots,
     groups: healthSummary.groups,
@@ -2536,14 +2539,15 @@ export default function HomePage() {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const scopedGroupQuery = selectedScope ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedScope)}` : "";
       const auditQuery = selectedScope ? `?group_id=${encodeURIComponent(selectedScope)}` : "";
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload, channelPostsPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
         api(`/api/messages${scopedBotQuery}`),
         api(`/api/video_messages${scopedBotQuery}`),
         api(`/api/module_settings${scopedBotQuery}`),
         api(`/api/scam_reports${scopedBotQuery}`),
-        api(`/api/audit_logs${auditQuery}`)
+        api(`/api/audit_logs${auditQuery}`),
+        api(`/api/channel_posts${scopedBotQuery}`)
       ]);
       const deleteFailedRows = (auditPayload.rows || [])
         .filter((row: Row) => ["delete_message_failed", "delete_message"].includes(String(row.action || "").toLowerCase()))
@@ -2568,11 +2572,12 @@ export default function HomePage() {
         videos: videosPayload.rows || [],
         moduleSettings: modulePayload.rows || [],
         scamReports: scamReportsPayload.rows || [],
-        auditLogs: auditPayload.rows || []
+        auditLogs: auditPayload.rows || [],
+        channelPosts: channelPostsPayload.rows || []
       });
     } catch {
       setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [] });
     }
   }
 
@@ -3800,18 +3805,48 @@ export default function HomePage() {
               <p>Bot đang hoạt động và sẵn sàng xử lý.</p>
             </article>
             <article>
+              <span>Bot lỗi</span>
+              <strong>{healthSummary.disabledBots}</strong>
+              <p>Bot đang tắt, paused hoặc chưa sẵn sàng.</p>
+            </article>
+            <article>
               <span>Module bật</span>
               <strong>{healthSummary.enabledModules}</strong>
               <p>Module đang bật trong hệ thống.</p>
             </article>
             <article>
-              <span>Cần chú ý</span>
-              <strong>{healthSummary.issues}</strong>
-              <p>Trạng thái thiếu cấu hình hoặc pending.</p>
+              <span>Module tắt</span>
+              <strong>{healthSummary.offModules}</strong>
+              <p>Module đang tắt trong bot hiện tại.</p>
             </article>
             <article className="overview-compact-action">
               <span>Đi nhanh</span>
               <button type="button" className="primary" onClick={() => setActiveLayer("module:moderation")}>Mở kiểm duyệt</button>
+            </article>
+          </section>
+        ) : null}
+
+        {showOverview ? (
+          <section className="overview-work-grid">
+            <article>
+              <span>Report scam chờ</span>
+              <strong>{healthSummary.pendingScamReports}</strong>
+              <p>Báo cáo đang đợi duyệt hoặc từ chối.</p>
+            </article>
+            <article>
+              <span>Channel pending</span>
+              <strong>{healthSummary.pendingChannelPosts}</strong>
+              <p>Bài đang chờ gửi hoặc hẹn giờ.</p>
+            </article>
+            <article>
+              <span>Channel lỗi</span>
+              <strong>{healthSummary.failedChannelPosts}</strong>
+              <p>Bài gửi/xóa thất bại cần xem lại.</p>
+            </article>
+            <article>
+              <span>Group thiếu pool</span>
+              <strong>{healthSummary.groupsMissingMessagePool + healthSummary.groupsMissingVideoPool}</strong>
+              <p>Group đang bật lịch nhưng thiếu nội dung nguồn.</p>
             </article>
           </section>
         ) : null}

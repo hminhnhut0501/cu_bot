@@ -801,6 +801,41 @@ nav button:hover {
   align-content: start;
 }
 
+.overview-work-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+}
+
+.overview-work-grid article {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--panel) 96%, white 4%);
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.overview-work-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.overview-work-grid strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.overview-work-grid p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .overview-log-panel {
   margin-top: 14px;
   padding: 16px;
