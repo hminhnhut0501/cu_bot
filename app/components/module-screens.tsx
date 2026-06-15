@@ -67,19 +67,9 @@ export function AutomationScreen(props: {
 export function ModerationScreen(props: {
   selectedGroupProtection: ProtectionState;
   moderationPolicySummary: SummaryItem[];
-  hiddenLinksEnabled: boolean;
-  scanTextLink: boolean;
-  scanTextMention: boolean;
-  allowInGroupMentions: boolean;
-  hiddenLinkAction: string;
   startGroupProtectionFlow: () => void;
   openTaskData: (key: string) => void;
   goToInsight: (insight: any) => void;
-  onToggleHiddenLinks: () => void;
-  onToggleScanTextLink: () => void;
-  onToggleScanTextMention: () => void;
-  onToggleAllowInGroupMentions: () => void;
-  onHiddenLinkActionChange: (value: string) => void;
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
@@ -99,38 +89,6 @@ export function ModerationScreen(props: {
         <button type="button" onClick={() => props.openTaskData("bot_allowlist")}>Bot tin cậy</button>
         <button type="button" onClick={() => props.goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Logs</button>
       </div>
-      <section className="moderation-settings-strip moderation-settings-strip-compact">
-        <div className="moderation-settings-actions moderation-settings-actions-grid moderation-compact-grid">
-          <label className="toggle-field">
-            <span>Chặn text_link</span>
-            <button type="button" className={props.scanTextLink ? "toggle on" : "toggle off"} onClick={props.onToggleScanTextLink}>
-              <span />
-            </button>
-          </label>
-          <label className="toggle-field">
-            <span>Chặn text_mention</span>
-            <button type="button" className={props.scanTextMention ? "toggle on" : "toggle off"} onClick={props.onToggleScanTextMention}>
-              <span />
-            </button>
-          </label>
-          <label className="toggle-field">
-            <span>Cho phép @user trong group</span>
-            <button type="button" className={props.allowInGroupMentions ? "toggle on" : "toggle off"} onClick={props.onToggleAllowInGroupMentions}>
-              <span />
-            </button>
-          </label>
-          <label>
-            <span>Cách xử lý</span>
-            <select value={props.hiddenLinkAction} onChange={(event) => props.onHiddenLinkActionChange(event.target.value)}>
-              <option value="warn">Warn</option>
-              <option value="delete">Delete</option>
-              <option value="restrict">Restrict</option>
-              <option value="ban">Ban</option>
-            </select>
-          </label>
-        </div>
-        <button type="button" className="primary" onClick={props.startGroupProtectionFlow}><ShieldCheck size={17} />Lưu</button>
-      </section>
     </section>
   );
 }

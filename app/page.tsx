@@ -4032,19 +4032,9 @@ export default function HomePage() {
           <ModerationScreen
             selectedGroupProtection={selectedScopeProtection}
             moderationPolicySummary={moderationPolicySummary}
-            hiddenLinksEnabled={moderationHiddenLinksEnabled}
-            scanTextLink={moderationScanTextLink}
-            scanTextMention={moderationScanTextMention}
-            allowInGroupMentions={moderationAllowInGroupMentions}
-            hiddenLinkAction={moderationHiddenLinkAction}
             startGroupProtectionFlow={startGroupProtectionFlow}
             openTaskData={openTaskData}
             goToInsight={goToInsight}
-            onToggleHiddenLinks={toggleModerationHiddenLinks}
-            onToggleScanTextLink={toggleModerationScanTextLink}
-            onToggleScanTextMention={toggleModerationScanTextMention}
-            onToggleAllowInGroupMentions={toggleModerationAllowInGroupMentions}
-            onHiddenLinkActionChange={changeModerationHiddenLinkAction}
           />
         ) : null}
 
