@@ -2,22 +2,19 @@
 
 import {
   Box,
-  Button as MuiButton,
   Chip,
   IconButton,
-  MenuItem,
   Paper,
-  Select,
   Stack,
   Switch,
-  TextField,
   Typography,
 } from "@mui/material";
 import { Edit3, MessageSquare, ShieldCheck, Sparkles, X } from "lucide-react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 
 import Section from "@/app/components/ui/Section";
 import StatCard from "@/app/components/ui/StatCard";
+import ConfigEditor, { type ConfigEditorDraft } from "@/app/components/screens/ConfigEditor";
 import { type FieldType } from "@/lib/tables";
 
 export type MenuRow = {
@@ -27,11 +24,7 @@ export type MenuRow = {
   enabled?: boolean;
 };
 
-export type MenuDraft = {
-  key?: string;
-  value?: string | number | boolean | null;
-  enabled?: boolean;
-};
+export type MenuDraft = ConfigEditorDraft;
 
 export type MenuPolicyConsoleProps = {
   menuCommandsEnabled: boolean;
@@ -67,7 +60,6 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
     saving,
   } = props;
   const editorKind = props.configEditorKind(String(draft.key || ""));
-  const booleanDraftValue = String(draft.value).toLowerCase() === "true";
   const hasDraft = Object.keys(draft).length > 0;
 
   return (
@@ -203,84 +195,17 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
               </IconButton>
             </Stack>
 
-            <Box component="form" onSubmit={props.save}>
-              <Stack spacing={2}>
-                {editorKind === "boolean" ? (
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-                    <Typography variant="body2" sx={{ minWidth: 140 }}>Trạng thái</Typography>
-                    <Switch
-                      checked={booleanDraftValue}
-                      onChange={() =>
-                        props.setDraft((current) => ({
-                          ...current,
-                          value: String(current.value).toLowerCase() === "true" ? "false" : "true",
-                        }))
-                      }
-                    />
-                    <Typography variant="body2">{booleanDraftValue ? "Bật" : "Tắt"}</Typography>
-                  </Stack>
-                ) : editorKind === "select" ? (
-                  <TextField
-                    select
-                    label="Chọn giá trị cố định"
-                    size="small"
-                    value={String(draft.value ?? "")}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      props.setDraft((current) => ({ ...current, value: event.target.value }))
-                    }
-                  >
-                    {props.configSelectOptions(String(draft.key || "")).map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                ) : editorKind === "number" ? (
-                  <TextField
-                    type="number"
-                    label="Nhập giá trị số"
-                    size="small"
-                    value={String(draft.value ?? "")}
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      props.setDraft((current) => ({ ...current, value: event.target.value }))
-                    }
-                    helperText={props.fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}
-                  />
-                ) : (
-                  <Stack spacing={0.5}>
-                    <TextField
-                      multiline
-                      minRows={String(draft.value || "").length > 120 ? 6 : 3}
-                      label="Nhập nội dung / giá trị"
-                      value={draft.value ?? ""}
-                      onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                        props.setDraft((current) => ({ ...current, value: event.target.value }))
-                      }
-                    />
-                    {props.configPlaceholders(String(draft.key || "")).length ? (
-                      <Typography variant="caption" color="text.secondary">
-                        Placeholder: {props.configPlaceholders(String(draft.key || "")).join(" · ")}
-                      </Typography>
-                    ) : null}
-                  </Stack>
-                )}
-
-                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-                  <Typography variant="body2" sx={{ minWidth: 140 }}>Kích hoạt cấu hình này</Typography>
-                  <Switch
-                    checked={Boolean(draft.enabled)}
-                    onChange={() =>
-                      props.setDraft((current) => ({ ...current, enabled: !current.enabled }))
-                    }
-                  />
-                </Stack>
-
-                <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-                  <MuiButton variant="text" onClick={props.closeFocusedPanel}>Hủy</MuiButton>
-                  <MuiButton type="submit" variant="contained" disabled={saving}>Lưu</MuiButton>
-                </Stack>
-              </Stack>
-            </Box>
+            <ConfigEditor
+              draft={draft}
+              saving={saving}
+              editorKind={editorKind}
+              configSelectOptions={props.configSelectOptions}
+              configPlaceholders={props.configPlaceholders}
+              fieldUnitHint={props.fieldUnitHint}
+              setDraft={props.setDraft}
+              closeFocusedPanel={props.closeFocusedPanel}
+              save={props.save}
+            />
           </Stack>
         </Paper>
       ) : null}

@@ -70,6 +70,7 @@ import Topbar from "./components/screens/Topbar";
 import LoginPanel from "./components/screens/LoginPanel";
 import Banners from "./components/screens/Banners";
 import WorkbenchList from "./components/screens/WorkbenchList";
+import ConfigEditor, { type ConfigEditorDraft } from "./components/screens/ConfigEditor";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import ErrorAlert from "./components/ui/ErrorAlert";
 import TabsBar from "./components/ui/TabsBar";
@@ -4432,67 +4433,17 @@ export default function HomePage() {
                         </Stack>
 
                         {editing ? (
-                          <Box component="form" onSubmit={save}>
-                            {editorKind === "boolean" ? (
-                              <label>
-                                <span>Trạng thái</span>
-                                <button
-                                  type="button"
-                                  className={`toggle-switch ${String(draft.value).toLowerCase() === "true" ? "on" : "off"}`}
-                                  onClick={() => setDraft((current) => ({ ...current, value: String(current.value).toLowerCase() === "true" ? "false" : "true" }))}
-                                >
-                                  <span />
-                                </button>
-                                                              </label>
-                            ) : editorKind === "select" ? (
-                              <label>
-                                <span>Chọn giá trị cố định</span>
-                                <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
-                                  {configSelectOptions(String(row.key || "")).map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            ) : editorKind === "number" ? (
-                              <label>
-                                <span>Nhập giá trị số</span>
-                                <input
-                                  type="number"
-                                  value={String(draft.value ?? "")}
-                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                                />
-                                <small>{fieldUnitHint({ key: String(row.key || ""), label: "", type: "number" })}</small>
-                              </label>
-                            ) : (
-                              <label>
-                                <span>Nhập nội dung / giá trị</span>
-                                <textarea
-                                  value={draft.value ?? ""}
-                                  onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                                  rows={String(draft.value || "").length > 120 ? 6 : 3}
-                                />
-                                {configPlaceholders(String(draft.key || "")).length ? (
-                                  <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small>
-                                ) : null}
-                              </label>
-                            )}
-                            <label>
-                              <span>Kích hoạt cài đặt này</span>
-                              <button
-                                type="button"
-                                className={`toggle-switch ${Boolean(draft.enabled) ? "on" : "off"}`}
-                                onClick={() => setDraft((current) => ({ ...current, enabled: !current.enabled }))}
-                              >
-                                <span />
-                              </button>
-                            </label>
-                            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mt: 2 }}>
-                              <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>Hủy</MuiButton>
-                              <MuiButton type="submit" variant="contained" disabled={saving} startIcon={<Save size={17} />}>Lưu</MuiButton>
-                            </Stack>
-                          </Box>
+                          <ConfigEditor
+                            draft={draft as ConfigEditorDraft}
+                            saving={saving}
+                            editorKind={editorKind}
+                            configSelectOptions={configSelectOptions}
+                            configPlaceholders={configPlaceholders}
+                            fieldUnitHint={fieldUnitHint}
+                            setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                            closeFocusedPanel={closeFocusedPanel}
+                            save={save}
+                          />
                         ) : (
                           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
                             <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
