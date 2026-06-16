@@ -3782,9 +3782,7 @@ export default function HomePage() {
   }
 
   return (
-    <ThemeProvider theme={materialTheme}>
-      <CssBaseline />
-      <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default", color: "text.primary", overflowX: "hidden" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default", color: "text.primary", overflowX: "hidden" }}>
         <Drawer
           variant="permanent"
           sx={{
@@ -5638,6 +5636,5 @@ export default function HomePage() {
           </Box>
         </Box>
       </Box>
-    </ThemeProvider>
   );
 }
