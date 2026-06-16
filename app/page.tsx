@@ -1,30 +1,24 @@
 "use client";
 
-import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
-  AppBar,
+  Alert,
   Box,
   Button as MuiButton,
   Card,
   CardContent,
   Chip,
-  CssBaseline,
+  CircularProgress,
   Divider,
   Drawer,
-  Alert,
-  FormControl,
   Grid,
-  InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
   Switch,
   TextField,
-  ThemeProvider,
-  Toolbar,
   Typography,
-  createTheme
 } from "@mui/material";
 import {
   Activity,
@@ -42,6 +36,7 @@ import {
   Gift,
   History,
   Loader2,
+  MessageSquare,
   MoreHorizontal,
   Plus,
   Power,
@@ -52,18 +47,32 @@ import {
   Send,
   ShieldCheck,
   SlidersHorizontal,
-  MessageSquare,
-  TrendingUp,
-  Users,
   Sparkles,
+  TrendingUp,
   Trash2,
+  Users,
   Wrench,
-  X
+  X,
 } from "lucide-react";
 
-import { FieldConfig, TableConfig, TABLES } from "@/lib/tables";
+import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
+import AuditConsole from "./components/screens/AuditConsole";
+import ScamInbox from "./components/screens/ScamInbox";
+import BulkPanel from "./components/screens/BulkPanel";
+import MetricsDashboard from "./components/screens/MetricsDashboard";
+import MenuPolicyConsole from "./components/screens/MenuPolicyConsole";
+import ChannelComposer from "./components/screens/ChannelComposer";
+import CommandPalette from "./components/screens/CommandPalette";
+import ModerationToggles from "./components/screens/ModerationToggles";
+import Topbar from "./components/screens/Topbar";
+import LoginPanel from "./components/screens/LoginPanel";
+import Banners from "./components/screens/Banners";
+import WorkbenchList from "./components/screens/WorkbenchList";
+import LoadingScreen from "./components/ui/LoadingScreen";
+import ErrorAlert from "./components/ui/ErrorAlert";
+import TabsBar from "./components/ui/TabsBar";
 import { UI_COPY } from "@/lib/uiCopy";
 import { buildCommandInsights, buildEditorFieldGroups, buildGroupEditorTabs, buildLiveActivity, buildModerationPolicySummary, buildOperationTasks, buildScamWorkbenchRows, buildScopeCrumbs, filterVisibleRows } from "@/lib/workbench-helpers";
 
@@ -165,63 +174,6 @@ type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
 
 const drawerWidth = 292;
-const materialTheme = createTheme({
-  palette: {
-    mode: "dark",
-    background: {
-      default: "#070b10",
-      paper: "#111821"
-    },
-    primary: {
-      main: "#00b8d9",
-      contrastText: "#021014"
-    },
-    secondary: {
-      main: "#7dd3fc"
-    },
-    success: {
-      main: "#4ade80"
-    },
-    warning: {
-      main: "#fbbf24"
-    },
-    error: {
-      main: "#fb7185"
-    },
-    divider: "rgba(148, 163, 184, 0.18)"
-  },
-  shape: {
-    borderRadius: 14
-  },
-  typography: {
-    fontFamily: '"IBM Plex Sans", "Be Vietnam Pro", "Segoe UI", sans-serif',
-    h4: { fontWeight: 800, letterSpacing: "-0.03em" },
-    h5: { fontWeight: 780, letterSpacing: "-0.02em" },
-    h6: { fontWeight: 760 },
-    button: { fontWeight: 750, textTransform: "none" }
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "none"
-        }
-      }
-    },
-    MuiButton: {
-      defaultProps: {
-        disableElevation: true
-      }
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))"
-        }
-      }
-    }
-  }
-});
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
@@ -3746,39 +3698,15 @@ export default function HomePage() {
   }), [lookups.scamReports, selectedBot, table?.key, visibleRows]);
 
   if (loading && !meta) {
-    return (
-      <main className="loading">
-        <Loader2 className="spin" size={22} />
-        Đang tải control panel
-      </main>
-    );
+    return <LoadingScreen label="Đang tải control panel" />;
   }
 
   if (!meta || !table) {
-    return <main className="loading">Đang khởi tạo control panel...</main>;
+    return <LoadingScreen label="Đang khởi tạo control panel..." />;
   }
 
   if (meta.passwordRequired && !savedPassword) {
-    return (
-      <main className="login-shell">
-        <form className="login-panel" onSubmit={unlock}>
-          <Database size={28} />
-          <h1>Cu Bot CP</h1>
-          <p>Nhập mật khẩu admin đã cấu hình trong Vercel.</p>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="CP_ADMIN_PASSWORD"
-            autoFocus
-          />
-          <button type="submit">
-            <Check size={17} />
-            Đăng nhập
-          </button>
-        </form>
-      </main>
-    );
+    return <LoginPanel password={password} setPassword={setPassword} unlock={unlock} />;
   }
 
   return (
@@ -3862,75 +3790,55 @@ export default function HomePage() {
         </Drawer>
 
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-          <AppBar position="sticky" elevation={0} color="default" sx={{ top: 0, borderBottom: "1px solid", borderColor: "divider", bgcolor: "rgba(7,11,16,0.88)", backdropFilter: "blur(18px)" }}>
-            <Toolbar sx={{ gap: 1.25, flexWrap: { xs: "wrap", xl: "nowrap" }, py: 1 }}>
-              <Stack direction="row" spacing={1} sx={{ display: { xs: "flex", md: "none" }, width: "100%", overflowX: "auto" }}>
-                {[
-                  { key: "overview", label: "Tổng quan" },
-                  { key: "modules", label: "Module" },
-                  { key: "logs", label: "Logs" }
-                ].map((item) => (
-                  <MuiButton
-                    key={item.key}
-                    size="small"
-                    variant={activeLayer === item.key ? "contained" : "outlined"}
-                    onClick={() => selectLayer(item.key)}
-                    sx={{ flex: "0 0 auto" }}
-                  >
-                    {item.label}
-                  </MuiButton>
-                ))}
-              </Stack>
-              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 220 } }}>
-                <InputLabel>Bot</InputLabel>
-                <Select label="Bot" value={activeBotKey || selectedBot || ""} onChange={(event) => selectBot(event.target.value)}>
-                  {lookups.bots.map((bot) => <MenuItem key={bot.bot_key || bot.id} value={String(bot.bot_key || "")}>{bot.name || bot.bot_key}</MenuItem>)}
-                  {!lookups.bots.length ? <MenuItem value="">Chưa có bot</MenuItem> : null}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 240 } }}>
-                <InputLabel>Scope</InputLabel>
-                <Select label="Scope" value={selectedScope} onChange={(event) => {
-                  setSelectedScope(event.target.value);
-                  setSelected(null);
-                  setDraft({});
-                  setSelectedIds(new Set());
-                }}>
-                  <MenuItem value="">Toàn hệ thống</MenuItem>
-                  {lookups.groups.filter((group) => !activeBotKey || !group.bot_key || group.bot_key === activeBotKey).map((group) => {
-                    const value = String(group.group_id || group.chat_id || "");
-                    return value ? <MenuItem key={value} value={value}>{group.group_name || value}</MenuItem> : null;
-                  })}
-                </Select>
-              </FormControl>
-              <TextField
-                size="small"
-                label={TABLE_TASK_LABELS[table.key] || table.label}
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void loadRows(search);
-                }}
-                placeholder="Tìm kiếm trong màn hiện tại"
-                sx={{ flex: "1 1 320px" }}
-              />
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-                <Chip size="small" color="primary" variant="outlined" label={meta?.envStatus?.runtimeMode || "runtime"} />
-                <MuiButton variant="outlined" onClick={() => loadRows(search)}>Lọc</MuiButton>
-                <MuiButton variant="outlined" onClick={() => setCommandOpen(true)}>Command</MuiButton>
-                {!readOnlyTable && table.key !== "channel_posts" && table.key !== "config" ? (
-                  <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={startCreate}>{TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}</MuiButton>
-                ) : null}
-                {table.key === "channel_posts" ? (
-                  <MuiButton variant="contained" startIcon={<Send size={16} />} onClick={() => openChannelComposer()}>Đăng bài</MuiButton>
-                ) : null}
-              </Stack>
-            </Toolbar>
-          </AppBar>
+          <Topbar
+            table={table}
+            activeLayer={activeLayer}
+            showTaskData={showTaskData}
+            moduleWorkbenchActive={moduleWorkbenchActive}
+            setupWorkbench={setupWorkbench}
+            search={search}
+            setSearch={setSearch}
+            loadRows={loadRows}
+            onBack={() => { setShowTaskData(false); setSelected(null); setDraft({}); }}
+            saving={saving}
+            selectedBot={selectedBot}
+            activeBotKey={activeBotKey}
+            bots={lookups.bots}
+            selectedScope={selectedScope}
+            setSelectedScope={setSelectedScope}
+            groups={lookups.groups}
+            setSelected={setSelected}
+            setDraft={setDraft}
+            setSelectedIds={setSelectedIds}
+            topbarMenuOpen={topbarMenuOpen}
+            setTopbarMenuOpen={setTopbarMenuOpen}
+            scanMode={scanMode}
+            setScanMode={setScanMode}
+            openChannelComposer={() => openChannelComposer()}
+            readOnlyTable={readOnlyTable}
+            startCreate={startCreate}
+            visibleRows={visibleRows}
+            selectedVisibleRows={selectedVisibleRows}
+            toggleAllVisible={toggleAllVisible}
+            removeSelected={removeSelected}
+            draft={draft}
+            closeFocusedPanel={closeFocusedPanel}
+            bulkOpen={bulkOpen}
+            setBulkOpen={setBulkOpen}
+            tableTaskLabel={TABLE_TASK_LABELS}
+            tablePrimaryAction={TABLE_PRIMARY_ACTIONS}
+            bulkTables={bulkTables}
+            quickFilter={quickFilter}
+            quickFilters={quickFilters}
+            setQuickFilter={setQuickFilter}
+            envStatus={meta?.envStatus}
+            openCommand={() => setCommandOpen(true)}
+            selectBot={selectBot}
+          />
 
           <Box component="main" sx={{ p: { xs: 1.5, md: 3 }, maxWidth: "100%", overflowX: "hidden" }}>
             <Stack spacing={2}>
-              <Paper elevation={0} variant="outlined" sx={{ p: 2.5, bgcolor: "rgba(17,24,33,0.84)" }}>
+              <Paper elevation={0} variant="outlined" sx={{ p: 2.5, bgcolor: "background.paper" }}>
                 <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
                   <Box>
                     <Typography variant="overline" color="primary">Material operations</Typography>
@@ -4092,13 +4000,11 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer === "advanced" ? (
-          <section className="advanced-warning">
-            <Wrench size={20} />
-            <div>
-              <strong>Kỹ thuật</strong>
-              <p>Chỉ mở khi cần.</p>
-            </div>
-          </section>
+          <ErrorAlert
+            title="Kỹ thuật"
+            message="Chỉ mở khi cần. Dữ liệu kỹ thuật có thể thay đổi hành vi vận hành."
+            icon={<Wrench size={18} />}
+          />
         ) : null}
 
         {activeLayer === "modules" ? (
@@ -4267,286 +4173,41 @@ export default function HomePage() {
 
         {showPrimaryTask ? (
         <>
-        <header className="topbar">
-          <div>
-            <h2>{activeLayer === "advanced" ? table.label : TABLE_TASK_LABELS[table.key] || table.label}</h2>
-            <p>{table.description}</p>
-          </div>
-          <div className="actions">
-            {showTaskData && (moduleWorkbenchActive || setupWorkbench || activeLayer === "bot" || activeLayer === "group") ? (
-              <button type="button" className="secondary" onClick={() => { setShowTaskData(false); setSelected(null); setDraft({}); }}>
-                <X size={16} />
-                Về workbench
-              </button>
-            ) : null}
-            <form
-              className="search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void loadRows(search);
-              }}
-            >
-              <Search size={16} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm kiếm" />
-            </form>
-            <button type="button" className="icon-button" onClick={() => loadRows(search)} title="Tải lại">
-              <RefreshCcw size={17} />
-            </button>
-            <div className="topbar-menu-wrap">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setTopbarMenuOpen((value) => !value)}
-                aria-expanded={topbarMenuOpen}
-                aria-haspopup="menu"
-              >
-                <MoreHorizontal size={17} />
-                Tác vụ
-              </button>
-              {topbarMenuOpen ? (
-                <div className="topbar-menu" role="menu">
-                  {table.key !== "channel_posts" ? (
-                    <button type="button" className={scanMode === "scan" ? "active" : ""} onClick={() => { setScanMode("scan"); setTopbarMenuOpen(false); }}>
-                      Scan
-                    </button>
-                  ) : null}
-                  {table.key !== "channel_posts" ? (
-                    <button type="button" className={scanMode === "detail" ? "active" : ""} onClick={() => { setScanMode("detail"); setTopbarMenuOpen(false); }}>
-                      Detail
-                    </button>
-                  ) : null}
-                  {table.key === "channel_posts" ? (
-                    <button type="button" onClick={() => { openChannelComposer(); setTopbarMenuOpen(false); }}>
-                      <Send size={16} />
-                      Đăng bài mới
-                    </button>
-                  ) : readOnlyTable ? null : table.key !== "config" ? (
-                    <>
-                      <button type="button" onClick={() => { startCreate(); setTopbarMenuOpen(false); }}>
-                        <Plus size={16} />
-                        {TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}
-                      </button>
-                      <button type="button" onClick={() => { toggleAllVisible(); setTopbarMenuOpen(false); }} disabled={!visibleRows.length}>
-                        <CheckSquare size={16} />
-                        {selectedVisibleRows.length === visibleRows.length && visibleRows.length ? "Bỏ chọn" : "Chọn tất cả"}
-                      </button>
-                      {selectedVisibleRows.length ? (
-                        <button type="button" className="danger" disabled={saving} onClick={() => { removeSelected(); setTopbarMenuOpen(false); }}>
-                          <Trash2 size={16} />
-                          Xóa {selectedVisibleRows.length} mục
-                        </button>
-                      ) : null}
-                    </>
-                  ) : (
-                    <button type="button" onClick={() => { closeFocusedPanel(); setTopbarMenuOpen(false); }} disabled={!Object.keys(draft).length}>
-                      <X size={16} />
-                      Đóng mục đang sửa
-                    </button>
-                  )}
-                  {!readOnlyTable && bulkTables.has(table.key) ? (
-                    <button type="button" onClick={() => { setBulkOpen((value) => !value); setTopbarMenuOpen(false); }}>
-                      <Edit3 size={16} />
-                      Nhập nhanh
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </header>
-
-        {error ? <div className="alert error">{error}</div> : null}
-        {notice ? <div className="alert success">{notice}</div> : null}
-        {toast ? <div className={`floating-toast ${toast.type}`}>{toast.message}</div> : null}
+        <Banners error={error} notice={notice} toast={toast} />
 
         {table.key === "audit_logs" ? (
-          <section className="audit-console">
-            <div>
-              <span className="eyebrow">Operational audit</span>
-              <h3>Nhật ký</h3>
-              <p>Xem log mới nhất.</p>
-            </div>
-            <div className="audit-console-stats">
-              <span><b>{auditStats.total}</b>Tổng log</span>
-              <span className="critical"><b>{auditStats.critical}</b>Nghiêm trọng</span>
-              <span className="warning"><b>{auditStats.warning}</b>Cần chú ý</span>
-              <span><b>{auditStats.latestTime}</b>Mới nhất</span>
-            </div>
-          </section>
+          <AuditConsole auditStats={auditStats} />
         ) : null}
 
         {table.key === "scam_reports" ? (
-          <section className="scam-inbox">
-            <div className="scam-inbox-copy">
-              <span className="eyebrow">Phase 4 review inbox</span>
-              <h3>Duyệt report</h3>
-              <p>Xử lý report pending.</p>
-            </div>
-            <div className="scam-inbox-stats">
-              <span className="pending"><b>{scamInboxStats.pending}</b>Chờ duyệt</span>
-              <span className="confirmed"><b>{scamInboxStats.confirmed}</b>Đã xác nhận</span>
-              <span className="rejected"><b>{scamInboxStats.rejected}</b>Từ chối</span>
-            </div>
-          </section>
+          <ScamInbox scamInboxStats={scamInboxStats} />
         ) : null}
 
         {table.key !== "config" && table.key !== "channel_posts" ? (
-          <section className="quick-filter-bar">
-            {quickFilters.map((filter) => (
-              <button
-                key={filter.key || "all"}
-                type="button"
-                className={quickFilter === filter.key ? "active" : ""}
-                onClick={() => setQuickFilter(filter.key)}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </section>
+          <TabsBar
+            items={quickFilters.map((filter) => ({ key: filter.key || "all", label: filter.label }))}
+            value={quickFilter || "all"}
+            onChange={setQuickFilter}
+            scrollable
+            wrapped
+          />
         ) : null}
 
         {bulkOpen && bulkTables.has(table.key) ? (
-          <section className="bulk-panel">
-            <div className="bulk-copy">
-              <Sparkles size={20} />
-              <div>
-                <h3>Nhập nhanh</h3>
-                <p>{bulkHint(table.key)}</p>
-              </div>
-            </div>
-            <div className="bulk-defaults">
-              <label>
-                <span>Bot</span>
-                <select value={bulkDefaults.bot_key} onChange={(event) => updateBulkDefault("bot_key", event.target.value)}>
-                  {lookups.bots.map((bot) => (
-                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
-                      {bot.name || bot.bot_key}
-                    </option>
-                  ))}
-                  {!lookups.bots.length ? <option value="main">main</option> : null}
-                </select>
-              </label>
-              {["messages", "video_messages"].includes(table.key) ? (
-                <>
-                  <label>
-                    <span>Nhóm nội dung</span>
-                    <input
-                      value={bulkDefaults.pool}
-                      onChange={(event) => updateBulkDefault("pool", event.target.value)}
-                      list={table.key === "video_messages" ? "video-pool-options" : "message-pool-options"}
-                      placeholder="Ví dụ: default, promo, rule"
-                    />
-                  </label>
-                  <label>
-                    <span>Độ ưu tiên</span>
-                    <input type="number" value={bulkDefaults.weight} onChange={(event) => updateBulkDefault("weight", event.target.value)} />
-                  </label>
-                </>
-              ) : null}
-              {["keywords", "domain_blacklist", "link_shorteners"].includes(table.key) ? (
-                <label>
-                  <span>Hành động mặc định</span>
-                  <select value={bulkDefaults.action} onChange={(event) => updateBulkDefault("action", event.target.value)}>
-                    <option value="delete">delete</option>
-                    <option value="warn">warn</option>
-                    <option value="mute">mute</option>
-                    <option value="kick">kick</option>
-                    <option value="ban">ban</option>
-                  </select>
-                </label>
-              ) : null}
-              {["keywords", "auto_replies"].includes(table.key) ? (
-                <label>
-                  <span>Kiểu khớp</span>
-                  <select value={bulkDefaults.match} onChange={(event) => updateBulkDefault("match", event.target.value)}>
-                    {table.key === "auto_replies" ? (
-                      <>
-                        <option value="smart">Smart (khuyên dùng)</option>
-                        <option value="exact">Trùng nguyên câu</option>
-                        <option value="contains">Có chứa cụm từ</option>
-                        <option value="regex">Nâng cao (regex)</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="contains">contains</option>
-                        <option value="regex">regex</option>
-                      </>
-                    )}
-                  </select>
-                </label>
-              ) : null}
-              {table.key === "keywords" || table.key === "scam_entities" ? (
-                <label>
-                  <span>Lý do mặc định</span>
-                  <input value={bulkDefaults.reason} onChange={(event) => updateBulkDefault("reason", event.target.value)} />
-                </label>
-              ) : null}
-              {table.key === "domain_blacklist" ? (
-                <label>
-                  <span>Loại rủi ro</span>
-                  <select value={bulkDefaults.risk} onChange={(event) => updateBulkDefault("risk", event.target.value)}>
-                    <option value="scam">scam</option>
-                    <option value="phishing">phishing</option>
-                    <option value="telegram_clone">telegram_clone</option>
-                    <option value="nsfw">nsfw</option>
-                  </select>
-                </label>
-              ) : null}
-              {table.key === "scam_entities" ? (
-                <>
-                  <label>
-                    <span>Mức rủi ro</span>
-                    <select value={bulkDefaults.risk_level} onChange={(event) => updateBulkDefault("risk_level", event.target.value)}>
-                      <option value="watch">watch</option>
-                      <option value="suspicious">suspicious</option>
-                      <option value="scam">scam</option>
-                      <option value="danger">danger</option>
-                    </select>
-                  </label>
-                  <label>
-                    <span>Trạng thái</span>
-                    <select value={bulkDefaults.status} onChange={(event) => updateBulkDefault("status", event.target.value)}>
-                      <option value="pending">pending</option>
-                      <option value="confirmed">confirmed</option>
-                      <option value="rejected">rejected</option>
-                    </select>
-                  </label>
-                </>
-              ) : null}
-              <label className="checkbox-field">
-                <span>Bật sau khi nhập</span>
-                <input type="checkbox" checked={bulkDefaults.enabled} onChange={(event) => updateBulkDefault("enabled", event.target.checked)} />
-              </label>
-            </div>
-            <textarea
-              value={bulkText}
-              onChange={(event) => setBulkText(event.target.value)}
-              placeholder={bulkHint(table.key)}
-              rows={6}
-            />
-            <div className="bulk-footer">
-              <span>Nhận diện được {parsedBulkRows.length} mục</span>
-              <div>
-                <button type="button" className="ghost" onClick={() => setBulkText("")}>
-                  Xóa nội dung
-                </button>
-                <button type="button" className="primary" disabled={saving || !parsedBulkRows.length} onClick={saveBulk}>
-                  {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                  Lưu tất cả
-                </button>
-              </div>
-            </div>
-            {parsedBulkRows.length ? (
-              <div className="bulk-preview">
-                {parsedBulkRows.slice(0, 5).map((row, index) => (
-                  <span key={`${index}-${JSON.stringify(row)}`}>
-                    {index + 1}. {titleFor(row, table)}
-                  </span>
-                ))}
-                {parsedBulkRows.length > 5 ? <span>... và {parsedBulkRows.length - 5} mục khác</span> : null}
-              </div>
-            ) : null}
-          </section>
+          <BulkPanel
+            tableKey={table.key}
+            bulkDefaults={bulkDefaults}
+            updateBulkDefault={updateBulkDefault}
+            bots={lookups.bots}
+            bulkText={bulkText}
+            setBulkText={setBulkText}
+            saving={saving}
+            parsedBulkRows={parsedBulkRows}
+            saveBulk={saveBulk}
+            bulkHint={bulkHint}
+            titleFor={titleFor as (row: Record<string, string | number | boolean | null>, table: { key: string }) => string}
+            table={table}
+          />
         ) : null}
 
         {table.key === "channel_posts" ? (
@@ -4663,239 +4324,39 @@ export default function HomePage() {
             </Stack>
           </Paper>
         ) : table.key === "bot_metrics" ? (
-          <section className="metrics-dashboard">
-            <div className="metrics-head">
-              <div>
-                <BarChart3 size={22} />
-                <h3>Dashboard vận hành</h3>
-              </div>
-              <span>Dữ liệu lấy từ bảng bot_metrics trong Supabase</span>
-            </div>
-            <div className="metric-cards">
-              {dashboardRows.map((row, index) => {
-                const Icon = index % 3 === 0 ? Users : index % 3 === 1 ? Activity : TrendingUp;
-                return (
-                  <article className="metric-card" key={row.id || `${row.metric_key}-${row.period}`}>
-                    <div className="metric-icon">
-                      <Icon size={20} />
-                    </div>
-                    <span>{metricPeriod(String(row.period || ""))}</span>
-                    <strong>{metricValue(row)}</strong>
-                    <p>{metricLabel(String(row.metric_key || ""))}</p>
-                    {row.notes ? <small>{row.notes}</small> : null}
-                  </article>
-                );
-              })}
-              {!dashboardRows.length && !loading ? (
-                <div className="empty-state metrics-empty">
-                  <ShieldCheck size={28} />
-                  <strong>Chưa có dữ liệu thống kê</strong>
-                  <span>Bấm Thêm để tạo chỉ số đầu tiên.</span>
-                </div>
-              ) : null}
-            </div>
-            {metricGroups.length ? (
-              <div className="metric-groups">
-                {metricGroups.map(([period, items]) => (
-                  <section className="metric-group" key={period}>
-                    <h4>{metricPeriod(period)}</h4>
-                    <div>
-                      {items.map((row) => (
-                        <span key={row.id || row.metric_key}>
-                          <b>{metricLabel(String(row.metric_key || ""))}</b>
-                          {metricValue(row)}
-                        </span>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : null}
-          </section>
+          <MetricsDashboard
+            dashboardRows={dashboardRows}
+            loading={loading}
+            metricPeriod={metricPeriod}
+            metricValue={metricValue}
+            metricLabel={metricLabel}
+            metricGroups={metricGroups}
+          />
         ) : null}
 
         {activeLayer === "module:menu_policy" && table.key === "config" ? (
-          <section className="menu-policy-console">
-            <section className="menu-policy-hero">
-              <div>
-                <span>Menu & nội quy</span>
-                <h3>Điều khiển những gì user thấy khi gõ `/` hoặc `/start`</h3>
-                <p>Tắt menu lệnh Telegram sẽ xóa danh sách `/start`, `/help`, `/policy` khỏi khung gợi ý của Telegram sau khi bot sync.</p>
-              </div>
-              <div className="menu-policy-status">
-                <span className={menuCommandsEnabled ? "on" : "off"}>{menuCommandsEnabled ? "Menu lệnh đang bật" : "Menu lệnh đang tắt"}</span>
-                <span className={policyButtonEnabled ? "on" : "off"}>{policyButtonEnabled ? "Nút Quy định đang bật" : "Nút Quy định đang tắt"}</span>
-              </div>
-            </section>
-
-            <div className="menu-policy-grid">
-              <section className="menu-control-card primary">
-                <div className="menu-control-head">
-                  <div>
-                    <MessageSquare size={21} />
-                    <h4>Menu lệnh Telegram</h4>
-                    <p>Danh sách lệnh hiện trong khung gợi ý khi thành viên gõ dấu `/`.</p>
-                  </div>
-                  <strong>{menuCommandsEnabled ? "Đang hiện" : "Đang ẩn"}</strong>
-                </div>
-                <div className="menu-control-rows">
-                  {menuCommandRows.map((row) => (
-                    <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
-                      <div>
-                        <b>{configLabel(String(row.key || ""))}</b>
-                        <span>{configDescription(row)}</span>
-                        <strong>{configDisplayValue(row)}</strong>
-                      </div>
-                      <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
-                        <Edit3 size={16} />
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="menu-control-card">
-                <div className="menu-control-head">
-                  <div>
-                    <ShieldCheck size={21} />
-                    <h4>Nút Quy định</h4>
-                    <p>Nút inline nằm dưới tin `/start` và `/help` để mở nội quy nhóm.</p>
-                  </div>
-                  <strong>{policyButtonEnabled ? "Đang hiện" : "Đang ẩn"}</strong>
-                </div>
-                <div className="menu-control-rows">
-                  {menuPolicyRows.map((row) => {
-                    const booleanValue = isConfigBoolean(row);
-                    const valueOn = String(row.value).toLowerCase() === "true";
-                    return (
-                      <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
-                        <div>
-                          <b>{configLabel(String(row.key || ""))}</b>
-                          <span>{configDescription(row)}</span>
-                          <strong>{configDisplayValue(row)}</strong>
-                        </div>
-                        <div className="menu-row-actions">
-                          {booleanValue ? (
-                            <button
-                              type="button"
-                              className={`toggle-switch small ${valueOn ? "on" : "off"}`}
-                              disabled={saving}
-                              onClick={() => toggleConfigValue(row)}
-                              title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
-                            >
-                              <span />
-                            </button>
-                          ) : null}
-                          <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
-                            <Edit3 size={16} />
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="menu-control-card">
-                <div className="menu-control-head">
-                  <div>
-                    <Sparkles size={21} />
-                    <h4>Nội dung trả lời</h4>
-                    <p>Text fallback khi `/start` chưa có tin nhắn random và nội dung liên quan.</p>
-                  </div>
-                </div>
-                <div className="menu-control-rows">
-                  {menuContentRows.map((row) => (
-                    <article key={row.id || row.key} className={row.enabled === false ? "disabled" : ""}>
-                      <div>
-                        <b>{configLabel(String(row.key || ""))}</b>
-                        <span>{configDescription(row)}</span>
-                        <strong>{configDisplayValue(row)}</strong>
-                      </div>
-                      <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
-                        <Edit3 size={16} />
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </div>
-
-            {Object.keys(draft).length ? (
-              <section className="menu-inline-editor">
-                <form className="setting-edit" onSubmit={save}>
-                  <div className="editor-title">
-                    <h3>Chỉnh sửa {configLabel(String(draft.key || ""))}</h3>
-                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
-                      <X size={17} />
-                    </button>
-                  </div>
-                  {configEditorKind(String(draft.key || "")) === "boolean" ? (
-                    <label>
-                      <span>Trạng thái</span>
-                      <button
-                        type="button"
-                        className={`toggle-switch ${String(draft.value).toLowerCase() === "true" ? "on" : "off"}`}
-                        onClick={() => setDraft((current) => ({ ...current, value: String(current.value).toLowerCase() === "true" ? "false" : "true" }))}
-                      >
-                        <span />
-                      </button>
-                    </label>
-                  ) : configEditorKind(String(draft.key || "")) === "select" ? (
-                    <label>
-                      <span>Chọn giá trị cố định</span>
-                      <select value={String(draft.value ?? "")} onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}>
-                        {configSelectOptions(String(draft.key || "")).map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ) : configEditorKind(String(draft.key || "")) === "number" ? (
-                    <label>
-                      <span>Nhập giá trị số</span>
-                      <input
-                        type="number"
-                        value={String(draft.value ?? "")}
-                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                      />
-                      <small>{fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}</small>
-                    </label>
-                  ) : (
-                    <label>
-                      <span>Nhập nội dung / giá trị</span>
-                      <textarea
-                        value={draft.value ?? ""}
-                        onChange={(event) => setDraft((current) => ({ ...current, value: event.target.value }))}
-                        rows={String(draft.value || "").length > 120 ? 6 : 3}
-                      />
-                      {configPlaceholders(String(draft.key || "")).length ? <small>Placeholder: {configPlaceholders(String(draft.key || "")).join(" · ")}</small> : null}
-                    </label>
-                  )}
-                  <label>
-                    <span>Kích hoạt cấu hình này</span>
-                    <button
-                      type="button"
-                      className={`toggle-switch ${Boolean(draft.enabled) ? "on" : "off"}`}
-                      onClick={() => setDraft((current) => ({ ...current, enabled: !current.enabled }))}
-                    >
-                      <span />
-                    </button>
-                  </label>
-                  <div className="setting-edit-actions">
-                    <button type="button" className="ghost" onClick={closeFocusedPanel}>
-                      Hủy
-                    </button>
-                    <button type="submit" className="primary" disabled={saving}>
-                      {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                      Lưu
-                    </button>
-                  </div>
-                </form>
-              </section>
-            ) : null}
-          </section>
+          <MenuPolicyConsole
+            menuCommandsEnabled={menuCommandsEnabled}
+            policyButtonEnabled={policyButtonEnabled}
+            menuCommandRows={menuCommandRows}
+            menuPolicyRows={menuPolicyRows}
+            menuContentRows={menuContentRows}
+            draft={draft}
+            saving={saving}
+            isConfigBoolean={isConfigBoolean}
+            configLabel={configLabel}
+            configDescription={configDescription}
+            configDisplayValue={configDisplayValue}
+            configEditorKind={configEditorKind}
+            configSelectOptions={configSelectOptions}
+            configPlaceholders={configPlaceholders}
+            fieldUnitHint={fieldUnitHint}
+            toggleConfigValue={toggleConfigValue}
+            startEdit={startEdit}
+            closeFocusedPanel={closeFocusedPanel}
+            setDraft={setDraft}
+            save={save}
+          />
         ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={2}>
@@ -4931,44 +4392,16 @@ export default function HomePage() {
                   </Box>
                 </Stack>
                 {activeLayer === "module:moderation" && activeConfigSection.title === "Thiết lập dùng chung" ? (
-                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-                    <Stack spacing={2}>
-                    <Box>
-                      <Typography variant="overline" color="text.secondary">Cài đặt kiểm duyệt tự động</Typography>
-                      <Typography variant="h6">Quét link ẩn và mention</Typography>
-                      <Typography variant="body2" color="text.secondary">Điều chỉnh ngay trên tab này theo bot/group đang chọn.</Typography>
-                    </Box>
-                    <Grid container spacing={1.5}>
-                      <label className="toggle-field">
-                        <span>Chặn text_link</span>
-                        <button type="button" className={moderationScanTextLink ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextLink}>
-                          <span />
-                        </button>
-                      </label>
-                      <label className="toggle-field">
-                        <span>Chặn text_mention</span>
-                        <button type="button" className={moderationScanTextMention ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextMention}>
-                          <span />
-                        </button>
-                      </label>
-                      <label className="toggle-field">
-                        <span>Cho phép @user trong group</span>
-                        <button type="button" className={moderationAllowInGroupMentions ? "toggle on" : "toggle off"} onClick={toggleModerationAllowInGroupMentions}>
-                          <span />
-                        </button>
-                      </label>
-                      <label>
-                        <span>Cách xử lý</span>
-                        <select value={moderationHiddenLinkAction} onChange={(event) => changeModerationHiddenLinkAction(event.target.value)}>
-                          <option value="warn">Warn</option>
-                          <option value="delete">Delete</option>
-                          <option value="restrict">Restrict</option>
-                          <option value="ban">Ban</option>
-                        </select>
-                      </label>
-                    </Grid>
-                    </Stack>
-                  </Paper>
+                  <ModerationToggles
+                    scanTextLink={moderationScanTextLink}
+                    scanTextMention={moderationScanTextMention}
+                    allowInGroupMentions={moderationAllowInGroupMentions}
+                    hiddenLinkAction={moderationHiddenLinkAction}
+                    toggleScanTextLink={toggleModerationScanTextLink}
+                    toggleScanTextMention={toggleModerationScanTextMention}
+                    toggleAllowInGroupMentions={toggleModerationAllowInGroupMentions}
+                    changeHiddenLinkAction={changeModerationHiddenLinkAction}
+                  />
                 ) : null}
                 <Grid container spacing={1.5}>
                   {activeConfigSection.rows.map((row) => {
@@ -5101,108 +4534,43 @@ export default function HomePage() {
             </Stack>
           </Paper>
         ) : (
-        <div className={`content-grid ${hasFocusedPanel ? "focus-mode" : ""} ${workMode === "edit" ? "edit-mode" : ""}`}>
-          <section className="list-panel">
-            <div className="list-header">
-              <div>
-                <strong>{visibleRows.length}</strong>
-                <span> mục</span>
-              </div>
-              <span>{scanMode === "scan" ? "Scan mode: chỉ hiện trạng thái chính" : "Detail mode: hiện thêm ngữ cảnh"}</span>
-            </div>
-
-            <div className={`card-list ${scanMode}`}>
-              {visibleRows.map((row) => (
-                <article className={`data-card ${readOnlyTable ? "audit-card" : ""} ${table.key === "scam_reports" ? "scam-report-card" : ""} ${selected?.id === row.id ? "selected" : ""}`} key={row.id}>
-                  {!readOnlyTable ? (
-                  <label className="select-card" title="Chọn mục này">
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(String(row.id))}
-                      onChange={() => toggleSelected(row.id)}
-                    />
-                    <span />
-                  </label>
-                  ) : null}
-                  <button className="card-main" type="button" onClick={() => inspectRow(row)}>
-                    <div className="card-title-row">
-                      <h3>{titleFor(row, table)}</h3>
-                      <div className="card-state">
-                        <span className={`health ${healthState(row, table.key).className}`}>{healthState(row, table.key).label}</span>
-                        <span className="action-badge">{actionBadge(row, table)}</span>
-                      </div>
-                    </div>
-                    <p>{readOnlyTable ? auditLogSummary(row) : previewText(row, table) || "Chưa có nội dung mô tả."}</p>
-                    {table.key === "scam_reports" ? (
-                      <div className="scam-report-facts">
-                        {scamReportFacts(row).map((item) => (
-                          <span key={item.label}>
-                            <b>{item.label}</b>
-                            {item.value}
-                          </span>
-                        ))}
-                      </div>
-                    ) : readOnlyTable ? (
-                      <div className={`audit-log-row ${auditLogSeverity(row)}`}>
-                        <span className="audit-marker" />
-                        {auditLogEssentials(row).slice(0, 4).map((item) => (
-                          <span key={item.label}>
-                            <b>{item.label}</b>
-                            {item.value}
-                          </span>
-                        ))}
-                      </div>
-                    ) : scanMode === "detail" ? (
-                      <div className="meta-grid">
-                      {table.summaryFields.slice(0, 2).map((key) => {
-                        const field = fieldByKey(table, key);
-                        return (
-                          <span className="meta-pill" key={key}>
-                            <b>{field?.label || key}</b>
-                            {displayValue(row[key])}
-                          </span>
-                        );
-                      })}
-                      </div>
-                    ) : null}
-                  </button>
-                  {!readOnlyTable ? (
-                  <div className="card-actions">
-                    {table.key === "channel_posts" && row.status !== "pending" && row.status !== "sending" ? (
-                      <button type="button" title="Gửi bài" disabled={saving} onClick={() => queueChannelPost(row)}>
-                        <Send size={16} />
-                      </button>
-                    ) : null}
-                    {table.key === "scam_reports" && row.status !== "confirmed" ? (
-                      <button type="button" title="Xác nhận scam" disabled={saving} onClick={() => confirmScamReport(row)}>
-                        <ShieldCheck size={16} />
-                      </button>
-                    ) : null}
-                    <button type="button" title="Sửa" onClick={() => startEdit(row)}>
-                      <Edit3 size={16} />
-                    </button>
-                    <button type="button" title="Xóa" onClick={() => remove(row)}>
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  ) : null}
-                </article>
-              ))}
-              {!visibleRows.length && !loading ? (
-                <div className="empty-state">
-                  <ShieldCheck size={28} />
-                  <strong>{emptyState.title}</strong>
-                  <span>{emptyState.body}</span>
-                  {!readOnlyTable ? (
-                  <button type="button" className="primary" onClick={startCreate}>
-                    <Plus size={16} />
-                    {emptyState.action}
-                  </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </section>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: hasFocusedPanel
+              ? { xs: "1fr", lg: "minmax(0, 1fr) minmax(0, 1.2fr)" }
+              : "1fr",
+          }}
+        >
+          <WorkbenchList
+            visibleRows={visibleRows}
+            loading={loading}
+            scanMode={scanMode}
+            selectedIds={selectedIds}
+            toggleSelected={toggleSelected}
+            selected={selected}
+            inspectRow={inspectRow}
+            table={table}
+            readOnlyTable={readOnlyTable}
+            titleFor={titleFor as (row: Record<string, unknown>, table: { key: string }) => string}
+            previewText={previewText as (row: Record<string, unknown>, table: { key: string }) => string}
+            auditLogSummary={auditLogSummary}
+            healthState={healthState as (row: Record<string, unknown>, tableKey?: string) => { label: string; className: string }}
+            actionBadge={actionBadge as (row: Record<string, unknown>, table: { key: string }) => string}
+            scamReportFacts={scamReportFacts}
+            auditLogSeverity={auditLogSeverity}
+            auditLogEssentials={auditLogEssentials}
+            fieldByKey={fieldByKey as (table: { fields?: Array<{ key: string; label?: string }> } & Record<string, unknown>, key: string) => { key: string; label?: string } | undefined}
+            displayValue={displayValue}
+            saving={saving}
+            queueChannelPost={queueChannelPost}
+            confirmScamReport={confirmScamReport}
+            startEdit={startEdit}
+            remove={remove}
+            emptyState={emptyState}
+            startCreate={startCreate}
+          />
 
           {hasFocusedPanel ? (
           // task-outcome-strip
@@ -5398,7 +4766,7 @@ export default function HomePage() {
                   ))}
                 </datalist>
                 <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
-                    <MuiButton variant="contained" disabled={saving} type="submit" startIcon={saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}>
+                    <MuiButton variant="contained" disabled={saving} type="submit" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={17} />}>
                       Lưu
                     </MuiButton>
                 </Box>
@@ -5497,141 +4865,41 @@ export default function HomePage() {
                   onDelete={() => remove(selected)}
                   onTest={() => setNotice(UI_COPY.inspector.testReady)}
                   noticeText={notice}
-                />
-              </Box>
-            ) : null}
-          </Paper>
-          ) : null}
-        </div>
+                 />
+               </Box>
+             ) : null}
+           </Paper>
+           ) : null}
+        </Box>
         )}
         </>
         ) : null}
         </>
         ) : null}
-      {channelComposerOpen ? (
-        <section className="channel-composer-backdrop" onClick={() => setChannelComposerOpen(false)}>
-          <div className="channel-composer" role="dialog" aria-label="Soạn bài đăng channel" onClick={(event) => event.stopPropagation()}>
-            <div className="channel-composer-head">
-              <div>
-                <span className="eyebrow">Đăng channel · Giờ Việt Nam GMT+7</span>
-                <h3>{channelComposer.id ? "Sửa bài đăng" : "Soạn bài mới"}</h3>
-              </div>
-              <button type="button" className="icon-button" onClick={() => setChannelComposerOpen(false)}><X size={18} /></button>
-            </div>
-            <div className="channel-composer-grid">
-              <div className="channel-compose-fields">
-                <label>
-                  <span>Gửi bằng bot</span>
-                  <select value={channelComposer.bot_key || selectedBot || "main"} onChange={(event) => setChannelComposer((current) => ({ ...current, bot_key: event.target.value }))}>
-                    {lookups.bots.map((bot) => <option key={bot.bot_key || bot.id} value={bot.bot_key}>{bot.name || bot.bot_key}</option>)}
-                    {!lookups.bots.length ? <option value="main">main</option> : null}
-                  </select>
-                </label>
-                <label>
-                  <span>Channel/Group nhận bài</span>
-                  <select value={channelComposer.target_chat_id || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, target_chat_id: event.target.value }))}>
-                    <option value="">Chọn channel/group</option>
-                    {lookups.groups.filter((group) => !channelComposer.bot_key || !group.bot_key || group.bot_key === channelComposer.bot_key).map((group) => {
-                      const groupId = group.group_id || group.chat_id || "";
-                      return <option key={groupId || group.id} value={groupId}>{group.group_name || groupId}</option>;
-                    })}
-                  </select>
-                </label>
-                <label>
-                  <span>Tên nội bộ</span>
-                  <input value={channelComposer.title || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, title: event.target.value }))} placeholder="Ví dụ: Xác nhận tham gia" />
-                </label>
-                <label>
-                  <span>Nội dung bài đăng</span>
-                  <textarea rows={9} value={channelComposer.content || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, content: event.target.value }))} placeholder="Soạn nội dung sẽ hiển thị trên Telegram..." />
-                </label>
-                <div className="channel-button-builder">
-                  <div>
-                    <strong>Nút inline</strong>
-                    <button type="button" className="secondary" onClick={() => setChannelButtons((current) => [...current, { label: "", url: "", row: current.length ? Math.max(...current.map((button) => button.row)) + 1 : 0 }])}><Plus size={14} /> Thêm nút</button>
-                  </div>
-                  {channelButtons.map((button, index) => (
-                    <div className="channel-button-row" key={`${index}-${button.row}`}>
-                      <input value={button.label} onChange={(event) => updateChannelButton(index, { label: event.target.value })} placeholder="Tên nút" />
-                      <input value={button.url} onChange={(event) => updateChannelButton(index, { url: event.target.value })} placeholder="https://..." />
-                      <select value={button.row} onChange={(event) => updateChannelButton(index, { row: Number(event.target.value) })}>
-                        {Array.from({ length: Math.max(channelButtons.length, 1) }, (_, row) => <option key={row} value={row}>Hàng {row + 1}</option>)}
-                      </select>
-                      <button type="button" className="icon-button" title="Xóa nút" onClick={() => setChannelButtons((current) => current.filter((_, buttonIndex) => buttonIndex !== index))}><Trash2 size={15} /></button>
-                    </div>
-                  ))}
-                </div>
-                <div className="channel-time-grid">
-                  <label>
-                    <span>Hẹn giờ gửi</span>
-                    <input type="datetime-local" value={channelComposer.scheduled_at || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, scheduled_at: event.target.value }))} />
-                    <small>Để trống nếu muốn gửi ngay. Thời gian được hiểu là giờ Việt Nam.</small>
-                  </label>
-                  <label>
-                    <span>Tự động xóa bài</span>
-                    <input type="datetime-local" value={channelComposer.delete_at || ""} onChange={(event) => setChannelComposer((current) => ({ ...current, delete_at: event.target.value }))} />
-                    <small>Để trống nếu muốn giữ bài trên Telegram.</small>
-                  </label>
-                </div>
-                <label className="checkbox-field">
-                  <span>Ẩn preview đường dẫn</span>
-                  <input type="checkbox" checked={Boolean(channelComposer.disable_web_page_preview)} onChange={(event) => setChannelComposer((current) => ({ ...current, disable_web_page_preview: event.target.checked }))} />
-                </label>
-              </div>
-              <aside className="channel-preview">
-                <div className="channel-preview-head"><Eye size={17} /><strong>Xem trước Telegram</strong></div>
-                <div className="telegram-post-preview">
-                  <strong>{channelComposer.title || "Bài đăng mới"}</strong>
-                  <p>{channelComposer.content || "Nội dung bài đăng sẽ xuất hiện tại đây."}</p>
-                  <div className="telegram-inline-buttons">
-                    {Array.from(new Set(channelButtons.map((button) => button.row))).sort().map((row) => (
-                      <div key={row}>
-                        {channelButtons.filter((button) => button.row === row && button.label).map((button, index) => <span key={`${row}-${index}`}>{button.label}</span>)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="channel-preview-schedule">
-                  <span><Send size={14} /> {channelComposer.scheduled_at ? `Gửi lúc ${channelComposer.scheduled_at.replace("T", " ")} GMT+7` : "Gửi ngay khi bấm nút"}</span>
-                  <span><Trash2 size={14} /> {channelComposer.delete_at ? `Xóa lúc ${channelComposer.delete_at.replace("T", " ")} GMT+7` : "Không tự xóa"}</span>
-                </div>
-              </aside>
-            </div>
-            <div className="channel-composer-actions">
-              <button type="button" className="ghost" disabled={saving} onClick={() => saveChannelPost("draft")}><Save size={16} /> Lưu nháp</button>
-              <button type="button" className="secondary" disabled={saving || !channelComposer.scheduled_at} onClick={() => saveChannelPost("schedule")}><CalendarClock size={16} /> Lên lịch đăng</button>
-              <button type="button" className="primary" disabled={saving} onClick={() => saveChannelPost("send_now")}>{saving ? <Loader2 className="spin" size={16} /> : <Send size={16} />} Đăng ngay</button>
-            </div>
-          </div>
-        </section>
-      ) : null}
-      {commandOpen ? (
-        <section className="command-palette-backdrop" onClick={() => setCommandOpen(false)}>
-          <div className="command-palette" onClick={(event) => event.stopPropagation()}>
-            <div className="command-palette-head">
-              <Search size={18} />
-              <input
-                value={commandSearch}
-                onChange={(event) => setCommandSearch(event.target.value)}
-                placeholder="Gõ command: bật anti spam, mở logs, áp dụng preset..."
-                autoFocus
-              />
-              <span>⌘K</span>
-            </div>
-            <div className="command-palette-list">
-              {filteredCommandItems.map((item) => (
-                <button key={item.title} type="button" onClick={() => runCommand(item.action)}>
-                  <strong>{item.title}</strong>
-                  <span>{item.hint}</span>
-                </button>
-              ))}
-              {!filteredCommandItems.length ? (
-                <div className="command-empty">Không tìm thấy command.</div>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : null}
+      <ChannelComposer
+        open={channelComposerOpen}
+        composer={channelComposer}
+        setComposer={setChannelComposer}
+        buttons={channelButtons}
+        setButtons={setChannelButtons}
+        updateButton={updateChannelButton}
+        bots={lookups.bots}
+        groups={lookups.groups}
+        selectedBot={selectedBot}
+        saving={saving}
+        onClose={() => setChannelComposerOpen(false)}
+        saveDraft={() => saveChannelPost("draft")}
+        schedulePost={() => saveChannelPost("schedule")}
+        sendNow={() => saveChannelPost("send_now")}
+      />
+      <CommandPalette
+        open={commandOpen}
+        search={commandSearch}
+        setSearch={setCommandSearch}
+        items={filteredCommandItems}
+        onClose={() => setCommandOpen(false)}
+        onRun={runCommand}
+      />
             </Stack>
           </Box>
         </Box>

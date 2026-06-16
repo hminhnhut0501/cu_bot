@@ -13,6 +13,8 @@ export type PageHeaderProps = {
   breadcrumbs?: ReactNode;
   /** Optional decorative icon on the left */
   icon?: ReactNode;
+  /** Sub-content rendered below the title row (e.g. tab bars, filter rows) */
+  children?: ReactNode;
 };
 
 /**
@@ -27,6 +29,7 @@ export default function PageHeader({
   actions,
   breadcrumbs,
   icon,
+  children,
 }: PageHeaderProps) {
   return (
     <Box
@@ -39,15 +42,16 @@ export default function PageHeader({
         backgroundColor: "background.paper",
       }}
     >
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        spacing={1.5}
-        sx={{
-          alignItems: { xs: "flex-start", sm: "center" },
-          justifyContent: "space-between",
-        }}
-        component="div"
-      >
+      <Stack spacing={1.5}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          sx={{
+            alignItems: { xs: "flex-start", sm: "center" },
+            justifyContent: "space-between",
+          }}
+          component="div"
+        >
         <Box sx={{ minWidth: 0, display: "flex", alignItems: "center", gap: 1.5 }}>
           {icon ? (
             <Box
@@ -104,6 +108,8 @@ export default function PageHeader({
             {actions}
           </Stack>
         ) : null}
+        </Stack>
+        {children}
       </Stack>
     </Box>
   );

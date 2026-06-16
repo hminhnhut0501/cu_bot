@@ -15,7 +15,7 @@ export type SectionProps = {
   /** Right-aligned buttons / chips / status */
   actions?: ReactNode;
   /** Body content */
-  children: ReactNode;
+  children?: ReactNode;
   /** Spacing between title row and body (default 2) */
   bodySpacing?: number;
   /** Outer padding (default 2) */
@@ -26,6 +26,8 @@ export type SectionProps = {
   sx?: object;
   /** Optional id for deep-linking */
   id?: string;
+  /** Optional icon rendered next to the title */
+  icon?: ReactNode;
 };
 
 /**
@@ -50,6 +52,7 @@ export default function Section({
   subtle = false,
   sx,
   id,
+  icon,
 }: SectionProps) {
   return (
     <Paper
@@ -75,26 +78,44 @@ export default function Section({
               flexDirection: { xs: "column", sm: "row" },
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
-              {eyebrow ? (
-                <Typography
-                  variant="overline"
-                  color="primary"
-                  sx={{ display: "block", mb: 0.25 }}
+            <Box sx={{ minWidth: 0, display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+              {icon ? (
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1,
+                    display: "grid",
+                    placeItems: "center",
+                    color: "primary.main",
+                    backgroundColor: "rgba(15, 118, 110, 0.08)",
+                    flexShrink: 0,
+                  }}
                 >
-                  {eyebrow}
-                </Typography>
+                  {icon}
+                </Box>
               ) : null}
-              {title ? (
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {title}
-                </Typography>
-              ) : null}
-              {subtitle ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                  {subtitle}
-                </Typography>
-              ) : null}
+              <Box sx={{ minWidth: 0 }}>
+                {eyebrow ? (
+                  <Typography
+                    variant="overline"
+                    color="primary"
+                    sx={{ display: "block", mb: 0.25 }}
+                  >
+                    {eyebrow}
+                  </Typography>
+                ) : null}
+                {title ? (
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {title}
+                  </Typography>
+                ) : null}
+                {subtitle ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                    {subtitle}
+                  </Typography>
+                ) : null}
+              </Box>
             </Box>
             {actions ? <Box sx={{ flexShrink: 0 }}>{actions}</Box> : null}
           </Box>
