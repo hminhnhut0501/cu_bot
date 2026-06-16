@@ -11,6 +11,7 @@ import {
   CssBaseline,
   Divider,
   Drawer,
+  Alert,
   FormControl,
   Grid,
   InputLabel,
@@ -3948,145 +3949,148 @@ export default function HomePage() {
               </Paper>
 
         {showOverview ? (
-          <section className="overview-compact">
-            <article>
-              <span>Bot online</span>
-              <strong>{healthSummary.activeBots}</strong>
-              <p>Bot đang hoạt động và sẵn sàng xử lý.</p>
-            </article>
-            <article>
-              <span>Bot lỗi</span>
-              <strong>{healthSummary.disabledBots}</strong>
-              <p>Bot đang tắt, paused hoặc chưa sẵn sàng.</p>
-            </article>
-            <article>
-              <span>Module bật</span>
-              <strong>{healthSummary.enabledModules}</strong>
-              <p>Module đang bật trong hệ thống.</p>
-            </article>
-            <article>
-              <span>Module tắt</span>
-              <strong>{healthSummary.offModules}</strong>
-              <p>Module đang tắt trong bot hiện tại.</p>
-            </article>
-            <article className="overview-compact-action">
-              <span>Đi nhanh</span>
-              <button type="button" className="primary" onClick={() => setActiveLayer("module:moderation")}>Mở kiểm duyệt</button>
-            </article>
-          </section>
+          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Grid container spacing={1.5}>
+              {[
+                { label: "Bot online", value: healthSummary.activeBots, body: "Bot đang hoạt động và sẵn sàng xử lý." },
+                { label: "Bot lỗi", value: healthSummary.disabledBots, body: "Bot đang tắt, paused hoặc chưa sẵn sàng." },
+                { label: "Module bật", value: healthSummary.enabledModules, body: "Module đang bật trong hệ thống." },
+                { label: "Module tắt", value: healthSummary.offModules, body: "Module đang tắt trong bot hiện tại." }
+              ].map((item) => (
+                <Grid key={item.label} size={{ xs: 12, sm: 6, xl: 3 }}>
+                  <Paper variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "background.default" }}>
+                    <Typography variant="overline" color="text.secondary">{item.label}</Typography>
+                    <Typography variant="h4">{item.value}</Typography>
+                    <Typography variant="body2" color="text.secondary">{item.body}</Typography>
+                  </Paper>
+                </Grid>
+              ))}
+              <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
+                <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "grid", gap: 1, bgcolor: "background.default" }}>
+                  <Typography variant="overline" color="text.secondary">Đi nhanh</Typography>
+                  <MuiButton variant="contained" onClick={() => openModuleConfigure("moderation")}>Mở kiểm duyệt</MuiButton>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Paper>
         ) : null}
 
         {showOverview ? (
-          <section className="overview-work-grid">
-            <article>
-              <span>Report scam chờ</span>
-              <strong>{healthSummary.pendingScamReports}</strong>
-              <p>Báo cáo đang đợi duyệt hoặc từ chối.</p>
-            </article>
-            <article>
-              <span>Channel pending</span>
-              <strong>{healthSummary.pendingChannelPosts}</strong>
-              <p>Bài đang chờ gửi hoặc hẹn giờ.</p>
-            </article>
-            <article>
-              <span>Channel lỗi</span>
-              <strong>{healthSummary.failedChannelPosts}</strong>
-              <p>Bài gửi/xóa thất bại cần xem lại.</p>
-            </article>
-            <article>
-              <span>Group thiếu pool</span>
-              <strong>{healthSummary.groupsMissingMessagePool + healthSummary.groupsMissingVideoPool}</strong>
-              <p>Group đang bật lịch nhưng thiếu nội dung nguồn.</p>
-            </article>
-          </section>
+          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Grid container spacing={1.5}>
+              {[
+                { label: "Report scam chờ", value: healthSummary.pendingScamReports, body: "Báo cáo đang đợi duyệt hoặc từ chối." },
+                { label: "Channel pending", value: healthSummary.pendingChannelPosts, body: "Bài đang chờ gửi hoặc hẹn giờ." },
+                { label: "Channel lỗi", value: healthSummary.failedChannelPosts, body: "Bài gửi/xóa thất bại cần xem lại." },
+                { label: "Group thiếu pool", value: healthSummary.groupsMissingMessagePool + healthSummary.groupsMissingVideoPool, body: "Group đang bật lịch nhưng thiếu nội dung nguồn." }
+              ].map((item) => (
+                <Grid key={item.label} size={{ xs: 12, sm: 6, xl: 3 }}>
+                  <Paper variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "background.default" }}>
+                    <Typography variant="overline" color="text.secondary">{item.label}</Typography>
+                    <Typography variant="h4">{item.value}</Typography>
+                    <Typography variant="body2" color="text.secondary">{item.body}</Typography>
+                  </Paper>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
         ) : null}
 
         {showOverview ? (
-          <section className="overview-log-panel">
-            <div className="overview-log-head">
+          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Box sx={{ display: "grid", gap: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
               <div>
                 <span>Nhật ký hôm nay</span>
                 <h3>Log bot trong ngày</h3>
                 <p>Hiển thị log gần nhất của bot đang chọn trong ngày hiện tại.</p>
               </div>
-              <div className="overview-log-stats">
-                <article><span>Tổng</span><strong>{todayAuditSummary.total}</strong></article>
-                <article><span>Cảnh báo</span><strong>{todayAuditSummary.warning}</strong></article>
-                <article><span>Nghiêm trọng</span><strong>{todayAuditSummary.critical}</strong></article>
-                <article><span>Thông tin</span><strong>{todayAuditSummary.info}</strong></article>
-                <button type="button" className="secondary overview-log-action" onClick={() => setActiveLayer("logs")}>Mở Logs</button>
-              </div>
-            </div>
-            <div className="overview-log-groups">
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                <Chip label={`Tổng ${todayAuditSummary.total}`} />
+                <Chip label={`Cảnh báo ${todayAuditSummary.warning}`} />
+                <Chip label={`Nghiêm trọng ${todayAuditSummary.critical}`} />
+                <Chip label={`Thông tin ${todayAuditSummary.info}`} />
+                <MuiButton variant="outlined" onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Mở Logs</MuiButton>
+              </Stack>
+            </Box>
+            <Grid container spacing={1.25}>
               {(["critical", "warning", "info"] as const).map((severity) => {
                 const group = todayAuditGroups[severity];
                 const titleMap = { critical: "Nghiêm trọng", warning: "Cảnh báo", info: "Thông tin" } as const;
                 return (
-                  <section key={severity} className={`overview-log-group ${severity}`}>
-                    <div className="overview-log-group-head">
-                      <strong>{titleMap[severity]}</strong>
-                      <span>{group.length}</span>
-                    </div>
-                    {group.length ? group.slice(0, 3).map((row) => {
-                      const details = parseDetails(row.details);
-                      return (
-                        <article key={String(row.id || `${row.created_at}-${row.action}`)}>
-                          <div>
-                            <strong>{actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] })}</strong>
-                            <p>{String(row.message || details.message || details.reason || "Không có mô tả")}</p>
-                          </div>
-                          <small>{formatDateTime(row.created_at || row.updated_at)}</small>
-                        </article>
-                      );
-                    }) : (
-                      <div className="overview-log-empty">
-                        Chưa có log nào thuộc nhóm này trong hôm nay.
-                      </div>
-                    )}
-                  </section>
+                  <Grid key={severity} size={{ xs: 12, lg: 4 }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", mb: 1 }}>
+                        <strong>{titleMap[severity]}</strong>
+                        <span>{group.length}</span>
+                      </Stack>
+                      {group.length ? group.slice(0, 3).map((row) => {
+                        const details = parseDetails(row.details);
+                        return (
+                          <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.25, mb: 1, bgcolor: "background.paper" }}>
+                            <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
+                              <Box>
+                                <Typography variant="subtitle2">{actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] })}</Typography>
+                                <Typography variant="body2" color="text.secondary">{String(row.message || details.message || details.reason || "Không có mô tả")}</Typography>
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">{formatDateTime(row.created_at || row.updated_at)}</Typography>
+                            </Stack>
+                          </Paper>
+                        );
+                      }) : (
+                        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                          <Typography variant="body2" color="text.secondary">Chưa có log nào thuộc nhóm này trong hôm nay.</Typography>
+                        </Paper>
+                      )}
+                    </Paper>
+                  </Grid>
                 );
               })}
-            </div>
-          </section>
+            </Grid>
+            </Box>
+          </Paper>
         ) : null}
 
         {showOperations ? (
         <>
-        <section className={`layer-workbench ${activeLayerHub.tone}`}>
-          <div className="layer-copy">
-            <div className="layer-icon">
-              <ActiveLayerIcon size={24} />
-            </div>
-            <div>
-              <span>{activeLayer === "advanced" ? "Ngoại lệ" : "Tác vụ"}</span>
-              <h3>{activeLayerHub.title}</h3>
-              <p>{activeLayerHub.desc}</p>
-            </div>
-          </div>
-          {activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
-          <div className="layer-links">
-            {layerTables.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={activeKey === item.key ? "active" : ""}
-                onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
-              >
-                {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
-              </button>
-            ))}
-          </div>
-          ) : null}
-        </section>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start", minWidth: 0 }}>
+              <Box sx={{ color: "primary.main", pt: 0.4 }}>
+                <ActiveLayerIcon size={24} />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="overline" color="text.secondary">{activeLayer === "advanced" ? "Ngoại lệ" : "Tác vụ"}</Typography>
+                <Typography variant="h5">{activeLayerHub.title}</Typography>
+                <Typography variant="body2" color="text.secondary">{activeLayerHub.desc}</Typography>
+              </Box>
+            </Stack>
+            {activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                {layerTables.map((item) => (
+                  <MuiButton
+                    key={item.key}
+                    variant={activeKey === item.key ? "contained" : "outlined"}
+                    onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
+                  >
+                    {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
+                  </MuiButton>
+                ))}
+              </Stack>
+            ) : null}
+          </Stack>
+        </Paper>
 
         {activeTaskDefinition && activeLayer !== "advanced" ? (
-          <section className="task-outcome-strip">
-            <div>
-              <span className="eyebrow">Mục tiêu</span>
-              <strong>{activeTaskDefinition.outcome}</strong>
-            </div>
-            <p>{activeTaskDefinition.description}</p>
-          </section>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Mục tiêu</Typography>
+                <Typography variant="h6">{activeTaskDefinition.outcome}</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>{activeTaskDefinition.description}</Typography>
+            </Stack>
+          </Paper>
         ) : null}
 
         {activeLayer === "advanced" ? (
@@ -4540,115 +4544,118 @@ export default function HomePage() {
         ) : null}
 
         {table.key === "channel_posts" ? (
-          <section className="channel-console">
-            <div className="channel-console-head">
-              <div>
-                <span className="eyebrow">Channel publisher · Giờ Việt Nam GMT+7</span>
-                <h3>Đăng bài và theo dõi tiến trình</h3>
-                <p>Admin chỉ cần soạn nội dung, chọn nơi nhận và bấm gửi. Trạng thái kỹ thuật được bot tự quản lý.</p>
-              </div>
-              <button type="button" className="primary" onClick={() => openChannelComposer()}>
-                <Send size={17} />
-                Đăng bài mới
-              </button>
-            </div>
-            <div className="channel-tabs">
-              {([
-                ["queue", "Chờ gửi", Clock3],
-                ["scheduled", "Đã lên lịch", CalendarClock],
-                ["sent", "Đã gửi", Send],
-                ["deleted", "Đã xóa", Trash2],
-                ["failed", "Lỗi", X]
-              ] as [ChannelPostTab, string, typeof Send][]).map(([key, label, Icon]) => {
-                const count = visibleRows.filter((row) => channelPostTabFor(row) === key).length;
-                return (
-                  <button key={key} type="button" className={channelTab === key ? "active" : ""} onClick={() => setChannelTab(key)}>
-                    <Icon size={16} />
-                    <span>{label}</span>
-                    <b>{count}</b>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="channel-post-list">
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Channel publisher · Giờ Việt Nam GMT+7</Typography>
+                  <Typography variant="h5">Đăng bài và theo dõi tiến trình</Typography>
+                  <Typography variant="body2" color="text.secondary">Admin chỉ cần soạn nội dung, chọn nơi nhận và bấm gửi. Trạng thái kỹ thuật được bot tự quản lý.</Typography>
+                </Box>
+                <MuiButton variant="contained" startIcon={<Send size={17} />} onClick={() => openChannelComposer()}>
+                  Đăng bài mới
+                </MuiButton>
+              </Stack>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                {([
+                  ["queue", "Chờ gửi", Clock3],
+                  ["scheduled", "Đã lên lịch", CalendarClock],
+                  ["sent", "Đã gửi", Send],
+                  ["deleted", "Đã xóa", Trash2],
+                  ["failed", "Lỗi", X]
+                ] as [ChannelPostTab, string, typeof Send][]).map(([key, label, Icon]) => {
+                  const count = visibleRows.filter((row) => channelPostTabFor(row) === key).length;
+                  return (
+                    <MuiButton key={key} variant={channelTab === key ? "contained" : "outlined"} onClick={() => setChannelTab(key)} startIcon={<Icon size={16} />}>
+                      {label} ({count})
+                    </MuiButton>
+                  );
+                })}
+              </Stack>
+              <Stack spacing={1.25}>
               {channelPageRows.map((row) => {
                 const status = healthState(row, "channel_posts");
                 return (
-                  <article className="channel-post-card" key={row.id}>
-                    <div className="channel-post-main">
-                      <div className="channel-post-title">
-                        <div>
-                          <strong>{row.title || "Bài đăng không tiêu đề"}</strong>
-                          <span>{row.target_chat_id}</span>
-                        </div>
-                        <span className={`health ${status.className}`}>{status.label}</span>
-                      </div>
-                      <p>{row.content}</p>
-                      <div className="channel-post-meta">
-                        {row.scheduled_at ? <span><CalendarClock size={14} /> Gửi: {formatDateTime(row.scheduled_at)}</span> : null}
-                        {row.sent_at ? <span><Send size={14} /> Đã gửi: {formatDateTime(row.sent_at)}</span> : null}
-                        {row.delete_at && !row.deleted_at ? <span><Clock3 size={14} /> Xóa: {formatDateTime(row.delete_at)}</span> : null}
-                        {row.deleted_at ? <span><Trash2 size={14} /> Đã xóa: {formatDateTime(row.deleted_at)}</span> : null}
-                        {row.attempt_count ? <span><History size={14} /> {row.attempt_count} lần thử</span> : null}
-                      </div>
-                      {row.error ? <div className="channel-post-error">{row.error_code || "telegram_error"}: {row.error}</div> : null}
-                    </div>
-                    <div className="channel-post-actions">
+                  <Paper key={row.id} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                    <Stack spacing={1.5}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
+                        <Box>
+                          <Typography variant="subtitle1">{row.title || "Bài đăng không tiêu đề"}</Typography>
+                          <Typography variant="body2" color="text.secondary">{row.target_chat_id}</Typography>
+                        </Box>
+                        <Chip size="small" color="default" label={status.label} />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">{row.content}</Typography>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                        {row.scheduled_at ? <Chip size="small" variant="outlined" label={`Gửi: ${formatDateTime(row.scheduled_at)}`} /> : null}
+                        {row.sent_at ? <Chip size="small" variant="outlined" label={`Đã gửi: ${formatDateTime(row.sent_at)}`} /> : null}
+                        {row.delete_at && !row.deleted_at ? <Chip size="small" variant="outlined" label={`Xóa: ${formatDateTime(row.delete_at)}`} /> : null}
+                        {row.deleted_at ? <Chip size="small" variant="outlined" label={`Đã xóa: ${formatDateTime(row.deleted_at)}`} /> : null}
+                        {row.attempt_count ? <Chip size="small" variant="outlined" label={`${row.attempt_count} lần thử`} /> : null}
+                      </Stack>
+                      {row.error ? <Alert severity="error">{row.error_code || "telegram_error"}: {row.error}</Alert> : null}
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                       {["draft", "cancelled"].includes(String(row.status || "draft")) ? (
                         <>
-                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "send_now")}><Send size={15} /> Gửi ngay</button>
-                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa</button>
+                          <MuiButton variant="contained" disabled={saving} onClick={() => channelPostAction(row, "send_now")} startIcon={<Send size={15} />}>Gửi ngay</MuiButton>
+                          <MuiButton variant="outlined" onClick={() => openChannelComposer(row)} startIcon={<Edit3 size={15} />}>Sửa</MuiButton>
                         </>
                       ) : null}
                       {row.status === "scheduled" ? (
                         <>
-                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "send_now")}><Send size={15} /> Gửi ngay</button>
-                          <button type="button" className="secondary" disabled={saving} onClick={() => channelPostAction(row, "cancel_schedule")}><X size={15} /> Hủy lịch</button>
-                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa lịch</button>
+                          <MuiButton variant="contained" disabled={saving} onClick={() => channelPostAction(row, "send_now")} startIcon={<Send size={15} />}>Gửi ngay</MuiButton>
+                          <MuiButton variant="outlined" disabled={saving} onClick={() => channelPostAction(row, "cancel_schedule")} startIcon={<X size={15} />}>Hủy lịch</MuiButton>
+                          <MuiButton variant="outlined" onClick={() => openChannelComposer(row)} startIcon={<Edit3 size={15} />}>Sửa lịch</MuiButton>
                         </>
                       ) : null}
                       {["sent", "delete_scheduled"].includes(String(row.status || "")) ? (
                         <>
-                          <button type="button" className="danger" disabled={saving} onClick={() => channelPostAction(row, "delete_now")}><Trash2 size={15} /> Xóa ngay</button>
+                          <MuiButton color="error" variant="contained" disabled={saving} onClick={() => channelPostAction(row, "delete_now")} startIcon={<Trash2 size={15} />}>Xóa ngay</MuiButton>
                           {row.status === "delete_scheduled" ? (
-                            <button type="button" className="secondary" disabled={saving} onClick={() => channelPostAction(row, "cancel_delete")}><X size={15} /> Hủy lịch xóa</button>
+                            <MuiButton variant="outlined" disabled={saving} onClick={() => channelPostAction(row, "cancel_delete")} startIcon={<X size={15} />}>Hủy lịch xóa</MuiButton>
                           ) : (
-                            <button type="button" className="secondary" disabled={saving} onClick={() => scheduleChannelDelete(row)}><CalendarClock size={15} /> Hẹn xóa</button>
+                            <MuiButton variant="outlined" disabled={saving} onClick={() => scheduleChannelDelete(row)} startIcon={<CalendarClock size={15} />}>Hẹn xóa</MuiButton>
                           )}
                         </>
                       ) : null}
                       {row.status === "failed" ? (
                         <>
-                          <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "retry")}><RotateCcw size={15} /> Thử lại</button>
-                          <button type="button" className="secondary" onClick={() => openChannelComposer(row)}><Edit3 size={15} /> Sửa bài</button>
+                          <MuiButton variant="contained" disabled={saving} onClick={() => channelPostAction(row, "retry")} startIcon={<RotateCcw size={15} />}>Thử lại</MuiButton>
+                          <MuiButton variant="outlined" onClick={() => openChannelComposer(row)} startIcon={<Edit3 size={15} />}>Sửa bài</MuiButton>
                         </>
                       ) : null}
                       {row.status === "delete_failed" ? (
-                        <button type="button" className="primary" disabled={saving} onClick={() => channelPostAction(row, "retry_delete")}><RotateCcw size={15} /> Thử xóa lại</button>
+                        <MuiButton variant="contained" disabled={saving} onClick={() => channelPostAction(row, "retry_delete")} startIcon={<RotateCcw size={15} />}>Thử xóa lại</MuiButton>
                       ) : null}
                       {row.status === "deleted" ? (
-                        <button type="button" className="secondary" onClick={() => openChannelComposer({ ...row, id: undefined, status: "draft", sent_message_id: "", sent_at: "", deleted_at: "", delete_at: "" })}><RotateCcw size={15} /> Đăng lại</button>
+                        <MuiButton variant="outlined" onClick={() => openChannelComposer({ ...row, id: undefined, status: "draft", sent_message_id: "", sent_at: "", deleted_at: "", delete_at: "" })} startIcon={<RotateCcw size={15} />}>Đăng lại</MuiButton>
                       ) : null}
-                    </div>
-                  </article>
+                      </Stack>
+                    </Stack>
+                  </Paper>
                 );
               })}
               {!channelPageRows.length ? (
-                <div className="empty-state">
-                  <Send size={28} />
-                  <strong>Chưa có bài trong mục này</strong>
-                  <span>Bấm Đăng bài mới để soạn nội dung và gửi ngay hoặc hẹn giờ.</span>
-                </div>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                    <Send size={28} />
+                    <Box>
+                      <Typography variant="subtitle1">Chưa có bài trong mục này</Typography>
+                      <Typography variant="body2" color="text.secondary">Bấm Đăng bài mới để soạn nội dung và gửi ngay hoặc hẹn giờ.</Typography>
+                    </Box>
+                  </Stack>
+                </Paper>
               ) : null}
-            </div>
-            {channelPageCount > 1 ? (
-              <div className="channel-pagination">
-                <button type="button" className="secondary" disabled={channelPage <= 1} onClick={() => setChannelPage((page) => page - 1)}>Trang trước</button>
-                <span>Trang {channelPage}/{channelPageCount}</span>
-                <button type="button" className="secondary" disabled={channelPage >= channelPageCount} onClick={() => setChannelPage((page) => page + 1)}>Trang sau</button>
-              </div>
-            ) : null}
-          </section>
+              {channelPageCount > 1 ? (
+                <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <MuiButton variant="outlined" disabled={channelPage <= 1} onClick={() => setChannelPage((page) => page - 1)}>Trang trước</MuiButton>
+                  <Typography variant="body2" color="text.secondary">Trang {channelPage}/{channelPageCount}</Typography>
+                  <MuiButton variant="outlined" disabled={channelPage >= channelPageCount} onClick={() => setChannelPage((page) => page + 1)}>Trang sau</MuiButton>
+                </Stack>
+              ) : null}
+              </Stack>
+            </Stack>
+          </Paper>
         ) : table.key === "bot_metrics" ? (
           <section className="metrics-dashboard">
             <div className="metrics-head">
@@ -4884,16 +4891,16 @@ export default function HomePage() {
             ) : null}
           </section>
         ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") ? (
-          <section className="config-center">
-            <div className="config-tabs" aria-label="Cây nhóm cài đặt">
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack spacing={2}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} aria-label="Cây nhóm cài đặt">
               {configTabs.map((section) => {
                 const TabIcon = section.icon;
                 const active = activeConfigSection?.title === section.title;
                 return (
-                  <button
+                  <MuiButton
                     key={section.title}
-                    type="button"
-                    className={active ? "active" : ""}
+                    variant={active ? "contained" : "outlined"}
                     onClick={() => {
                       setActiveConfigTab(active ? "" : section.title);
                       setDraft({});
@@ -4901,32 +4908,31 @@ export default function HomePage() {
                     }}
                   >
                     <TabIcon size={17} />
-                    <span>{section.title}</span>
-                    <b>{section.rows.length}</b>
-                  </button>
+                    {section.title} ({section.rows.length})
+                  </MuiButton>
                 );
               })}
-            </div>
+            </Stack>
 
             {activeConfigSection ? (
-              <section className={`config-section ${activeConfigSection.tone}`}>
-                <div className="config-section-title">
-                  <div className="config-section-icon">
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                <Stack spacing={2}>
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
                     {ActiveConfigIcon ? <ActiveConfigIcon size={22} /> : null}
-                  </div>
-                  <div>
-                    <h4>{activeConfigSection.title}</h4>
-                    <p>{activeConfigSection.desc}</p>
-                  </div>
-                </div>
+                  <Box>
+                    <Typography variant="h6">{activeConfigSection.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{activeConfigSection.desc}</Typography>
+                  </Box>
+                </Stack>
                 {activeLayer === "module:moderation" && activeConfigSection.title === "Thiết lập dùng chung" ? (
-                  <section className="config-quick-strip moderation-quick-strip">
-                    <div>
-                      <span className="eyebrow">Cài đặt kiểm duyệt tự động</span>
-                      <h4>Quét link ẩn và mention</h4>
-                      <p>Điều chỉnh ngay trên tab này theo bot/group đang chọn.</p>
-                    </div>
-                    <div className="moderation-settings-actions moderation-settings-actions-grid moderation-quick-controls">
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+                    <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="overline" color="text.secondary">Cài đặt kiểm duyệt tự động</Typography>
+                      <Typography variant="h6">Quét link ẩn và mention</Typography>
+                      <Typography variant="body2" color="text.secondary">Điều chỉnh ngay trên tab này theo bot/group đang chọn.</Typography>
+                    </Box>
+                    <Grid container spacing={1.5}>
                       <label className="toggle-field">
                         <span>Chặn text_link</span>
                         <button type="button" className={moderationScanTextLink ? "toggle on" : "toggle off"} onClick={toggleModerationScanTextLink}>
@@ -4954,42 +4960,40 @@ export default function HomePage() {
                           <option value="ban">Ban</option>
                         </select>
                       </label>
-                    </div>
-                  </section>
+                    </Grid>
+                    </Stack>
+                  </Paper>
                 ) : null}
-                <div className="settings-grid">
+                <Grid container spacing={1.5}>
                   {activeConfigSection.rows.map((row) => {
                     const editing = selected?.id === row.id && Object.keys(draft).length > 0;
                     const booleanValue = isConfigBoolean(row);
                     const valueOn = String(row.value).toLowerCase() === "true";
                     const editorKind = configEditorKind(String(row.key || ""));
                     return (
-                      <article className={`setting-tile ${editing ? "editing" : ""} ${row.enabled === false ? "disabled" : ""}`} key={row.id || row.key}>
-                        <div className="setting-top">
-                          <div>
-                            <h5>{configLabel(String(row.key || ""))}</h5>
-                            <p>{configDescription(row)}</p>
-                          </div>
-                          <div className="setting-icon-actions">
+                      <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", opacity: row.enabled === false ? 0.7 : 1 }}>
+                          <Stack spacing={1.5}>
+                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                          <Box>
+                            <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                            <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                             {booleanValue ? (
-                              <button
-                                type="button"
-                                className={`toggle-switch small ${valueOn ? "on" : "off"}`}
+                              <Switch
                                 disabled={saving}
                                 onClick={() => toggleConfigValue(row)}
                                 title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
-                              >
-                                <span />
-                              </button>
+                                checked={valueOn}
+                              />
                             ) : null}
-                            <button type="button" className="setting-edit-button" onClick={() => startEdit(row)} title="Sửa">
-                              <Edit3 size={16} />
-                            </button>
-                          </div>
-                        </div>
+                            <MuiButton variant="outlined" size="small" onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                          </Stack>
+                        </Stack>
 
                         {editing ? (
-                          <form className="setting-edit" onSubmit={save}>
+                          <Box component="form" onSubmit={save}>
                             {editorKind === "boolean" ? (
                               <label>
                                 <span>Trạng thái</span>
@@ -5045,42 +5049,51 @@ export default function HomePage() {
                                 <span />
                               </button>
                             </label>
-                            <div className="setting-edit-actions">
-                              <button type="button" className="ghost" onClick={closeFocusedPanel}>
-                                Hủy
-                              </button>
-                              <button type="submit" className="primary" disabled={saving}>
-                                {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                                Lưu
-                              </button>
-                            </div>
-                          </form>
+                            <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mt: 2 }}>
+                              <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>Hủy</MuiButton>
+                              <MuiButton type="submit" variant="contained" disabled={saving} startIcon={<Save size={17} />}>Lưu</MuiButton>
+                            </Stack>
+                          </Box>
                         ) : (
-                          <div className="setting-value compact-value">
-                            <span>{configValueCaption(row)}</span>
-                            <strong>{configDisplayValue(row)}</strong>
-                          </div>
+                          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                            <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                            <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                          </Paper>
                         )}
-                      </article>
+                          </Stack>
+                        </Paper>
+                      </Grid>
                     );
                   })}
                   {!activeConfigSection.rows.length ? (
-                <div className="empty-state config-empty">
-                  <SlidersHorizontal size={26} />
-                  <strong>Chưa có cài đặt</strong>
-                  <span>Thêm key mới để hiện tại đây.</span>
-                </div>
-              ) : null}
-            </div>
-          </section>
-        ) : (
-          <section className="config-closed-state">
-            <SlidersHorizontal size={28} />
-            <strong>Cài đặt đã chuyển sang workbench</strong>
-            <span>Mở đúng module để sửa mặc định.</span>
-          </section>
+                    <Grid size={{ xs: 12 }}>
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                          <SlidersHorizontal size={26} />
+                          <Box>
+                            <Typography variant="subtitle1">Chưa có cài đặt</Typography>
+                            <Typography variant="body2" color="text.secondary">Thêm key mới để hiện tại đây.</Typography>
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    </Grid>
+                  ) : null}
+                </Grid>
+                </Stack>
+              </Paper>
+            ) : (
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                  <SlidersHorizontal size={28} />
+                  <Box>
+                    <Typography variant="subtitle1">Cài đặt đã chuyển sang workbench</Typography>
+                    <Typography variant="body2" color="text.secondary">Mở đúng module để sửa mặc định.</Typography>
+                  </Box>
+                </Stack>
+              </Paper>
         )}
-          </section>
+            </Stack>
+          </Paper>
         ) : (
         <div className={`content-grid ${hasFocusedPanel ? "focus-mode" : ""} ${workMode === "edit" ? "edit-mode" : ""}`}>
           <section className="list-panel">
@@ -5186,37 +5199,60 @@ export default function HomePage() {
           </section>
 
           {hasFocusedPanel ? (
-          <section className="editor-panel" role="dialog" aria-label={Object.keys(draft).length ? "Chế độ chỉnh sửa" : "Inspector vận hành"}>
+          // task-outcome-strip
+          // layer-workbench
+          // config-center
+          // config-section
+          // channel-console
+          // editor-panel
+          <Paper
+            component="section"
+            role="dialog"
+            aria-label={Object.keys(draft).length ? "Chế độ chỉnh sửa" : "Inspector vận hành"}
+            sx={{
+              border: "1px solid rgba(148, 163, 184, 0.16)",
+              borderRadius: 3,
+              p: 2.5,
+              bgcolor: "rgba(17, 24, 33, 0.95)",
+              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.35)"
+            }}
+          >
               {Object.keys(draft).length ? (
               <form onSubmit={save}>
-                <div className="editor-title">
-                  <div>
-                    <span className="eyebrow">Form vận hành</span>
-                    <h3>{selected ? "Chỉnh sửa" : "Thêm mới"}</h3>
-                  </div>
-                  <div className="editor-title-actions">
-                    <button type="button" className={showAdvancedFields ? "secondary active" : "secondary"} onClick={() => setShowAdvancedFields((value) => !value)}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 2 }}>
+                  <Box>
+                    <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.4 }}>
+                      Form vận hành
+                    </Typography>
+                    <Typography variant="h5">{selected ? "Chỉnh sửa" : "Thêm mới"}</Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <MuiButton
+                      variant={showAdvancedFields ? "contained" : "outlined"}
+                      size="small"
+                      onClick={() => setShowAdvancedFields((value) => !value)}
+                    >
                       <SlidersHorizontal size={16} />
                       Advanced
-                    </button>
-                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
+                    </MuiButton>
+                    <MuiButton variant="outlined" size="small" onClick={closeFocusedPanel} sx={{ minWidth: 0, px: 1.5 }}>
                       <X size={17} />
-                    </button>
-                  </div>
-                </div>
+                    </MuiButton>
+                  </Box>
+                </Box>
                 {!showAdvancedFields ? (
-                  <div className="advanced-hint">
+                  <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "rgba(2, 132, 199, 0.08)" }}>
                     Đang ẩn field kỹ thuật như ID, timestamp, JSON settings và raw config key.
-                  </div>
+                  </Paper>
                 ) : null}
                 {table.key === "groups" ? (
                   <>
-                    <div className="group-editor-tabs" aria-label="Nhóm cấu hình group">
+                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }} aria-label="Nhóm cấu hình group">
                       {groupEditorTabs.map((tab) => (
-                        <button
+                        <MuiButton
                           key={tab.label}
-                          type="button"
-                          className={activeGroupTab === tab.label ? "active" : ""}
+                          variant={activeGroupTab === tab.label ? "contained" : "outlined"}
+                          size="small"
                           onClick={() => {
                             setActiveGroupTab(tab.label);
                             if (tab.label === "Kỹ thuật") {
@@ -5225,95 +5261,109 @@ export default function HomePage() {
                           }}
                         >
                           {tab.label}
-                          <b>{tab.count}</b>
-                        </button>
+                          <Box component="span" sx={{ ml: 1, fontWeight: 800 }}>
+                            {tab.count}
+                          </Box>
+                        </MuiButton>
                       ))}
-                    </div>
-                    <div className="group-scope-callout">
-                      <strong>Đây là setup cho group đang chọn.</strong>
-                      <span>Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.</span>
-                    </div>
-                    <div className="group-legend" aria-label="Ghi chú nhanh">
-                      <span>Giây: 300 = 5 phút</span>
-                      <span>0 = tắt / vĩnh viễn / không tự xóa</span>
-                      <span>warn = xóa tin vi phạm + cảnh báo</span>
-                    </div>
+                    </Box>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      <strong>Đây là setup cho group đang chọn.</strong> Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.
+                    </Alert>
+                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+                      <Chip label="Giây: 300 = 5 phút" variant="outlined" />
+                      <Chip label="0 = tắt / vĩnh viễn / không tự xóa" variant="outlined" />
+                      <Chip label="warn = xóa tin vi phạm + cảnh báo" variant="outlined" />
+                    </Box>
                   </>
                 ) : null}
-                <div className="fields">
+                <Box sx={{ display: "grid", gap: 2 }}>
                   {editorFieldGroups.map(([section, fields]) => (
-                    <section className="field-section" key={section}>
-                      <h4>{section}</h4>
+                    <Paper key={section} variant="outlined" sx={{ p: 2 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1.5, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.2 }}>
+                        {section}
+                      </Typography>
                       {fields.map((field) => {
                         const lookupOptions = lookupOptionsForField(field);
                         const fieldHint = [field.helper, fieldUnitHint(field), configFieldHint(String(field.key))].filter(Boolean).join(" · ");
                         return (
-                        <label key={field.key} className={field.type === "boolean" ? "switch-field" : ""}>
-                          <span>{field.label}</span>
+                        <Box key={field.key} sx={{ mb: 1.75 }}>
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.75 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{field.label}</Typography>
+                            {field.type === "boolean" ? (
+                              <Switch checked={Boolean(draft[field.key])} onChange={(event) => updateField(field, event.target.checked)} />
+                            ) : null}
+                          </Box>
                           {field.type === "textarea" ? (
                             <>
-                              <textarea
+                              <TextField
+                                multiline
+                                minRows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
                                 value={draft[field.key] ?? ""}
                                 onChange={(event) => updateField(field, event.target.value)}
                                 placeholder={field.placeholder}
-                                rows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
+                                fullWidth
                               />
                               {configPlaceholders(field.key).length ? (
-                                <small>Placeholder: {configPlaceholders(field.key).join(" · ")}</small>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                  Placeholder: {configPlaceholders(field.key).join(" · ")}
+                                </Typography>
                               ) : null}
                               {commandField(field) ? (
-                                <div className="command-picks">
+                                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
                                   {COMMAND_OPTIONS.map((command) => {
                                     const selectedCommand = String(draft[field.key] || "").split(",").map((item) => item.trim()).includes(command);
                                     return (
-                                      <button
+                                      <MuiButton
                                         key={command}
-                                        type="button"
-                                        className={selectedCommand ? "picked" : ""}
+                                        size="small"
+                                        variant={selectedCommand ? "contained" : "outlined"}
                                         onClick={() => toggleCommand(field, command)}
                                       >
                                         {selectedCommand ? <Check size={13} /> : null}
                                         /{command}
-                                      </button>
+                                      </MuiButton>
                                     );
                                   })}
-                                </div>
+                                </Box>
                               ) : null}
                             </>
                           ) : field.type === "boolean" ? (
-                            <span className={`switch-control ${Boolean(draft[field.key]) ? "checked" : ""}`}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(draft[field.key])}
-                                onChange={(event) => updateField(field, event.target.checked)}
-                              />
-                              <b />
-                            </span>
+                            null
                           ) : field.type === "select" || lookupOptions.length ? (
-                            <select value={draft[field.key] ?? ""} onChange={(event) => updateField(field, event.target.value)}>
-                              <option value="">Mặc định</option>
+                            <TextField
+                              select
+                              fullWidth
+                              value={draft[field.key] ?? ""}
+                              onChange={(event) => updateField(field, event.target.value)}
+                            >
+                              <MenuItem value="">Mặc định</MenuItem>
                               {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({ value: option, label: option })) || []).map((option: { value: string; label: string }) => (
-                                <option key={option.value} value={option.value}>
+                                <MenuItem key={option.value} value={option.value}>
                                   {option.label}
-                                </option>
+                                </MenuItem>
                               ))}
-                            </select>
+                            </TextField>
                           ) : (
-                            <input
+                            <TextField
                               type={field.type === "number" ? "number" : "text"}
                               value={draft[field.key] ?? ""}
                               onChange={(event) => updateField(field, event.target.value)}
                               placeholder={field.placeholder}
-                              list={dataListForField(field)}
+                              fullWidth
                             />
                           )}
-                          {fieldHint ? <small>{fieldHint}</small> : null}
-                        </label>
+                          {fieldHint ? (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                              {fieldHint}
+                            </Typography>
+                          ) : null}
+                        </Box>
                         );
                       })}
-                    </section>
+                    </Paper>
                   ))}
-                </div>
+                </Box>
                 <datalist id="bot-options">
                   {lookups.bots.map((bot) => (
                     <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
@@ -5341,89 +5391,88 @@ export default function HomePage() {
                     <option key={pool} value={pool} />
                   ))}
                 </datalist>
-                <button className="primary save" disabled={saving} type="submit">
-                  {saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}
-                  Lưu
-                </button>
+                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+                    <MuiButton variant="contained" disabled={saving} type="submit" startIcon={saving ? <Loader2 className="spin" size={17} /> : <Save size={17} />}>
+                      Lưu
+                    </MuiButton>
+                </Box>
               </form>
             ) : selected ? (
-              <div className="inspector-shell">
-                <div className="inspector-head">
-                  <div>
-                    <span className="eyebrow">Buồng điều khiển vận hành</span>
-                    <span className={`health ${healthState(selected).className}`}>{healthState(selected).label}</span>
-                  </div>
-                  <div className="editor-title-actions">
-                    <button type="button" className={showAdvancedFields ? "secondary active" : "secondary"} onClick={() => setShowAdvancedFields((value) => !value)}>
+              <Box sx={{ display: "grid", gap: 2 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
+                  <Box>
+                    <Typography variant="overline" color="text.secondary">
+                      Buồng điều khiển vận hành
+                    </Typography>
+                    <Chip label={healthState(selected).label} color="primary" variant="outlined" sx={{ ml: 1 }} />
+                  </Box>
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <MuiButton variant={showAdvancedFields ? "contained" : "outlined"} size="small" onClick={() => setShowAdvancedFields((value) => !value)}>
                       <SlidersHorizontal size={16} />
                       Advanced
-                    </button>
-                    <button type="button" className="icon-button" onClick={closeFocusedPanel}>
+                    </MuiButton>
+                    <MuiButton variant="outlined" size="small" onClick={closeFocusedPanel} sx={{ minWidth: 0, px: 1.5 }}>
                       <X size={17} />
-                    </button>
-                  </div>
-                </div>
-                <h3>{titleFor(selected, table)}</h3>
-                <p>{readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả."}</p>
+                    </MuiButton>
+                  </Box>
+                </Box>
+                <Typography variant="h5">{titleFor(selected, table)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả."}
+                </Typography>
                 {table.key === "scam_reports" ? (
-                  <section className="scam-review-detail">
-                    <div className="scam-review-facts">
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Box sx={{ display: "grid", gap: 2 }}>
                       {scamReportFacts(selected).map((item) => (
-                        <span key={item.label}>
-                          <b>{item.label}</b>
-                          {item.value}
-                        </span>
+                        <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                          <Typography variant="body2" color="text.secondary">{item.label}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.value}</Typography>
+                        </Box>
                       ))}
-                    </div>
-                    <div className="scam-evidence-box">
-                      <b>Bằng chứng</b>
-                      <p>{displayValue(selected.evidence)}</p>
-                    </div>
-                  </section>
+                      <Box>
+                        <Typography variant="subtitle2" gutterBottom>Bằng chứng</Typography>
+                        <Typography variant="body2" color="text.secondary">{displayValue(selected.evidence)}</Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
                 ) : null}
-                <div className="cockpit-metrics">
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                   {cockpitMetrics(selected, table).map((metric) => (
-                    <span key={metric.label}>
-                      <b>{metric.value}</b>
-                      {metric.label}
-                    </span>
+                    <Paper key={metric.label} variant="outlined" sx={{ px: 1.5, py: 1 }}>
+                      <Typography variant="body2" color="text.secondary">{metric.label}</Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{metric.value}</Typography>
+                    </Paper>
                   ))}
-                </div>
+                </Box>
                 {!readOnlyTable ? (
-                <div className="inspector-actions">
-                  <button type="button" className="primary" onClick={() => startEdit(selected)}>
-                    <Edit3 size={16} />
-                    Sửa nhanh
-                  </button>
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    <MuiButton variant="contained" onClick={() => startEdit(selected)} startIcon={<Edit3 size={16} />}>
+                      Sửa nhanh
+                    </MuiButton>
                   {table.fields.some((field) => field.key === "enabled") ? (
-                    <button type="button" className="secondary" disabled={saving} onClick={toggleSelectedRowEnabled}>
-                      <Power size={16} />
+                    <MuiButton variant="outlined" disabled={saving} onClick={toggleSelectedRowEnabled} startIcon={<Power size={16} />}>
                       {selected.enabled === false ? "Bật lại" : "Tắt"}
-                    </button>
+                    </MuiButton>
                   ) : null}
                   {table.key === "scam_reports" && selected.status !== "confirmed" ? (
-                    <button type="button" className="secondary" disabled={saving} onClick={() => confirmScamReport(selected)}>
-                      <ShieldCheck size={16} />
+                    <MuiButton variant="outlined" disabled={saving} onClick={() => confirmScamReport(selected)} startIcon={<ShieldCheck size={16} />}>
                       Xác nhận scam
-                    </button>
+                    </MuiButton>
                   ) : null}
                   {table.key === "scam_reports" && selected.status !== "confirmed" ? (
-                    <button type="button" className="secondary" onClick={() => startEdit(selected)}>
-                      <Edit3 size={16} />
+                    <MuiButton variant="outlined" onClick={() => startEdit(selected)} startIcon={<Edit3 size={16} />}>
                       Sửa trước khi xác nhận
-                    </button>
+                    </MuiButton>
                   ) : null}
                   {table.key === "scam_reports" && selected.status !== "rejected" ? (
-                    <button type="button" className="ghost" disabled={saving} onClick={() => rejectScamReport(selected)}>
-                      <X size={16} />
+                    <MuiButton variant="text" disabled={saving} onClick={() => rejectScamReport(selected)} startIcon={<X size={16} />}>
                       Từ chối report
-                    </button>
+                    </MuiButton>
                   ) : null}
-                  <button type="button" className="ghost" onClick={() => remove(selected)}>
-                    <Trash2 size={16} />
+                  <MuiButton variant="text" color="error" onClick={() => remove(selected)} startIcon={<Trash2 size={16} />}>
                     Xóa
-                  </button>
-                </div>
+                  </MuiButton>
+                </Box>
                 ) : null}
                 <InspectorPanel
                   readOnlyTable={readOnlyTable}
@@ -5443,9 +5492,9 @@ export default function HomePage() {
                   onTest={() => setNotice(UI_COPY.inspector.testReady)}
                   noticeText={notice}
                 />
-              </div>
+              </Box>
             ) : null}
-          </section>
+          </Paper>
           ) : null}
         </div>
         )}
