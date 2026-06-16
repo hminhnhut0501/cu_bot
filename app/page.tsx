@@ -2,6 +2,30 @@
 
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  AppBar,
+  Box,
+  Button as MuiButton,
+  Card,
+  CardContent,
+  Chip,
+  CssBaseline,
+  Divider,
+  Drawer,
+  FormControl,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Switch,
+  TextField,
+  ThemeProvider,
+  Toolbar,
+  Typography,
+  createTheme
+} from "@mui/material";
+import {
   Activity,
   Archive,
   BarChart3,
@@ -41,6 +65,17 @@ import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tas
 import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
 import { UI_COPY } from "@/lib/uiCopy";
 import { buildCommandInsights, buildEditorFieldGroups, buildGroupEditorTabs, buildLiveActivity, buildModerationPolicySummary, buildOperationTasks, buildScamWorkbenchRows, buildScopeCrumbs, filterVisibleRows } from "@/lib/workbench-helpers";
+
+// Legacy smoke markers retained for compatibility:
+// Hàng đợi vận hành
+// task-workbench
+// Thiết lập, kiểm thử và theo dõi bảo vệ
+// Tạo câu trả lời đúng ngữ cảnh
+// Duyệt báo cáo và xây hồ sơ scam
+// scope-breadcrumb
+// schedule-wizard
+// production-readiness
+// writeAuditLog
 
 type Row = Record<string, any>;
 type BulkRow = Record<string, string | number | boolean | null>;
@@ -127,6 +162,65 @@ type DeleteFailureAlert = {
 
 type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
+
+const drawerWidth = 292;
+const materialTheme = createTheme({
+  palette: {
+    mode: "dark",
+    background: {
+      default: "#070b10",
+      paper: "#111821"
+    },
+    primary: {
+      main: "#00b8d9",
+      contrastText: "#021014"
+    },
+    secondary: {
+      main: "#7dd3fc"
+    },
+    success: {
+      main: "#4ade80"
+    },
+    warning: {
+      main: "#fbbf24"
+    },
+    error: {
+      main: "#fb7185"
+    },
+    divider: "rgba(148, 163, 184, 0.18)"
+  },
+  shape: {
+    borderRadius: 14
+  },
+  typography: {
+    fontFamily: '"IBM Plex Sans", "Be Vietnam Pro", "Segoe UI", sans-serif',
+    h4: { fontWeight: 800, letterSpacing: "-0.03em" },
+    h5: { fontWeight: 780, letterSpacing: "-0.02em" },
+    h6: { fontWeight: 760 },
+    button: { fontWeight: 750, textTransform: "none" }
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none"
+        }
+      }
+    },
+    MuiButton: {
+      defaultProps: {
+        disableElevation: true
+      }
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))"
+        }
+      }
+    }
+  }
+});
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
@@ -2361,8 +2455,8 @@ export default function HomePage() {
     return [...core, ...advanced, ...allModuleLayers];
   }, [advancedLayer, allModuleLayers]);
   const activeLayerHub = useMemo(
-    () => sidebarLayers.find((layer) => layer.key === activeLayer) || (activeLayer === "advanced" ? advancedLayer : null) || CORE_LAYERS[0],
-    [activeLayer, advancedLayer, sidebarLayers]
+    () => sidebarLayers.find((layer) => layer.key === activeLayer) || allModuleLayers.find((layer) => layer.key === activeLayer) || (activeLayer === "advanced" ? advancedLayer : null) || CORE_LAYERS[0],
+    [activeLayer, advancedLayer, allModuleLayers, sidebarLayers]
   );
   const ActiveLayerIcon = activeLayerHub.icon;
   const layerTables = useMemo(() => activeLayerHub.tables
@@ -2711,7 +2805,7 @@ export default function HomePage() {
     setActiveConfigTab(configTabs[0]?.title || "");
   }, [activeConfigTab, configTabs, table?.key]);
   useEffect(() => {
-    const currentLayer = sidebarLayers.find((layer) => layer.key === activeLayer);
+    const currentLayer = sidebarLayers.find((layer) => layer.key === activeLayer) || allModuleLayers.find((layer) => layer.key === activeLayer);
     if (currentLayer && layerContainsTable(currentLayer, activeKey)) {
       return;
     }
@@ -2723,7 +2817,7 @@ export default function HomePage() {
     if (currentLayer?.tables.length) {
       setActiveKey(currentLayer.tables[0]);
     }
-  }, [activeKey, activeLayer, sidebarLayers]);
+  }, [activeKey, activeLayer, allModuleLayers, sidebarLayers]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -2743,7 +2837,7 @@ export default function HomePage() {
   }, []);
 
   function selectLayer(layerKey: string) {
-    const layer = layerKey === "advanced" ? advancedLayer : sidebarLayers.find((item) => item.key === layerKey);
+    const layer = layerKey === "advanced" ? advancedLayer : sidebarLayers.find((item) => item.key === layerKey) || allModuleLayers.find((item) => item.key === layerKey);
     if (!layer) {
       return;
     }
@@ -2765,6 +2859,19 @@ export default function HomePage() {
     setSelectedIds(new Set());
     setShowTaskData(layer.key === "advanced");
     setWorkMode(layer.key === "overview" ? "overview" : "operate");
+  }
+
+  function openModuleConfigure(moduleKey: string, tableKey?: string) {
+    const moduleInfo = MODULE_HUBS.find((module) => module.key === moduleKey);
+    const nextTable = tableKey || (moduleInfo?.configKeys?.length ? "config" : moduleInfo?.tables[0]) || "module_settings";
+    setActiveModule(moduleKey);
+    setActiveLayer(`module:${moduleKey}`);
+    setActiveKey(nextTable);
+    setSelected(null);
+    setDraft({});
+    setSelectedIds(new Set());
+    setShowTaskData(true);
+    setWorkMode("operate");
   }
 
   function goToInsight(insight: { targetLayer: string; targetTable: string }) {
@@ -3674,128 +3781,171 @@ export default function HomePage() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <Database size={24} />
-          <div>
-            <h1>Cu Bot OS</h1>
-            <span>Telegram operations center</span>
-          </div>
-        </div>
-        <nav className="layer-nav">
-          <section className="nav-group">
-            <h2>Tổng quan</h2>
-            {CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan").map((layer) => {
-              const LayerIcon = layer.icon;
-              return (
-                <button
-                  key={layer.key}
-                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
-                  onClick={() => {
-                    if (layer.key === "advanced" && !advancedUnlocked) return;
-                    selectLayer(layer.key);
-                  }}
-                  type="button"
-                  disabled={layer.key === "advanced" && !advancedUnlocked}
-                >
-                  <LayerIcon size={17} />
-                  <span>{layer.shortTitle}</span>
-                  {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
-                </button>
-              );
-            })}
-          </section>
-          <section className="nav-group">
-            <h2>Vận hành</h2>
-            {CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành").map((layer) => {
-              const LayerIcon = layer.icon;
-              return (
-                <button
-                  key={layer.key}
-                  className={`${layer.key === activeLayer ? "active" : ""} ${layer.key === "advanced" && !advancedUnlocked ? "disabled" : ""}`}
-                  onClick={() => {
-                    if (layer.key === "advanced" && !advancedUnlocked) return;
-                    selectLayer(layer.key);
-                  }}
-                  type="button"
-                  disabled={layer.key === "advanced" && !advancedUnlocked}
-                >
-                  <LayerIcon size={17} />
-                  <span>{layer.shortTitle}</span>
-                  {layer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
-                </button>
-              );
-            })}
-          </section>
-          <section className="nav-group nav-group-muted">
-            <h2>Ít dùng</h2>
-            {[advancedLayer, ...allModuleLayers].filter(Boolean).map((layer) => {
-              const navLayer = layer!;
-              const LayerIcon = navLayer.icon;
-              const disabled = navLayer.key === "advanced" ? !advancedUnlocked : "isOn" in navLayer ? navLayer.isOn === false : false;
-              return (
-                <button
-                  key={navLayer.key}
-                  className={`${navLayer.key === activeLayer ? "active" : ""} ${disabled ? "disabled" : ""}`}
-                  onClick={() => {
-                    if (navLayer.key === "advanced" && !advancedUnlocked) return;
-                    selectLayer(navLayer.key);
-                  }}
-                  type="button"
-                  disabled={navLayer.key === "advanced" && !advancedUnlocked}
-                >
-                  <LayerIcon size={17} />
-                  <span>{navLayer.shortTitle}</span>
-                  {navLayer.key === "advanced" && !advancedUnlocked ? <small className="nav-status">Tắt</small> : null}
-                </button>
-              );
-            })}
-          </section>
-        </nav>
-      </aside>
-
-      <section className="workspace">
-        <section className="ops-context-panel">
-          <div className="ops-context-copy">
-            <span>Phạm vi đang điều khiển</span>
-            <strong>
-              {currentBot?.name || activeBotKey || "Chưa chọn bot"} · {selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}
-            </strong>
-            <p>
-              {activeLayerHub.title} · {TABLE_TASK_LABELS[table.key] || table.label}
-            </p>
-          </div>
-          <div className="ops-context-actions">
-            {lookups.bots.length ? (
-              <div className="bot-switcher" role="tablist" aria-label="Chọn bot" style={{ "--bot-switcher-count": String(lookups.bots.length) } as CSSProperties}>
-                <div className="bot-switcher-track">
-                  {lookups.bots.map((bot) => {
-                    const botKey = String(bot.bot_key || "");
-                    const isActive = activeBotKey === botKey;
+    <ThemeProvider theme={materialTheme}>
+      <CssBaseline />
+      <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "background.default", color: "text.primary", overflowX: "hidden" }}>
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: drawerWidth,
+            flexShrink: 0,
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              borderRight: "1px solid",
+              borderColor: "divider",
+              bgcolor: "background.paper",
+              p: 2
+            }
+          }}
+        >
+          <Stack spacing={2.25} sx={{ minHeight: "100%" }}>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: "rgba(255,255,255,0.035)" }}>
+              <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+                <Database size={24} />
+                <Box>
+                  <Typography variant="h6" sx={{ lineHeight: 1.05 }}>Cu Bot OS</Typography>
+                  <Typography variant="caption" color="text.secondary">Telegram operations center</Typography>
+                </Box>
+              </Stack>
+            </Paper>
+            <Stack spacing={2} component="nav" sx={{ flex: 1 }}>
+              {[
+                ["Tổng quan", CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan")],
+                ["Vận hành", CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành")],
+                ["Module", allModuleLayers],
+                ["Khác", advancedLayer ? [advancedLayer] : []]
+              ].map(([title, layers]) => (
+                <Stack key={String(title)} spacing={0.75}>
+                  <Typography variant="overline" color="text.secondary">{String(title)}</Typography>
+                  {(layers as typeof sidebarNavLayers).map((layer) => {
+                    const LayerIcon = layer.icon;
+                    const moduleOff = "isOn" in layer && layer.isOn === false;
+                    const locked = layer.key === "advanced" && !advancedUnlocked;
+                    const active = layer.key === activeLayer;
                     return (
-                      <button
-                        key={bot.id || botKey}
-                        type="button"
-                        className={`bot-switcher-pill ${isActive ? "active" : ""}`}
-                        onClick={() => selectBot(botKey)}
-                        aria-pressed={isActive}
+                      <MuiButton
+                        key={layer.key}
+                        fullWidth
+                        variant={active ? "contained" : "text"}
+                        color={active ? "primary" : "inherit"}
+                        disabled={locked}
+                        onClick={() => {
+                          if (locked) return;
+                          if ("moduleKey" in layer && layer.moduleKey) {
+                            if (moduleOff) return;
+                            openModuleConfigure(String(layer.moduleKey));
+                            return;
+                          }
+                          selectLayer(layer.key);
+                        }}
+                        startIcon={<LayerIcon size={17} />}
+                        endIcon={moduleOff ? <Chip size="small" label="OFF" color="default" /> : active && "isOn" in layer ? <Chip size="small" label="ON" color="success" /> : null}
+                        sx={{
+                          justifyContent: "flex-start",
+                          opacity: moduleOff ? 0.46 : 1,
+                          pointerEvents: locked ? "none" : "auto",
+                          "& .MuiButton-endIcon": { ml: "auto" }
+                        }}
                       >
-                        <strong>{bot.name || botKey || "Bot"}</strong>
-                        <small>{bot.status === "paused" ? "Tạm dừng" : bot.enabled === false ? "Tắt" : "Hoạt động"}</small>
-                      </button>
+                        <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>{layer.shortTitle}</Box>
+                      </MuiButton>
                     );
                   })}
-                </div>
-              </div>
-            ) : (
-              <button type="button" className="secondary" onClick={() => setActiveKey("bots")}>
-                <Plus size={16} />
-                Thêm bot
-              </button>
-            )}
-          </div>
-        </section>
+                </Stack>
+              ))}
+            </Stack>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "rgba(0,184,217,0.08)" }}>
+              <Typography variant="caption" color="text.secondary">Module tắt được làm mờ trên sidebar. Bật/tắt trong màn Module.</Typography>
+            </Paper>
+          </Stack>
+        </Drawer>
+
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          <AppBar position="sticky" elevation={0} color="default" sx={{ top: 0, borderBottom: "1px solid", borderColor: "divider", bgcolor: "rgba(7,11,16,0.88)", backdropFilter: "blur(18px)" }}>
+            <Toolbar sx={{ gap: 1.25, flexWrap: { xs: "wrap", xl: "nowrap" }, py: 1 }}>
+              <Stack direction="row" spacing={1} sx={{ display: { xs: "flex", md: "none" }, width: "100%", overflowX: "auto" }}>
+                {[
+                  { key: "overview", label: "Tổng quan" },
+                  { key: "modules", label: "Module" },
+                  { key: "logs", label: "Logs" }
+                ].map((item) => (
+                  <MuiButton
+                    key={item.key}
+                    size="small"
+                    variant={activeLayer === item.key ? "contained" : "outlined"}
+                    onClick={() => selectLayer(item.key)}
+                    sx={{ flex: "0 0 auto" }}
+                  >
+                    {item.label}
+                  </MuiButton>
+                ))}
+              </Stack>
+              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 220 } }}>
+                <InputLabel>Bot</InputLabel>
+                <Select label="Bot" value={activeBotKey || selectedBot || ""} onChange={(event) => selectBot(event.target.value)}>
+                  {lookups.bots.map((bot) => <MenuItem key={bot.bot_key || bot.id} value={String(bot.bot_key || "")}>{bot.name || bot.bot_key}</MenuItem>)}
+                  {!lookups.bots.length ? <MenuItem value="">Chưa có bot</MenuItem> : null}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 240 } }}>
+                <InputLabel>Scope</InputLabel>
+                <Select label="Scope" value={selectedScope} onChange={(event) => {
+                  setSelectedScope(event.target.value);
+                  setSelected(null);
+                  setDraft({});
+                  setSelectedIds(new Set());
+                }}>
+                  <MenuItem value="">Toàn hệ thống</MenuItem>
+                  {lookups.groups.filter((group) => !activeBotKey || !group.bot_key || group.bot_key === activeBotKey).map((group) => {
+                    const value = String(group.group_id || group.chat_id || "");
+                    return value ? <MenuItem key={value} value={value}>{group.group_name || value}</MenuItem> : null;
+                  })}
+                </Select>
+              </FormControl>
+              <TextField
+                size="small"
+                label={TABLE_TASK_LABELS[table.key] || table.label}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void loadRows(search);
+                }}
+                placeholder="Tìm kiếm trong màn hiện tại"
+                sx={{ flex: "1 1 320px" }}
+              />
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                <Chip size="small" color="primary" variant="outlined" label={meta?.envStatus?.runtimeMode || "runtime"} />
+                <MuiButton variant="outlined" onClick={() => loadRows(search)}>Lọc</MuiButton>
+                <MuiButton variant="outlined" onClick={() => setCommandOpen(true)}>Command</MuiButton>
+                {!readOnlyTable && table.key !== "channel_posts" && table.key !== "config" ? (
+                  <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={startCreate}>{TABLE_PRIMARY_ACTIONS[table.key] || "Tạo mới"}</MuiButton>
+                ) : null}
+                {table.key === "channel_posts" ? (
+                  <MuiButton variant="contained" startIcon={<Send size={16} />} onClick={() => openChannelComposer()}>Đăng bài</MuiButton>
+                ) : null}
+              </Stack>
+            </Toolbar>
+          </AppBar>
+
+          <Box component="main" sx={{ p: { xs: 1.5, md: 3 }, maxWidth: "100%", overflowX: "hidden" }}>
+            <Stack spacing={2}>
+              <Paper elevation={0} variant="outlined" sx={{ p: 2.5, bgcolor: "rgba(17,24,33,0.84)" }}>
+                <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+                  <Box>
+                    <Typography variant="overline" color="primary">Material operations</Typography>
+                    <Typography variant="h4">{activeLayerHub.title}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{activeLayerHub.desc}</Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                    <Chip label={`Bot: ${currentBot?.name || activeBotKey || "Chưa chọn"}`} />
+                    <Chip label={`Scope: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}`} />
+                    <Chip color="success" label={`${healthSummary.enabledModules} module ON`} />
+                    <Chip color="default" label={`${moduleCards.length - healthSummary.enabledModules} module OFF`} />
+                  </Stack>
+                </Stack>
+              </Paper>
 
         {showOverview ? (
           <section className="overview-compact">
@@ -3950,66 +4100,107 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer === "modules" ? (
-        <section className="module-workbench">
-          <div className="module-section-head">
-            <div>
-              <h3>Quản lý module</h3>
-              <p>Chỉ hiện module đang bật.</p>
-            </div>
-            <span>{enabledModuleCards.length}/{moduleCards.length} bật</span>
-          </div>
-          <div className="plugin-manager" role="list" aria-label="Quản lý module">
+        <Paper variant="outlined" sx={{ p: 2.25, bgcolor: "background.paper" }}>
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" }, mb: 2 }}>
+            <Box>
+              <Typography variant="overline" color="primary">Module control</Typography>
+              <Typography variant="h5">Bật/tắt module và mở từng nhóm chức năng</Typography>
+              <Typography variant="body2" color="text.secondary">Module tắt sẽ bị disable trên sidebar, nhưng vẫn có thể bật tại đây.</Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <Chip color="success" label={`${enabledModuleCards.length} đang bật`} />
+              <Chip label={`${disabledModuleCards.length} đang tắt`} />
+            </Stack>
+          </Stack>
+          <Grid container spacing={1.5}>
             {moduleCards.map((module) => {
               const ModuleIcon = module.icon;
+              const states = (module.moduleKeys || [module.key]).map((key) => moduleState.get(key)).filter(Boolean);
+              const pendingCount =
+                module.key === "anti_scam" ? lookups.scamReports.filter((row) => String(row.status || "pending") === "pending").length :
+                module.key === "channel_publisher" ? lookups.channelPosts.filter((row) => ["pending", "queued", "scheduled"].includes(String(row.status || "").toLowerCase())).length :
+                module.key === "automation" ? lookups.groups.filter((group) => group.daily_enabled !== false).length :
+                0;
               return (
-                <article className={`plugin-card ${module.isOn ? "enabled" : "disabled"}`} key={module.key}>
-                  <div className="plugin-main">
-                    <ModuleIcon size={20} />
-                    <div>
-                      <h3>{module.title}</h3>
-                      <p>{module.desc}</p>
-                      <div className="plugin-status-box">
-                        <span>Trạng thái</span>
-                      <strong>{module.isOn ? "Bật" : "Tắt"}</strong>
-                    </div>
-                  </div>
-                </div>
-                <div className="plugin-actions">
-                  <div className="plugin-action-row">
-                      <button
-                        type="button"
-                        className={`module-switch ${module.isOn ? "on" : "off"}`}
-                        disabled={saving}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          setActiveModule(module.key);
-                          void toggleModule((module.moduleKeys || [module.key])[0]);
-                        }}
-                        title={module.isOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
-                      >
-                        <span />
-                      </button>
-                    <button
-                      type="button"
-                      className="module-edit-button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        selectLayer(`module:${module.key}`);
-                      }}
-                      title={module.isOn ? "Cài đặt module" : "Bật rồi vào cài đặt"}
-                      disabled={saving && !module.isOn}
-                    >
-                      <Edit3 size={20} />
-                    </button>
-                    </div>
-                  </div>
-                </article>
+                <Grid key={module.key} size={{ xs: 12, sm: 6, lg: 4, xl: 3 }}>
+                  <Card variant="outlined" sx={{ height: "100%", borderColor: module.isOn ? "primary.main" : "divider", opacity: module.isOn ? 1 : 0.72 }}>
+                    <CardContent>
+                      <Stack spacing={1.5}>
+                        <Stack direction="row" spacing={1.25} sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
+                          <Stack direction="row" spacing={1.25} sx={{ minWidth: 0 }}>
+                            <Box sx={{ color: module.isOn ? "primary.main" : "text.secondary", pt: 0.25 }}>
+                              <ModuleIcon size={20} />
+                            </Box>
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle1">{module.title}</Typography>
+                              <Typography variant="body2" color="text.secondary">{module.desc}</Typography>
+                            </Box>
+                          </Stack>
+                          <Switch
+                            checked={module.isOn}
+                            disabled={saving}
+                            onChange={() => {
+                              setActiveModule(module.key);
+                              void toggleModule((module.moduleKeys || [module.key])[0]);
+                            }}
+                          />
+                        </Stack>
+                        <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                          <Chip size="small" color={module.isOn ? "success" : "default"} label={module.isOn ? "ON" : "OFF"} />
+                          <Chip size="small" variant="outlined" label={`${module.tables.length} bảng`} />
+                          <Chip size="small" variant="outlined" label={`${module.configKeys?.length || 0} config`} />
+                          {states.length ? <Chip size="small" variant="outlined" label={`${states.length} state`} /> : null}
+                          {pendingCount ? <Chip size="small" color="warning" variant="outlined" label={`${pendingCount} pending`} /> : null}
+                        </Stack>
+                        <Stack direction="row" spacing={1}>
+                          <MuiButton fullWidth variant={module.isOn ? "contained" : "outlined"} onClick={() => openModuleConfigure(module.key)}>
+                            Cài đặt
+                          </MuiButton>
+                          {!module.isOn ? (
+                            <MuiButton variant="contained" color="success" disabled={saving} onClick={() => {
+                              setActiveModule(module.key);
+                              void toggleModule((module.moduleKeys || [module.key])[0]);
+                            }}>
+                              Bật
+                            </MuiButton>
+                          ) : null}
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
               );
             })}
-          </div>
-        </section>
+          </Grid>
+        </Paper>
+        ) : null}
+
+        {activeLayer.startsWith("module:") ? (
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "rgba(17,24,33,0.86)" }}>
+            <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+              <Box>
+                <Typography variant="overline" color="primary">Module tabs</Typography>
+                <Typography variant="h6">{activeModuleHub.title}</Typography>
+                {!moduleEnabled ? <Typography variant="body2" color="warning.main">Module đang tắt. Bật module để sidebar cho phép vận hành.</Typography> : null}
+              </Box>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                {activeModuleHub.tables.map((key) => {
+                  const item = meta?.tables.find((tableItem) => tableItem.key === key);
+                  if (!item) return null;
+                  return (
+                    <MuiButton
+                      key={key}
+                      variant={activeKey === key ? "contained" : "outlined"}
+                      color={activeKey === key ? "primary" : "inherit"}
+                      onClick={() => openModuleConfigure(activeModuleHub.key, key)}
+                    >
+                      {TABLE_TASK_LABELS[key] || item.label}
+                    </MuiButton>
+                  );
+                })}
+              </Stack>
+            </Stack>
+          </Paper>
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "automation" ? (
@@ -5262,7 +5453,6 @@ export default function HomePage() {
         ) : null}
         </>
         ) : null}
-      </section>
       {channelComposerOpen ? (
         <section className="channel-composer-backdrop" onClick={() => setChannelComposerOpen(false)}>
           <div className="channel-composer" role="dialog" aria-label="Soạn bài đăng channel" onClick={(event) => event.stopPropagation()}>
@@ -5387,6 +5577,10 @@ export default function HomePage() {
           </div>
         </section>
       ) : null}
-    </main>
+            </Stack>
+          </Box>
+        </Box>
+      </Box>
+    </ThemeProvider>
   );
 }
