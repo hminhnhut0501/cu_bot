@@ -77,6 +77,8 @@ export function ModerationScreen(props: {
   startGroupProtectionFlow: () => void;
   openTaskData: (key: string) => void;
   goToInsight: (insight: any) => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
@@ -88,7 +90,13 @@ export function ModerationScreen(props: {
           <Typography variant="body2" color="text.secondary">{c.body}</Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Chip label="Thiết lập dùng chung" color="primary" />
+          <Chip
+            label="Thiết lập dùng chung"
+            color={props.activeTab === "Thiết lập dùng chung" ? "primary" : "default"}
+            variant={props.activeTab === "Thiết lập dùng chung" ? "filled" : "outlined"}
+            onClick={() => props.setActiveTab("Thiết lập dùng chung")}
+            clickable
+          />
           <Chip label="Quản lý từ khóa" variant="outlined" onClick={() => props.openTaskData("keywords")} clickable />
           <Chip label="Domain nguy hiểm" variant="outlined" onClick={() => props.openTaskData("domain_blacklist")} clickable />
           <Chip label="Link rút gọn" variant="outlined" onClick={() => props.openTaskData("link_shorteners")} clickable />

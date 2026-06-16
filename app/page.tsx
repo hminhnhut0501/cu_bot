@@ -4230,6 +4230,14 @@ export default function HomePage() {
             startGroupProtectionFlow={startGroupProtectionFlow}
             openTaskData={openTaskData}
             goToInsight={goToInsight}
+            activeTab={activeConfigTab}
+            setActiveTab={(tab) => {
+              setActiveConfigTab(tab);
+              if (tab === "Thiết lập dùng chung") {
+                setSelected(null);
+                setDraft({});
+              }
+            }}
           />
         ) : null}
 
