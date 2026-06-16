@@ -1,3 +1,4 @@
+import { Box, Button as MuiButton, Chip, Paper, Stack, Typography } from "@mui/material";
 import { Check, ClipboardList, Plus, ShieldCheck, Sparkles, Users, Bot, X } from "lucide-react";
 import { UI_COPY } from "@/lib/uiCopy";
 
@@ -44,23 +45,29 @@ export function AutomationScreen(props: {
 }) {
   const c = UI_COPY.workbench.automation;
   return (
-    <section className="module-screen module-screen-automation">
-      <div className="module-screen-head">
-        <div>
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h3>{c.title}</h3>
-          <p>{c.body}</p>
-        </div>
-      </div>
-      <div className="schedule-flow-card">
-        <h4>{c.schedule}</h4>
-        <strong>{props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}</strong>
-        <p>Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}</p>
-        <button type="button" className="primary" onClick={props.startScheduledMessageFlow}>
-          {props.lookupsGroupsLength ? c.setTime : c.addGroup}
-        </button>
-      </div>
-    </section>
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }} component="section">
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="overline" color="primary.main">{c.eyebrow}</Typography>
+          <Typography variant="h6">{c.title}</Typography>
+          <Typography variant="body2" color="text.secondary">{c.body}</Typography>
+        </Box>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack spacing={1.25}>
+            <Typography variant="subtitle2">{c.schedule}</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+              {props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}
+            </Typography>
+            <MuiButton variant="contained" onClick={props.startScheduledMessageFlow} sx={{ alignSelf: "flex-start" }}>
+              {props.lookupsGroupsLength ? c.setTime : c.addGroup}
+            </MuiButton>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -73,23 +80,23 @@ export function ModerationScreen(props: {
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
-    <section className="module-screen module-screen-moderation">
-      <div className="module-screen-head">
-        <div>
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h3>{c.title}</h3>
-          <p>{c.body}</p>
-        </div>
-      </div>
-      <div className="module-quick-nav">
-        <button type="button" className="active">Thiết lập dùng chung</button>
-        <button type="button" onClick={() => props.openTaskData("keywords")}>Quản lý từ khóa</button>
-        <button type="button" onClick={() => props.openTaskData("domain_blacklist")}>Domain nguy hiểm</button>
-        <button type="button" onClick={() => props.openTaskData("link_shorteners")}>Link rút gọn</button>
-        <button type="button" onClick={() => props.openTaskData("bot_allowlist")}>Bot tin cậy</button>
-        <button type="button" onClick={() => props.goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>Logs</button>
-      </div>
-    </section>
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }} component="section">
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="overline" color="primary.main">{c.eyebrow}</Typography>
+          <Typography variant="h6">{c.title}</Typography>
+          <Typography variant="body2" color="text.secondary">{c.body}</Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+          <Chip label="Thiết lập dùng chung" color="primary" />
+          <Chip label="Quản lý từ khóa" variant="outlined" onClick={() => props.openTaskData("keywords")} clickable />
+          <Chip label="Domain nguy hiểm" variant="outlined" onClick={() => props.openTaskData("domain_blacklist")} clickable />
+          <Chip label="Link rút gọn" variant="outlined" onClick={() => props.openTaskData("link_shorteners")} clickable />
+          <Chip label="Bot tin cậy" variant="outlined" onClick={() => props.openTaskData("bot_allowlist")} clickable />
+          <Chip label="Logs" variant="outlined" onClick={() => props.goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })} clickable />
+        </Box>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -103,41 +110,51 @@ export function ScamScreen(props: {
 }) {
   const c = UI_COPY.workbench.scam;
   return (
-    <section className="module-screen module-screen-scam">
-      <div className="module-screen-head">
-        <div>
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h3>{c.title}</h3>
-          <p>{c.body}</p>
-        </div>
-        <div className="task-workbench-score">
-          <strong>{props.pendingScamReports}</strong>
-          <span>{c.pending}</span>
-        </div>
-      </div>
-      <section className="policy-summary-grid">
-        <article><span>{c.waiting}</span><strong>{props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}</strong></article>
-        <article><span>{c.confirmed}</span><strong>{props.scamWorkbenchRows.filter((row) => row.status === "confirmed").length}</strong></article>
-        <article><span>{c.rejected}</span><strong>{props.scamWorkbenchRows.filter((row) => row.status === "rejected").length}</strong></article>
-        <article><span>{c.bot}</span><strong>{props.currentBotName || props.selectedBot || "Tất cả"}</strong></article>
-      </section>
-      <section className="review-queue-preview">
-        <div className="review-queue-head"><div><h3>{c.queue}</h3><p>{c.priority}</p></div><button type="button" className="primary" onClick={() => { props.openTaskData("scam_reports"); props.setQuickFilter("pending"); }}>{c.open}</button></div>
-        <div className="review-queue-list">
-          {props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").slice(0, 4).map((row) => (
-            <article key={row.id || `${row.target_uid}-${row.target_username}`}>
-              <strong>{row.target_username || row.target_uid || row.bank_account || c.targetUnknown}</strong>
-              <span>{row.evidence ? c.hasEvidence : c.noEvidence}</span>
-              <small>{c.report}: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}</small>
-            </article>
-          ))}
-          {!props.scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? <div className="workbench-empty"><Check size={20} />{c.noPending}</div> : null}
-        </div>
-      </section>
-      <section className="workbench-footer-actions">
-        <button type="button" className="primary" onClick={() => props.openTaskData("scam_reports")}><ClipboardList size={17} />{c.review}</button>
-      </section>
-    </section>
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }} component="section">
+      <Stack spacing={2}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
+          <Box>
+            <Typography variant="overline" color="primary.main">{c.eyebrow}</Typography>
+            <Typography variant="h6">{c.title}</Typography>
+            <Typography variant="body2" color="text.secondary">{c.body}</Typography>
+          </Box>
+          <Paper variant="outlined" sx={{ px: 2, py: 1, bgcolor: "background.default" }}>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>{props.pendingScamReports}</Typography>
+            <Typography variant="caption" color="text.secondary">{c.pending}</Typography>
+          </Paper>
+        </Box>
+        <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}><Typography variant="caption">{c.waiting}</Typography><Typography variant="h6">{props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}</Typography></Paper>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}><Typography variant="caption">{c.confirmed}</Typography><Typography variant="h6">{props.scamWorkbenchRows.filter((row) => row.status === "confirmed").length}</Typography></Paper>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}><Typography variant="caption">{c.rejected}</Typography><Typography variant="h6">{props.scamWorkbenchRows.filter((row) => row.status === "rejected").length}</Typography></Paper>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}><Typography variant="caption">{c.bot}</Typography><Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{props.currentBotName || props.selectedBot || "Tất cả"}</Typography></Paper>
+        </Box>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack spacing={1.5}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Box>
+                <Typography variant="h6">{c.queue}</Typography>
+                <Typography variant="body2" color="text.secondary">{c.priority}</Typography>
+              </Box>
+              <MuiButton variant="contained" onClick={() => { props.openTaskData("scam_reports"); props.setQuickFilter("pending"); }}>
+                {c.open}
+              </MuiButton>
+            </Box>
+            <Stack spacing={1}>
+              {props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").slice(0, 4).map((row) => (
+                <Paper key={row.id || `${row.target_uid}-${row.target_username}`} variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                  <Typography variant="subtitle2">{row.target_username || row.target_uid || row.bank_account || c.targetUnknown}</Typography>
+                  <Typography variant="body2" color="text.secondary">{row.evidence ? c.hasEvidence : c.noEvidence}</Typography>
+                  <Typography variant="caption" color="text.secondary">{c.report}: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}</Typography>
+                </Paper>
+              ))}
+              {!props.scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 1 }}><Check size={20} />{c.noPending}</Typography> : null}
+            </Stack>
+          </Stack>
+        </Paper>
+        <MuiButton variant="outlined" onClick={() => props.openTaskData("scam_reports")} startIcon={<ClipboardList size={17} />}>{c.review}</MuiButton>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -148,19 +165,21 @@ export function BotScreen(props: {
 }) {
   const c = UI_COPY.workbench.bot;
   return (
-    <section className="module-screen module-screen-bot">
-      <div className="module-screen-head">
-        <div>
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h3>{c.title}</h3>
-          <p>{c.body}</p>
-        </div>
-      </div>
-      <div className="module-screen-mini">
-        <strong>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}</strong>
-        <span>trạng thái sẵn sàng</span>
-      </div>
-    </section>
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }} component="section">
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="overline" color="primary.main">{c.eyebrow}</Typography>
+          <Typography variant="h6">{c.title}</Typography>
+          <Typography variant="body2" color="text.secondary">{c.body}</Typography>
+        </Box>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Typography variant="h5" sx={{ fontWeight: 800 }}>
+            {props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">trạng thái sẵn sàng</Typography>
+        </Paper>
+      </Stack>
+    </Paper>
   );
 }
 
@@ -174,19 +193,21 @@ export function GroupScreen(props: {
 }) {
   const c = UI_COPY.workbench.group;
   return (
-    <section className="module-screen module-screen-group">
-      <div className="module-screen-head">
-        <div>
-          <span className="eyebrow">{c.eyebrow}</span>
-          <h3>{c.title}</h3>
-          <p>{c.body}</p>
-        </div>
-      </div>
-      <div className="module-screen-mini">
-        <strong>{props.selectedScopeRow ? props.selectedScopeRow.group_name || props.selectedScope : "Toàn hệ thống"}</strong>
-        <span>{props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length} sẵn sàng</span>
-      </div>
-    </section>
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }} component="section">
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="overline" color="primary.main">{c.eyebrow}</Typography>
+          <Typography variant="h6">{c.title}</Typography>
+          <Typography variant="body2" color="text.secondary">{c.body}</Typography>
+        </Box>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Typography variant="h6">{props.selectedScopeRow ? props.selectedScopeRow.group_name || props.selectedScope : "Toàn hệ thống"}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length} sẵn sàng
+          </Typography>
+        </Paper>
+      </Stack>
+    </Paper>
   );
 }
 
