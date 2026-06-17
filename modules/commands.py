@@ -24,6 +24,8 @@ COMMAND_CATALOG = {
     "giveaways": ("giveaways", "Xem giveaway đang mở"),
     "join": ("join", "Tham gia giveaway"),
     "draw": ("draw", "Quay số giveaway"),
+    "shareunlock": ("shareunlock", "Lấy link mời để mở khóa"),
+    "shareprogress": ("shareprogress", "Xem tiến độ mở khóa"),
     "check": ("check", "Tra cứu scam"),
     "report": ("report", "Báo cáo scam"),
 }

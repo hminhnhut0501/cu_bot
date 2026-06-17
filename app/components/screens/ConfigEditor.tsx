@@ -57,7 +57,6 @@ export default function ConfigEditor({
       <Stack spacing={1.5}>
         {editorKind === "boolean" ? (
           <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-            <Typography variant="body2" sx={{ minWidth: 140 }}>Trạng thái</Typography>
             <Switch
               checked={booleanValue}
               onChange={() =>
@@ -67,7 +66,6 @@ export default function ConfigEditor({
                 }))
               }
             />
-            <Typography variant="body2">{booleanValue ? "Bật" : "Tắt"}</Typography>
           </Stack>
         ) : editorKind === "select" ? (
           <TextField
@@ -114,16 +112,6 @@ export default function ConfigEditor({
             ) : null}
           </Stack>
         )}
-
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-          <Typography variant="body2" sx={{ minWidth: 140 }}>Kích hoạt cài đặt này</Typography>
-          <Switch
-            checked={Boolean(draft.enabled)}
-            onChange={() =>
-              setDraft((current) => ({ ...current, enabled: !current.enabled }))
-            }
-          />
-        </Stack>
 
         <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mt: 1 }}>
           <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>

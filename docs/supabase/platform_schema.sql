@@ -74,6 +74,9 @@ create table groups (
   warning_notice_delete_seconds integer default 180,
   forward_warning_delete_seconds integer default 180,
   spam_notice_delete_seconds integer default 30,
+  welcome_enabled boolean default false,
+  welcome_text text,
+  welcome_delete_seconds integer default 30,
   scan_bio_links boolean default true,
   bio_link_delete_message boolean default true,
   bio_link_restrict_seconds integer default 0,
@@ -366,6 +369,54 @@ create table giveaway_entries (
   unique (giveaway_id, user_id)
 );
 
+create table share_unlock_campaigns (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  source_chat_id text not null,
+  title text not null,
+  description text,
+  required_invites integer not null default 5,
+  unlock_target_type text not null default 'invite_link',
+  unlock_target_value text not null,
+  share_message text,
+  unlock_message text,
+  status text not null default 'open',
+  unlocked_at timestamptz,
+  enabled boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table share_unlock_invites (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  campaign_id bigint not null references share_unlock_campaigns(id) on delete cascade,
+  referrer_user_id text not null,
+  source_chat_id text not null,
+  invite_link text not null,
+  invite_name text,
+  active boolean not null default true,
+  unlocked_at timestamptz,
+  reward_sent_at timestamptz,
+  reward_message_id text,
+  created_at timestamptz not null default now(),
+  unique (campaign_id, referrer_user_id)
+);
+
+create table share_unlock_referrals (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  campaign_id bigint not null references share_unlock_campaigns(id) on delete cascade,
+  referrer_user_id text not null,
+  invitee_user_id text not null,
+  invitee_username text,
+  invitee_chat_id text not null,
+  invite_link text,
+  counted boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (campaign_id, invitee_user_id)
+);
+
 create table entertainment_events (
   id bigserial primary key,
   bot_key text not null default 'main',
@@ -427,6 +478,9 @@ alter table bot_metrics enable row level security;
 alter table giveaway_campaigns enable row level security;
 alter table giveaway_entries enable row level security;
 alter table entertainment_events enable row level security;
+alter table share_unlock_campaigns enable row level security;
+alter table share_unlock_invites enable row level security;
+alter table share_unlock_referrals enable row level security;
 
 insert into bots (bot_key, name, username, enabled) values
   ('main', 'Bot chính', null, true);
@@ -564,6 +618,9 @@ insert into bot_metrics (bot_key, metric_key, metric_value, period, notes) value
 
 insert into giveaway_campaigns (bot_key, chat_id, title, prize, description, status, winner_count, require_keyword, enabled, notes) values
   ('main', '-1002151486481', 'Giveaway mẫu', 'Phần thưởng mẫu', 'Member bấm /join giveaway_id để tham gia.', 'open', 1, '', true, 'Sửa hoặc xóa dòng mẫu trong CP.');
+
+insert into share_unlock_campaigns (bot_key, source_chat_id, title, description, required_invites, unlock_target_type, unlock_target_value, share_message, unlock_message, status, enabled, notes) values
+  ('main', '-1002151486481', 'Mở khóa nhóm VIP', 'Mời đủ 5 người vào nhóm để mở khóa link tham gia nhóm VIP.', 5, 'invite_link', 'https://t.me/+replace_me_reward_link', 'Mời đủ {required} người qua link riêng của bạn để mở khóa.', 'Bạn đã đủ điều kiện. Đây là link mở khóa: {reward}', 'open', false, 'Dòng mẫu cho module share unlock.');
 
 insert into entertainment_events (bot_key, event_key, event_name, event_type, config, enabled, notes) values
   ('main', 'weekly_poll', 'Bình chọn tuần', 'poll_event', '{"question":"Bạn muốn event gì tuần này?"}'::jsonb, false, 'Module con gợi ý'),

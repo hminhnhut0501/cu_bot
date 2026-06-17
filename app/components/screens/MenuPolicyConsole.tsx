@@ -8,6 +8,7 @@ import {
   Stack,
   Switch,
   Typography,
+  Button as MuiButton,
 } from "@mui/material";
 import { Edit3, MessageSquare, ShieldCheck, Sparkles, X } from "lucide-react";
 import type { FormEvent } from "react";
@@ -77,14 +78,12 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
       >
         <StatCard
           label="Menu lệnh"
-          value={menuCommandsEnabled ? "Đang hiện" : "Đang ẩn"}
-          tone={menuCommandsEnabled ? "success" : "warning"}
+          value={`${menuCommandRows.length} mục`}
           icon={<MessageSquare size={18} />}
         />
         <StatCard
           label="Nút Quy định"
-          value={policyButtonEnabled ? "Đang hiện" : "Đang ẩn"}
-          tone={policyButtonEnabled ? "success" : "warning"}
+          value={`${menuPolicyRows.length} mục`}
           icon={<ShieldCheck size={18} />}
         />
       </Box>
@@ -100,15 +99,27 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
           title="Menu lệnh Telegram"
           description="Danh sách lệnh hiện trong khung gợi ý khi thành viên gõ dấu /."
           icon={<MessageSquare size={20} />}
-          status={menuCommandsEnabled ? "Đang hiện" : "Đang ẩn"}
-          statusTone={menuCommandsEnabled ? "success" : "default"}
-        >
+          >
           <Stack spacing={1}>
             {menuCommandRows.map((row) => (
               <ConfigRow
                 key={String(row.id || row.key)}
                 row={row}
-                {...props}
+                draft={draft}
+                editorKind={editorKind}
+                saving={saving}
+                configLabel={props.configLabel}
+                configDescription={props.configDescription}
+                configDisplayValue={props.configDisplayValue}
+                configSelectOptions={props.configSelectOptions}
+                configPlaceholders={props.configPlaceholders}
+                fieldUnitHint={props.fieldUnitHint}
+                closeFocusedPanel={props.closeFocusedPanel}
+                setDraft={props.setDraft}
+                save={props.save}
+                startEdit={props.startEdit}
+                toggleConfigValue={props.toggleConfigValue}
+                isConfigBoolean={props.isConfigBoolean}
               />
             ))}
           </Stack>
@@ -118,47 +129,89 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
           title="Nút Quy định"
           description="Nút inline nằm dưới tin /start và /help để mở nội quy nhóm."
           icon={<ShieldCheck size={20} />}
-          status={policyButtonEnabled ? "Đang hiện" : "Đang ẩn"}
-          statusTone={policyButtonEnabled ? "success" : "default"}
+          actions={
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Switch
+                disabled={saving}
+                checked={policyButtonEnabled}
+                onChange={() => props.toggleConfigValue(menuPolicyRows[0])}
+              />
+              <MuiButton
+                size="small"
+                variant="outlined"
+                onClick={() => props.startEdit(menuPolicyRows[0])}
+              >
+                Sửa
+              </MuiButton>
+            </Stack>
+          }
         >
           <Stack spacing={1}>
             {menuPolicyRows.map((row) => {
               const booleanValue = props.isConfigBoolean(row);
               const valueOn = String(row.value).toLowerCase() === "true";
+              const rowEditing = hasDraft && String(draft.key || "") === String(row.key || "");
               return (
-                <Box
-                  key={String(row.id || row.key)}
-                  sx={{
-                    p: 1.25,
-                    borderRadius: 1,
-                    border: "1px solid",
-                    borderColor: "divider",
-                    bgcolor: "background.default",
-                    opacity: row.enabled === false ? 0.6 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.5,
-                  }}
-                >
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle2">{props.configLabel(String(row.key || ""))}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {props.configDescription(row)}
-                    </Typography>
-                    <Typography variant="caption" color="text.primary" sx={{ fontWeight: 600 }}>
-                      {props.configDisplayValue(row)}
-                    </Typography>
+                <Box key={String(row.id || row.key)} sx={{ display: "grid", gap: 1 }}>
+                  <Box
+                    sx={{
+                      p: 1.25,
+                      borderRadius: 1,
+                      border: "1px solid",
+                      borderColor: rowEditing ? "primary.main" : "divider",
+                      bgcolor: "background.default",
+                      opacity: row.enabled === false ? 0.6 : 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1.5,
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle2">{props.configLabel(String(row.key || ""))}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {props.configDescription(row)}
+                      </Typography>
+                      <Typography variant="caption" color="text.primary" sx={{ fontWeight: 600 }}>
+                        {props.configDisplayValue(row)}
+                      </Typography>
+                    </Box>
+                    {booleanValue ? (
+                      <Switch
+                        disabled={saving}
+                        checked={valueOn}
+                        onChange={() => props.toggleConfigValue(row)}
+                      />
+                    ) : null}
+                    <IconButton size="small" onClick={() => props.startEdit(row)} title="Sửa">
+                      <Edit3 size={16} />
+                    </IconButton>
                   </Box>
-                  {booleanValue ? (
-                    <Switch
-                      disabled={saving}
-                      checked={valueOn}
-                      onChange={() => props.toggleConfigValue(row)}
-                    />
+                  {rowEditing ? (
+                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                      <Stack spacing={1.5}>
+                        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }} spacing={1.5}>
+                          <Box>
+                            <Typography variant="overline" color="text.secondary">Chỉnh sửa</Typography>
+                            <Typography variant="h6">{props.configLabel(String(draft.key || ""))}</Typography>
+                          </Box>
+                          <IconButton size="small" onClick={props.closeFocusedPanel} title="Đóng">
+                            <X size={17} />
+                          </IconButton>
+                        </Stack>
+                        <ConfigEditor
+                          draft={draft}
+                          saving={saving}
+                          editorKind={editorKind}
+                          configSelectOptions={props.configSelectOptions}
+                          configPlaceholders={props.configPlaceholders}
+                          fieldUnitHint={props.fieldUnitHint}
+                          setDraft={props.setDraft}
+                          closeFocusedPanel={props.closeFocusedPanel}
+                          save={props.save}
+                        />
+                      </Stack>
+                    </Paper>
                   ) : null}
-                  <IconButton size="small" onClick={() => props.startEdit(row)} title="Sửa">
-                    <Edit3 size={16} />
-                  </IconButton>
                 </Box>
               );
             })}
@@ -175,40 +228,26 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
               <ConfigRow
                 key={String(row.id || row.key)}
                 row={row}
-                {...props}
+                draft={draft}
+                editorKind={editorKind}
+                saving={saving}
+                configLabel={props.configLabel}
+                configDescription={props.configDescription}
+                configDisplayValue={props.configDisplayValue}
+                configSelectOptions={props.configSelectOptions}
+                configPlaceholders={props.configPlaceholders}
+                fieldUnitHint={props.fieldUnitHint}
+                closeFocusedPanel={props.closeFocusedPanel}
+                setDraft={props.setDraft}
+                save={props.save}
+                startEdit={props.startEdit}
+                toggleConfigValue={props.toggleConfigValue}
+                isConfigBoolean={props.isConfigBoolean}
               />
             ))}
           </Stack>
         </MenuControlCard>
       </Box>
-
-      {hasDraft ? (
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-          <Stack spacing={2}>
-            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }} spacing={1.5}>
-              <Box>
-                <Typography variant="overline" color="text.secondary">Chỉnh sửa</Typography>
-                <Typography variant="h6">{props.configLabel(String(draft.key || ""))}</Typography>
-              </Box>
-              <IconButton size="small" onClick={props.closeFocusedPanel} title="Đóng">
-                <X size={17} />
-              </IconButton>
-            </Stack>
-
-            <ConfigEditor
-              draft={draft}
-              saving={saving}
-              editorKind={editorKind}
-              configSelectOptions={props.configSelectOptions}
-              configPlaceholders={props.configPlaceholders}
-              fieldUnitHint={props.fieldUnitHint}
-              setDraft={props.setDraft}
-              closeFocusedPanel={props.closeFocusedPanel}
-              save={props.save}
-            />
-          </Stack>
-        </Paper>
-      ) : null}
     </Section>
   );
 }
@@ -217,15 +256,13 @@ function MenuControlCard({
   title,
   description,
   icon,
-  status,
-  statusTone,
+  actions,
   children,
 }: {
   title: string;
   description: string;
   icon: React.ReactNode;
-  status?: string;
-  statusTone?: "success" | "default" | "warning";
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -237,13 +274,7 @@ function MenuControlCard({
             <Typography variant="h6">{title}</Typography>
             <Typography variant="body2" color="text.secondary">{description}</Typography>
           </Box>
-          {status ? (
-            <Chip
-              size="small"
-              color={statusTone === "success" ? "success" : "default"}
-              label={status}
-            />
-          ) : null}
+          {actions ? <Box sx={{ flexShrink: 0 }}>{actions}</Box> : null}
         </Stack>
         {children}
       </Stack>
@@ -253,54 +284,101 @@ function MenuControlCard({
 
 function ConfigRow({
   row,
+  draft,
+  editorKind,
+  saving,
   configLabel,
   configDescription,
   configDisplayValue,
+  configSelectOptions,
+  configPlaceholders,
+  fieldUnitHint,
+  closeFocusedPanel,
+  setDraft,
+  save,
   startEdit,
+  toggleConfigValue,
+  isConfigBoolean,
 }: {
   row: MenuRow;
+  draft: MenuDraft;
+  editorKind: string;
+  saving: boolean;
   configLabel: (key: string) => string;
   configDescription: (row: MenuRow) => string;
   configDisplayValue: (row: MenuRow) => string;
+  configSelectOptions: (key: string) => Array<{ value: string; label: string }>;
+  configPlaceholders: (key: string) => string[];
+  fieldUnitHint: (field: { key: string; label: string; type: FieldType }) => string;
+  closeFocusedPanel: () => void;
+  setDraft: (updater: (current: MenuDraft) => MenuDraft) => void;
+  save: (event: FormEvent) => void;
   startEdit: (row: MenuRow) => void;
   toggleConfigValue?: (row: MenuRow) => void;
   isConfigBoolean?: (row: MenuRow) => boolean;
-  setDraft?: (updater: (current: MenuDraft) => MenuDraft) => void;
-  closeFocusedPanel?: () => void;
-  save?: (event: FormEvent) => void;
-  saving?: boolean;
-  configEditorKind?: (key: string) => string;
-  configSelectOptions?: (key: string) => Array<{ value: string; label: string }>;
-  configPlaceholders?: (key: string) => string[];
-  fieldUnitHint?: (field: { key: string; label: string; type: FieldType }) => string;
-  draft?: MenuDraft;
 }) {
+  const rowEditing = String(draft.key || "") === String(row.key || "");
+  const booleanValue = isConfigBoolean?.(row);
+  const valueOn = String(row.value).toLowerCase() === "true";
   return (
-    <Box
-      sx={{
-        p: 1.25,
-        borderRadius: 1,
-        border: "1px solid",
-        borderColor: "divider",
-        bgcolor: "background.paper",
-        opacity: row.enabled === false ? 0.6 : 1,
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-      }}
-    >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="subtitle2">{configLabel(String(row.key || ""))}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {configDescription(row)}
-        </Typography>
-        <Typography variant="caption" color="text.primary" sx={{ fontWeight: 600 }}>
-          {configDisplayValue(row)}
-        </Typography>
+    <Box sx={{ display: "grid", gap: 1 }}>
+      <Box
+        sx={{
+          p: 1.25,
+          borderRadius: 1,
+          border: "1px solid",
+          borderColor: rowEditing ? "primary.main" : "divider",
+          bgcolor: "background.paper",
+          opacity: row.enabled === false ? 0.6 : 1,
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2">{configLabel(String(row.key || ""))}</Typography>
+          <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+          <Typography variant="caption" color="text.primary" sx={{ fontWeight: 600 }}>
+            {configDisplayValue(row)}
+          </Typography>
+        </Box>
+        {booleanValue ? (
+          <Switch
+            disabled={saving}
+            checked={valueOn}
+            onChange={() => toggleConfigValue?.(row)}
+          />
+        ) : null}
+        <IconButton size="small" onClick={() => startEdit(row)} title="Sửa">
+          <Edit3 size={16} />
+        </IconButton>
       </Box>
-      <IconButton size="small" onClick={() => startEdit(row)} title="Sửa">
-        <Edit3 size={16} />
-      </IconButton>
+      {rowEditing ? (
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack spacing={1.5}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }} spacing={1.5}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Chỉnh sửa</Typography>
+                <Typography variant="h6">{configLabel(String(draft.key || ""))}</Typography>
+              </Box>
+              <IconButton size="small" onClick={closeFocusedPanel} title="Đóng">
+                <X size={17} />
+              </IconButton>
+            </Stack>
+            <ConfigEditor
+              draft={draft}
+              saving={saving}
+              editorKind={editorKind}
+              configSelectOptions={configSelectOptions}
+              configPlaceholders={configPlaceholders}
+              fieldUnitHint={fieldUnitHint}
+              setDraft={setDraft}
+              closeFocusedPanel={closeFocusedPanel}
+              save={save}
+            />
+          </Stack>
+        </Paper>
+      ) : null}
     </Box>
   );
 }

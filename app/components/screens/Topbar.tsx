@@ -106,6 +106,7 @@ export default function Topbar(props: TopbarProps) {
     key: filter.key,
     label: filter.label,
   }));
+  const isMessageLibrary = table.key === "messages" || table.key === "video_messages";
 
   return (
     <PageHeader
@@ -150,16 +151,27 @@ export default function Topbar(props: TopbarProps) {
             <RefreshCcw size={17} />
           </IconButton>
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                size="small"
-                checked={Boolean(bulkOpen)}
-                onChange={() => setBulkOpen((value) => !value)}
+          {bulkTables.has(table.key) ? (
+            isMessageLibrary ? (
+              <MuiButton
+                variant={bulkOpen ? "contained" : "outlined"}
+                onClick={() => setBulkOpen((value) => !value)}
+              >
+                {bulkOpen ? (table.key === "messages" ? "Đóng nhập nhiều tin" : "Đóng nhập nhiều video") : (table.key === "messages" ? "Nhập nhiều tin" : "Nhập nhiều video")}
+              </MuiButton>
+            ) : (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={Boolean(bulkOpen)}
+                    onChange={() => setBulkOpen((value) => !value)}
+                  />
+                }
+                label="Bulk"
               />
-            }
-            label="Bulk"
-          />
+            )
+          ) : null}
 
           <MuiButton variant="outlined" onClick={openCommand}>Command</MuiButton>
 

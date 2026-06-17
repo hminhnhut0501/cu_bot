@@ -368,6 +368,63 @@ export const TABLES: TableConfig[] = [
     ]
   },
   {
+    key: "share_unlock_campaigns",
+    label: "Mở khóa bằng mời bạn",
+    description: "Campaign mời đủ N người qua link riêng để mở khóa một link/group khác.",
+    titleField: "title",
+    summaryFields: ["bot_key", "source_chat_id", "required_invites", "status"],
+    fields: [
+      botKey,
+      { key: "source_chat_id", label: "Group nguồn", type: "text", required: true, section: "Campaign" },
+      { key: "title", label: "Tên campaign", type: "text", required: true, section: "Campaign" },
+      { key: "description", label: "Mô tả", type: "textarea", section: "Campaign" },
+      { key: "required_invites", label: "Số người cần mời", type: "number", section: "Điều kiện" },
+      { key: "unlock_target_type", label: "Loại mở khóa", type: "select", options: ["invite_link", "url", "message"], section: "Phần thưởng" },
+      { key: "unlock_target_value", label: "Link/nội dung mở khóa", type: "textarea", required: true, section: "Phần thưởng" },
+      { key: "share_message", label: "Tin nhắn hướng dẫn", type: "textarea", section: "Tin nhắn" },
+      { key: "unlock_message", label: "Tin nhắn mở khóa", type: "textarea", section: "Tin nhắn" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["draft", "open", "closed"], section: "Campaign" },
+      enabled,
+      notes
+    ]
+  },
+  {
+    key: "share_unlock_invites",
+    label: "Link mời cá nhân",
+    description: "Mỗi user có một link mời riêng cho từng campaign.",
+    titleField: "referrer_user_id",
+    summaryFields: ["bot_key", "campaign_id", "referrer_user_id", "active"],
+    fields: [
+      botKey,
+      { key: "campaign_id", label: "Campaign ID", type: "number", required: true, section: "Link" },
+      { key: "referrer_user_id", label: "User giới thiệu", type: "text", required: true, section: "Link" },
+      { key: "source_chat_id", label: "Group nguồn", type: "text", required: true, section: "Link" },
+      { key: "invite_link", label: "Invite link", type: "textarea", required: true, section: "Link" },
+      { key: "invite_name", label: "Tên link", type: "text", section: "Link" },
+      { key: "active", label: "Kích hoạt", type: "boolean", section: "Trạng thái" },
+      { key: "unlocked_at", label: "Mở khóa lúc", type: "text", section: "Trạng thái" },
+      { key: "reward_sent_at", label: "Đã gửi thưởng lúc", type: "text", section: "Trạng thái" },
+      { key: "reward_message_id", label: "Message ID thưởng", type: "text", section: "Trạng thái" }
+    ]
+  },
+  {
+    key: "share_unlock_referrals",
+    label: "Lượt mời hợp lệ",
+    description: "Danh sách user vào nhóm qua link cá nhân của người giới thiệu.",
+    titleField: "invitee_user_id",
+    summaryFields: ["bot_key", "campaign_id", "referrer_user_id", "invitee_user_id"],
+    fields: [
+      botKey,
+      { key: "campaign_id", label: "Campaign ID", type: "number", required: true, section: "Referral" },
+      { key: "referrer_user_id", label: "Người giới thiệu", type: "text", required: true, section: "Referral" },
+      { key: "invitee_user_id", label: "Người được mời", type: "text", required: true, section: "Referral" },
+      { key: "invitee_username", label: "Username", type: "text", section: "Referral" },
+      { key: "invitee_chat_id", label: "Chat ID", type: "text", required: true, section: "Referral" },
+      { key: "invite_link", label: "Invite link", type: "textarea", section: "Referral" },
+      { key: "counted", label: "Được tính", type: "boolean", section: "Referral" }
+    ]
+  },
+  {
     key: "entertainment_events",
     label: "Giải trí",
     description: "Module con: giveaway, bình chọn, check-in, mini quiz, số may mắn, leaderboard.",

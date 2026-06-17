@@ -162,7 +162,7 @@ export function filterVisibleRows(args: {
       return false;
     }
     if (args.selectedGroup) {
-      const rowGroup = String(row.group_id || row.chat_id || "");
+      const rowGroup = String(row.group_id || row.chat_id || row.source_chat_id || row.invitee_chat_id || "");
       if (rowGroup && rowGroup !== args.selectedGroup) return false;
     }
     return args.rowMatchesQuickFilter(row, args.quickFilter);

@@ -11,6 +11,10 @@ import {
   CircularProgress,
   Divider,
   Drawer,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   MenuItem,
   Paper,
@@ -57,7 +61,7 @@ import {
 
 import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
-import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen } from "./components/module-screens";
+import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
 import AuditConsole from "./components/screens/AuditConsole";
 import ScamInbox from "./components/screens/ScamInbox";
 import BulkPanel from "./components/screens/BulkPanel";
@@ -137,6 +141,10 @@ type Lookups = {
   scamReports: Row[];
   auditLogs: Row[];
   channelPosts: Row[];
+  giveawayEntries: Row[];
+  shareUnlockCampaigns: Row[];
+  shareUnlockInvites: Row[];
+  shareUnlockReferrals: Row[];
 };
 type CommandInsight = {
   severity: "critical" | "high" | "warning" | "info" | "healthy";
@@ -262,6 +270,20 @@ const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   bio_scan_cache_seconds: "3600",
   bio_link_warning_text: "{mention} bio của bạn đang chứa link.\nVui lòng gỡ link trong bio rồi nhắn admin để được mở chat lại.",
   bio_link_notice_delete_seconds: "60",
+  giveaway_created_text: "Đã tạo giveaway #{id}.\nTên: {title}\nPhần thưởng: {prize}\nNgười dùng tham gia bằng lệnh /join {id} hoặc bấm nút tham gia bên dưới.",
+  giveaway_empty_text: "Hiện chưa có giveaway nào đang mở. Admin có thể tạo giveaway mới bất cứ lúc nào.",
+  giveaway_list_title: "Danh sách giveaway đang mở:",
+  giveaway_join_usage_text: "Gửi theo cú pháp: /join <giveaway_id>\nNếu campaign yêu cầu từ khóa, thêm từ khóa ở cuối lệnh.",
+  giveaway_not_found_open_text: "Không tìm thấy giveaway đang mở theo ID bạn vừa nhập.",
+  giveaway_keyword_required_text: "Giveaway này yêu cầu từ khóa. Hãy gửi: /join {id} {keyword}",
+  giveaway_joined_text: "Đã ghi nhận bạn tham gia giveaway #{id}.\nMã lượt tham gia: {entry_id}",
+  giveaway_join_duplicate_text: "Bạn đã tham gia giveaway này rồi hoặc dữ liệu tham gia chưa hợp lệ.",
+  giveaway_draw_usage_text: "Admin dùng lệnh: /draw <giveaway_id> để quay người thắng.",
+  giveaway_not_found_text: "Không tìm thấy giveaway theo ID vừa nhập.",
+  giveaway_no_entries_text: "Giveaway này chưa có người tham gia, chưa thể quay kết quả.",
+  giveaway_result_text: "Kết quả giveaway #{id}:\n{winners}",
+  giveaway_close_usage_text: "Admin dùng lệnh: /closegiveaway <giveaway_id> để đóng giveaway.",
+  giveaway_closed_text: "Đã đóng giveaway #{id} thành công.",
 };
 const ADVANCED_FIELD_KEYS = new Set(["id", "created_at", "updated_at", "settings"]);
 const GROUP_TAB_ORDER = ["Thông tin", "Bảo vệ group", "Luật spam", "Tin bot gửi", "Bio/link", "Lịch gửi", "Video", "Menu riêng", "Nội dung riêng", "Ghi chú", "Kỹ thuật"];
@@ -298,7 +320,7 @@ const NAV_GROUPS = [
   { label: "Bảo mật", keys: ["verification_settings", "captcha_questions", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist"] },
   { label: "Nội dung", keys: ["messages", "video_messages", "channel_posts", "auto_replies", "scheduled_posts"] },
   { label: "Scam", keys: ["scam_entities", "scam_reports"] },
-  { label: "Giải trí", keys: ["entertainment_events", "giveaway_campaigns", "giveaway_entries", "reputation_rules"] }
+  { label: "Giải trí", keys: ["entertainment_events", "giveaway_campaigns", "giveaway_entries", "share_unlock_campaigns", "share_unlock_invites", "share_unlock_referrals", "reputation_rules"] }
 ];
 const CORE_LAYERS = [
   {
@@ -396,7 +418,7 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
     steps: ["Global ở Cài đặt hệ thống", "Module ở trang module", "Group override ở flow của module"]
   }
 };
-const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "check", "report"];
+const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "shareunlock", "shareprogress", "check", "report"];
 const CONFIG_LABELS: Record<string, string> = {
   moderation_enabled: "Bật kiểm duyệt",
   policy_text: "Nội quy nhóm",
@@ -511,7 +533,7 @@ const CONFIG_SECTIONS = [
     desc: "Quét link trong bio, xóa tin vi phạm và nội dung cảnh báo.",
     icon: Archive,
     tone: "scam",
-    keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds"]
+    keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds"]
   },
   {
     title: "Captcha & verify",
@@ -584,6 +606,15 @@ const MODULE_HUBS = [
     configKeys: ["send_on_boot", "send_if_silent"]
   },
   {
+    key: "welcome",
+    moduleKeys: ["welcome"],
+    title: "Welcome",
+    desc: "Chào thành viên mới khi họ join group, có mẫu tin và tự xóa.",
+    icon: MessageSquare,
+    tone: "content",
+    tables: ["module_settings"]
+  },
+  {
     key: "channel_publisher",
     moduleKeys: ["channel_publisher"],
     title: "Đăng channel",
@@ -622,6 +653,15 @@ const MODULE_HUBS = [
     configKeys: ["giveaway_created_text", "giveaway_empty_text", "giveaway_list_title", "giveaway_join_usage_text", "giveaway_not_found_open_text", "giveaway_keyword_required_text", "giveaway_joined_text", "giveaway_join_duplicate_text", "giveaway_draw_usage_text", "giveaway_not_found_text", "giveaway_no_entries_text", "giveaway_result_text", "giveaway_close_usage_text", "giveaway_closed_text"]
   },
   {
+    key: "share_unlock",
+    moduleKeys: ["share_unlock"],
+    title: "Mở khóa bằng chia sẻ",
+    desc: "Mỗi user có link mời riêng. Đủ số người vào group qua link đó thì bot mở khóa link thưởng.",
+    icon: Gift,
+    tone: "fun",
+    tables: ["share_unlock_campaigns", "share_unlock_invites", "share_unlock_referrals"],
+  },
+  {
     key: "analytics",
     moduleKeys: ["analytics"],
     title: "Thống kê",
@@ -658,12 +698,15 @@ const MODULE_TABLE_OWNER: Record<string, string> = {
   giveaway_entries: "entertainment",
   entertainment_events: "entertainment",
   reputation_rules: "entertainment",
+  share_unlock_campaigns: "share_unlock",
+  share_unlock_invites: "share_unlock",
+  share_unlock_referrals: "share_unlock",
   bot_metrics: "analytics",
   audit_logs: "analytics",
   admins: "members",
   member_roles: "members"
 };
-const MODULES_REQUIRE_EXPLICIT_ENABLE = new Set(["auto_reply"]);
+const MODULES_REQUIRE_EXPLICIT_ENABLE = new Set(["auto_reply", "welcome", "share_unlock"]);
 const MODULE_CONFIG_KEYS = new Set(MODULE_HUBS.flatMap((module) => module.configKeys || []));
 const SYSTEM_CONFIG_SECTIONS = [
   {
@@ -1366,8 +1409,8 @@ function statusText(row: Row) {
     return "Tắt";
   }
   const labels: Record<string, string> = {
-    active: "Đang chạy",
-    open: "Đang mở",
+    active: "Chạy",
+    open: "Mở",
     drawn: "Đã quay",
     closed: "Đã đóng",
     pending: "Chờ xử lý",
@@ -1375,14 +1418,14 @@ function statusText(row: Row) {
     rejected: "Từ chối",
     draft: "Nháp"
   };
-  return labels[String(row.status || "")] || "Bật";
+  return labels[String(row.status || "")] || "Chạy";
 }
 
 function healthState(row: Row, tableKey = "") {
   if (tableKey === "channel_posts") {
     const status = String(row.status || "draft").toLowerCase();
     if (row.enabled === false) {
-      return { className: "disabled", label: "Đang tắt" };
+      return { className: "disabled", label: "Tắt" };
     }
     if (["pending", "queued"].includes(status)) {
       return { className: "setup", label: "Chờ gửi" };
@@ -1408,7 +1451,7 @@ function healthState(row: Row, tableKey = "") {
     return { className: "setup", label: "Nháp" };
   }
   if (row.enabled === false || row.status === "paused" || row.status === "closed" || row.status === "rejected") {
-    return { className: "disabled", label: "Đang tắt" };
+    return { className: "disabled", label: "Tắt" };
   }
   if (row.status === "pending" || row.status === "draft" || row.status === "watch") {
     return { className: "setup", label: "Cần setup" };
@@ -1638,7 +1681,7 @@ function heroFor(activeKey: string) {
   if (["scam_entities", "scam_reports"].includes(activeKey)) {
     return { title: "Trung tâm chống scam", desc: "Tra cứu, báo cáo và duyệt dữ liệu lừa đảo từ thành viên.", icon: Archive, tone: "scam" };
   }
-  if (["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules"].includes(activeKey)) {
+  if (["giveaway_campaigns", "giveaway_entries", "entertainment_events", "reputation_rules", "share_unlock_campaigns", "share_unlock_invites", "share_unlock_referrals"].includes(activeKey)) {
     return { title: "Trung tâm tương tác", desc: "Giveaway, event, điểm tương tác và các hoạt động giữ group sống.", icon: Gift, tone: "fun" };
   }
   return { title: "Bảng điều khiển", desc: "Chọn bot, chọn group, rồi cấu hình từng module bằng thao tác thân thiện.", icon: BarChart3, tone: "main" };
@@ -1655,8 +1698,8 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       body: "Paste nhiều từ khóa một lần, chọn hành động mặc định, rồi bật/tắt hoặc xóa hàng loạt ngay trong danh sách.",
       icon: ShieldCheck,
       chips: [
-        { label: "Đang chọn", value: selectedCount },
-        { label: "Đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đã chọn", value: selectedCount },
+        { label: "Bật", value: rows.filter((row) => row.enabled !== false).length },
         ...actions.map((item) => ({ label: item.label, value: item.count }))
       ]
     };
@@ -1669,8 +1712,8 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       icon: Sparkles,
       chips: [
         { label: "Nhóm nội dung", value: pools.length },
-        { label: "Tin đang bật", value: rows.filter((row) => row.enabled !== false).length },
-        { label: "Đang chọn", value: selectedCount }
+        { label: "Tin bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đã chọn", value: selectedCount }
       ]
     };
   }
@@ -1680,9 +1723,9 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       body: "Để gửi chào buổi sáng lúc 09:00: bật module Tự động hóa, bấm Tạo lịch gửi tin, nhập nội dung và lưu.",
       icon: SlidersHorizontal,
       chips: [
-        { label: "Lịch đang bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Lịch bật", value: rows.filter((row) => row.enabled !== false).length },
         { label: "Group có lịch", value: uniqueValues(rows, "chat_id").length },
-        { label: "Đang chọn", value: selectedCount }
+        { label: "Đã chọn", value: selectedCount }
       ]
     };
   }
@@ -1706,7 +1749,7 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       chips: [
         { label: "Câu trả lời", value: rows.length },
         { label: "Regex", value: rows.filter((row) => row.match === "regex").length },
-        { label: "Đang bật", value: rows.filter((row) => row.enabled !== false).length }
+        { label: "Bật", value: rows.filter((row) => row.enabled !== false).length }
       ]
     };
   }
@@ -1718,8 +1761,8 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       icon: Archive,
       chips: [
         { label: "Nhóm video", value: pools.length },
-        { label: "Video đang bật", value: rows.filter((row) => row.enabled !== false).length },
-        { label: "Đang chọn", value: selectedCount }
+        { label: "Video bật", value: rows.filter((row) => row.enabled !== false).length },
+        { label: "Đã chọn", value: selectedCount }
       ]
     };
   }
@@ -1729,9 +1772,33 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
       body: "Tạo chiến dịch, đặt phần thưởng, số người thắng và trạng thái. Lượt tham gia nằm ở mục Lượt tham gia.",
       icon: Gift,
       chips: [
-        { label: "Đang mở", value: rows.filter((row) => row.status === "open").length },
+        { label: "Mở", value: rows.filter((row) => row.status === "open").length },
         { label: "Đã quay", value: rows.filter((row) => row.status === "drawn").length },
-        { label: "Đang chọn", value: selectedCount }
+        { label: "Đã chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "share_unlock_campaigns") {
+    return {
+      title: "Mở khóa bằng mời bạn",
+      body: "Mỗi member có một link riêng. Khi đủ số người vào group qua link đó, bot sẽ mở khóa link thưởng.",
+      icon: Gift,
+      chips: [
+        { label: "Đang mở", value: rows.filter((row) => row.status === "open").length },
+        { label: "Đã đóng", value: rows.filter((row) => row.status === "closed").length },
+        { label: "Đã chọn", value: selectedCount }
+      ]
+    };
+  }
+  if (tableKey === "share_unlock_referrals") {
+    return {
+      title: "Lượt mời hợp lệ",
+      body: "Theo dõi ai là người giới thiệu, ai là user vào qua link và lượt nào được tính.",
+      icon: Users,
+      chips: [
+        { label: "Lượt hợp lệ", value: rows.filter((row) => row.counted !== false).length },
+        { label: "Người giới thiệu", value: uniqueValues(rows, "referrer_user_id").length },
+        { label: "Đã chọn", value: selectedCount }
       ]
     };
   }
@@ -1763,6 +1830,12 @@ function emptyStateFor(tableKey: string): EmptyStateConfig {
       body: "Tạo trigger để bot trả lời tự động.",
       action: "Tạo auto reply",
       steps: ["Nhập trigger", "Nhập câu trả lời", "Test trước khi bật"]
+    },
+    share_unlock_campaigns: {
+      title: "Chưa có campaign mở khóa",
+      body: "Tạo campaign đầu tiên để user mời bạn qua link riêng rồi mở khóa phần thưởng.",
+      action: "Tạo campaign mở khóa",
+      steps: ["Chọn group nguồn", "Đặt số người cần mời", "Nhập link phần thưởng"]
     },
     scheduled_posts: {
       title: "Chưa có lịch",
@@ -2125,12 +2198,15 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
   const [channelComposer, setChannelComposer] = useState<Row>({});
   const [channelButtons, setChannelButtons] = useState<ChannelButtonDraft[]>([{ label: "", url: "", row: 0 }]);
+  const [welcomeDraftText, setWelcomeDraftText] = useState("");
+  const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
+  const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
 
   useEffect(() => {
     if (!toast) {
@@ -2343,6 +2419,203 @@ export default function HomePage() {
   }, [activeLayer, scopedConfigRows]);
   const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab), [activeConfigTab, configTabs]);
   const ActiveConfigIcon = activeConfigSection?.icon;
+  const moderationConfigRowMap = useMemo(() => {
+    const map = new Map<string, Row>();
+    if (activeConfigSection?.title === "Thiết lập dùng chung") {
+      for (const row of activeConfigSection.rows) {
+        map.set(String(row.key || ""), row);
+      }
+    }
+    return map;
+  }, [activeConfigSection]);
+  const moderationBlocks = useMemo(() => [
+    {
+      key: "core",
+      title: "Cốt lõi",
+      desc: "Bật toàn bộ kiểm duyệt và các rule nền cơ bản.",
+      toggleKey: "moderation_enabled",
+      keys: [
+        "moderation_enabled",
+        "delete_system_messages",
+        "delete_forwarded_messages",
+        "allow_automatic_forwards",
+        "delete_inline_keyboard_messages",
+        "delete_messages_from_bots",
+        "remove_unknown_bots",
+        "exempt_admins"
+      ]
+    },
+    {
+      key: "spam",
+      title: "Spam",
+      desc: "Ngưỡng spam, thời gian đếm và cách xử lý.",
+      toggleKey: "spam_action",
+      keys: [
+        "spam_max_messages",
+        "spam_window_seconds",
+        "spam_action",
+        "spam_restrict_seconds",
+        "ban_after_warnings",
+        "ban_seconds",
+        "violation_delete_retry_seconds",
+        "spam_restrict_text",
+        "warning_text",
+        "warning_notice_delete_seconds",
+        "spam_notice_delete_seconds",
+        "media_spam_max_messages",
+        "media_spam_window_seconds",
+        "media_spam_action"
+      ]
+    },
+    {
+      key: "forward",
+      title: "Forward",
+      desc: "Luật xử lý tin chuyển tiếp và nội dung copy.",
+      toggleKey: "forward_action",
+      keys: [
+        "forward_action",
+        "forward_warning_reason",
+        "forward_warning_text",
+        "forward_warning_delete_seconds",
+        "inline_keyboard_action"
+      ]
+    },
+    {
+      key: "duplicate",
+      title: "Duplicate",
+      desc: "Phát hiện nội dung lặp và hành động xử lý.",
+      toggleKey: "duplicate_message_enabled",
+      keys: [
+        "duplicate_message_enabled",
+        "duplicate_message_max_count",
+        "duplicate_message_window_seconds",
+        "duplicate_message_action",
+        "duplicate_message_reason"
+      ]
+    },
+    {
+      key: "bio",
+      title: "Bio / Link",
+      desc: "Quét bio, link ẩn và cách phản hồi khi phát hiện.",
+      toggleKey: "scan_bio_links",
+      keys: [
+        "scan_bio_links",
+        "bio_link_delete_message",
+        "bio_link_restrict_seconds",
+        "bio_scan_cache_seconds",
+        "bio_link_warning_text",
+        "bio_link_notice_delete_seconds",
+        "scan_hidden_links",
+        "scan_text_link",
+        "scan_text_mention",
+        "allow_in_group_mentions",
+        "hidden_link_action",
+        "text_link_action",
+        "text_mention_action",
+        "hidden_link_reason",
+        "hidden_link_delete_notice_seconds"
+      ]
+    }
+  ], []);
+  const spamConfigBlocks = useMemo(() => [
+    {
+      key: "spam",
+      title: "Spam thường",
+      desc: "Ngưỡng spam, hành động xử lý và thời gian mute.",
+      toggleKey: "spam_action",
+      keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds"]
+    },
+    {
+      key: "forward",
+      title: "Forward",
+      desc: "Xử lý tin chuyển tiếp và bài có nút bấm.",
+      toggleKey: "forward_action",
+      keys: ["forward_action", "inline_keyboard_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds", "spam_restrict_text", "warning_text", "warning_notice_delete_seconds", "spam_notice_delete_seconds"]
+    },
+    {
+      key: "duplicate",
+      title: "Trùng nội dung",
+      desc: "Phát hiện tin/sticker lặp và cách xử lý.",
+      toggleKey: "duplicate_message_enabled",
+      keys: ["duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason"]
+    },
+    {
+      key: "media",
+      title: "Spam media",
+      desc: "Số lượng media spam và cách xử lý.",
+      toggleKey: "media_spam_action",
+      keys: ["media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
+    },
+    {
+      key: "ban",
+      title: "Cảnh báo & ban",
+      desc: "Ngưỡng cảnh báo, thời gian ban và thời hạn xử lý.",
+      toggleKey: "ban_after_warnings",
+      keys: ["ban_after_warnings", "ban_seconds"]
+    }
+  ], []);
+  const templateConfigBlocks = useMemo(() => [
+    {
+      key: "general",
+      title: "Mẫu cảnh báo & mute",
+      desc: "Tin bot gửi khi user vi phạm spam hoặc forward.",
+      keys: ["warning_text", "warning_notice_delete_seconds", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds", "spam_restrict_text", "spam_notice_delete_seconds"]
+    },
+    {
+      key: "bio",
+      title: "Mẫu cảnh báo bio/link",
+      desc: "Tin bot gửi khi phát hiện bio hoặc link không an toàn.",
+      keys: ["bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    }
+  ], []);
+  const bioLinkConfigBlocks = useMemo(() => [
+    {
+      key: "bio",
+      title: "Quét bio",
+      desc: "Quét link trong bio và xử lý theo rule.",
+      toggleKey: "scan_bio_links",
+      keys: ["scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds"]
+    },
+    {
+      key: "link",
+      title: "Link ẩn & mention",
+      desc: "Quét link ẩn, text link, text mention và @user.",
+      toggleKey: "scan_hidden_links",
+      keys: ["scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
+    },
+    {
+      key: "notice",
+      title: "Mẫu cảnh báo bio/link",
+      desc: "Tin bot gửi và thời gian tự xóa khi phát hiện bio/link.",
+      keys: ["bio_link_warning_text", "bio_link_notice_delete_seconds"]
+    }
+  ], []);
+  const otherConfigBlocks = useMemo(() => [
+    {
+      key: "menu",
+      title: "Nội quy & menu",
+      desc: "Nội dung /start, /help, nút Quy định và menu lệnh.",
+      keys: ["policy_text", "show_policy_button", "policy_button_text", "bot_menu_commands", "help_menu_commands", "start_fallback_text", "help_menu_title"]
+    },
+    {
+      key: "captcha",
+      title: "Captcha & verify",
+      desc: "Tin nhắn xác minh thành viên mới.",
+      keys: ["captcha_text", "captcha_success_text", "captcha_failed_text", "captcha_message_delete_seconds", "verify_success_delete_seconds"]
+    },
+    {
+      key: "send",
+      title: "Gửi tin tự động",
+      desc: "Tin khi bot khởi động hoặc khi nhóm im lặng.",
+      keys: ["send_on_boot", "send_if_silent"]
+    },
+    {
+      key: "scam",
+      title: "Scam & báo cáo",
+      desc: "Channel duyệt scam và mẫu phản hồi tra cứu.",
+      keys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+    }
+  ], []);
   const metricGroups = useMemo(() => {
     const groups: Record<string, Row[]> = {};
     for (const row of dashboardRows) {
@@ -2524,11 +2797,11 @@ export default function HomePage() {
         { key: "rejected", label: `Từ chối (${scamInboxStats.rejected})` }
       ];
     }
-    const base = [
-      { key: "", label: "Tất cả" },
-      { key: "active", label: "Đang chạy" },
-      { key: "disabled", label: "Đang tắt" }
-    ];
+  const base = [
+    { key: "", label: "Tất cả" },
+    { key: "active", label: "Chạy" },
+    { key: "disabled", label: "Tắt" }
+  ];
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
   }, [rows, scamInboxStats.confirmed, scamInboxStats.pending, scamInboxStats.rejected, table]);
@@ -2587,7 +2860,7 @@ export default function HomePage() {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const scopedGroupQuery = selectedScope ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedScope)}` : "";
       const auditQuery = selectedScope ? `?group_id=${encodeURIComponent(selectedScope)}` : "";
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload, channelPostsPayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload, channelPostsPayload, giveawayEntriesPayload, shareUnlockCampaignsPayload, shareUnlockInvitesPayload, shareUnlockReferralsPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
         api(`/api/messages${scopedBotQuery}`),
@@ -2595,7 +2868,11 @@ export default function HomePage() {
         api(`/api/module_settings${scopedBotQuery}`),
         api(`/api/scam_reports${scopedBotQuery}`),
         api(`/api/audit_logs${auditQuery}`),
-        api(`/api/channel_posts${scopedBotQuery}`)
+        api(`/api/channel_posts${scopedBotQuery}`),
+        api(`/api/giveaway_entries${scopedBotQuery}`),
+        api(`/api/share_unlock_campaigns${scopedBotQuery}`),
+        api(`/api/share_unlock_invites${scopedBotQuery}`),
+        api(`/api/share_unlock_referrals${scopedBotQuery}`)
       ]);
       const deleteFailedRows = (auditPayload.rows || [])
         .filter((row: Row) => ["delete_message_failed", "delete_message"].includes(String(row.action || "").toLowerCase()))
@@ -2621,11 +2898,15 @@ export default function HomePage() {
         moduleSettings: modulePayload.rows || [],
         scamReports: scamReportsPayload.rows || [],
         auditLogs: auditPayload.rows || [],
-        channelPosts: channelPostsPayload.rows || []
+        channelPosts: channelPostsPayload.rows || [],
+        giveawayEntries: giveawayEntriesPayload.rows || [],
+        shareUnlockCampaigns: shareUnlockCampaignsPayload.rows || [],
+        shareUnlockInvites: shareUnlockInvitesPayload.rows || [],
+        shareUnlockReferrals: shareUnlockReferralsPayload.rows || []
       });
     } catch {
       setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
     }
   }
 
@@ -3150,6 +3431,256 @@ export default function HomePage() {
       flashToast(message, "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveWelcomeSettings(nextValues: { welcome_text?: string; welcome_delete_seconds?: string | number; welcome_enabled?: string; welcome_buttons_text?: string }) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      const welcomeRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "welcome");
+      const nextSettings = {
+        ...readSettingsObject(welcomeRow?.settings),
+        ...nextValues
+      };
+      if (welcomeRow?.id) {
+        await api("/api/module_settings", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: welcomeRow.id,
+            values: {
+              ...welcomeRow,
+              settings: nextSettings
+            }
+          })
+        });
+      } else {
+        await api("/api/module_settings", {
+          method: "POST",
+          body: JSON.stringify({
+            bot_key: selectedBot || "main",
+            module_key: "welcome",
+            module_name: "Welcome",
+            category: "Welcome",
+            settings: nextSettings,
+            enabled: true
+          })
+        });
+      }
+      setNotice("Đã lưu cấu hình Welcome.");
+      flashToast("Đã lưu cấu hình Welcome.");
+      await refreshAfterMutation("module_settings", { reloadRows: false, reloadLookups: true });
+    } catch (err) {
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createGiveawayCampaign(nextValues: {
+    chat_id: string;
+    title: string;
+    prize: string;
+    winner_count: number;
+    require_keyword: string;
+    description: string;
+    start_at: string;
+    end_at: string;
+    join_message: string;
+    result_message: string;
+    buttons_text: string;
+  }) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      if (!nextValues.chat_id) {
+        throw new Error("Hãy chọn group trước khi tạo campaign giveaway.");
+      }
+      const notes = {
+        join_message: nextValues.join_message,
+        result_message: nextValues.result_message,
+        buttons_text: nextValues.buttons_text,
+        group_name: selectedScopeRow?.group_name || ""
+      };
+      await api("/api/giveaway_campaigns", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: selectedBot || "main",
+          chat_id: nextValues.chat_id,
+          title: nextValues.title,
+          prize: nextValues.prize,
+          description: nextValues.description,
+          status: "open",
+          winner_count: nextValues.winner_count,
+          require_keyword: nextValues.require_keyword,
+          start_at: nextValues.start_at || null,
+          end_at: nextValues.end_at || null,
+          winners: "",
+          enabled: true,
+          notes: JSON.stringify(notes)
+        })
+      });
+      setNotice("Đã tạo campaign giveaway.");
+      flashToast("Đã tạo campaign giveaway.");
+      await refreshAfterMutation("giveaway_campaigns", { reloadRows: true, reloadLookups: true });
+      setActiveLayer("module:entertainment");
+      setActiveModule("entertainment");
+      setActiveKey("giveaway_campaigns");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể tạo campaign giveaway.";
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openGiveawayEntries(campaignId: string) {
+    setActiveLayer("module:entertainment");
+    setActiveModule("entertainment");
+    setActiveKey("giveaway_entries");
+    setQuickFilter(campaignId);
+  }
+
+  async function drawGiveawayCampaign(campaignId: string) {
+    const campaignRow = rows.find((row) => String(row.id) === String(campaignId));
+    if (!campaignRow) {
+      flashToast("Không tìm thấy campaign.", "error");
+      return;
+    }
+    const entries = lookups.giveawayEntries.filter((row) => String(row.giveaway_id || "") === String(campaignId));
+    if (!entries.length) {
+      flashToast("Campaign chưa có người tham gia.", "error");
+      return;
+    }
+    const winnerCount = Math.min(Number(campaignRow.winner_count || 1), entries.length);
+    const winners = [...entries].sort(() => Math.random() - 0.5).slice(0, winnerCount);
+    const winnerText = winners.map((row, index) => `${index + 1}. ${row.display_name || row.username || row.user_id}`).join("\n");
+    try {
+      await api("/api/giveaway_campaigns", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: campaignId,
+          values: { ...campaignRow, status: "drawn", winners: winnerText }
+        })
+      });
+      flashToast("Đã quay giveaway.");
+      await refreshAfterMutation("giveaway_campaigns", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể quay giveaway.", "error");
+    }
+  }
+
+  async function closeGiveawayCampaign(campaignId: string) {
+    const campaignRow = rows.find((row) => String(row.id) === String(campaignId));
+    if (!campaignRow) {
+      flashToast("Không tìm thấy campaign.", "error");
+      return;
+    }
+    try {
+      await api("/api/giveaway_campaigns", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: campaignId,
+          values: { ...campaignRow, status: "closed" }
+        })
+      });
+      flashToast("Đã đóng campaign.");
+      await refreshAfterMutation("giveaway_campaigns", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể đóng campaign.", "error");
+    }
+  }
+
+  async function createShareUnlockCampaign(nextValues: {
+    source_chat_id: string;
+    title: string;
+    description: string;
+    required_invites: number;
+    unlock_target_type: string;
+    unlock_target_value: string;
+    share_message: string;
+    unlock_message: string;
+    status: string;
+    notes: string;
+  }) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      if (!nextValues.source_chat_id) {
+        throw new Error("Hay chon group truoc khi tao campaign mo khoa.");
+      }
+      await api("/api/share_unlock_campaigns", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: selectedBot || "main",
+          source_chat_id: nextValues.source_chat_id,
+          title: nextValues.title,
+          description: nextValues.description,
+          required_invites: nextValues.required_invites,
+          unlock_target_type: nextValues.unlock_target_type,
+          unlock_target_value: nextValues.unlock_target_value,
+          share_message: nextValues.share_message,
+          unlock_message: nextValues.unlock_message,
+          status: nextValues.status || "open",
+          enabled: true,
+          notes: nextValues.notes
+        })
+      });
+      flashToast("Da tao campaign mo khoa.");
+      await refreshAfterMutation("share_unlock_campaigns", { reloadRows: true, reloadLookups: true });
+      setActiveLayer("module:share_unlock");
+      setActiveModule("share_unlock");
+      setActiveKey("share_unlock_campaigns");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Khong the tao campaign mo khoa.";
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openShareUnlockInvites(campaignId: string) {
+    setActiveLayer("module:share_unlock");
+    setActiveModule("share_unlock");
+    setActiveKey("share_unlock_invites");
+    setQuickFilter(campaignId);
+  }
+
+  function openShareUnlockReferrals(campaignId: string) {
+    setActiveLayer("module:share_unlock");
+    setActiveModule("share_unlock");
+    setActiveKey("share_unlock_referrals");
+    setQuickFilter(campaignId);
+  }
+
+  async function toggleShareUnlockCampaignStatus(campaignId: string, nextStatus: "open" | "closed") {
+    const campaignRow = lookups.shareUnlockCampaigns.find((row) => String(row.id) === String(campaignId));
+    if (!campaignRow) {
+      flashToast("Khong tim thay campaign.", "error");
+      return;
+    }
+    try {
+      await api("/api/share_unlock_campaigns", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: campaignId,
+          values: {
+            ...campaignRow,
+            status: nextStatus
+          }
+        })
+      });
+      flashToast(nextStatus === "open" ? "Da mo lai campaign." : "Da dong campaign.");
+      await refreshAfterMutation("share_unlock_campaigns", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Khong the cap nhat campaign.", "error");
     }
   }
 
@@ -3682,6 +4213,18 @@ export default function HomePage() {
   const moderationScanTextMention = moderationSettingsMap.get("scan_text_mention") !== "false";
   const moderationAllowInGroupMentions = moderationSettingsMap.get("allow_in_group_mentions") !== "false";
   const moderationHiddenLinkAction = moderationSettingsMap.get("hidden_link_action") || "warn";
+  const welcomeModuleRow = useMemo(() => moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "welcome") || null, [moduleRows]);
+  const welcomeSettings = useMemo(() => readSettingsObject(welcomeModuleRow?.settings), [welcomeModuleRow?.settings]);
+  const welcomeModuleEnabled = welcomeModuleRow ? welcomeModuleRow.enabled !== false : false;
+  const welcomeEnabled = welcomeSettings.welcome_enabled !== "false";
+  const welcomeText = String(welcomeSettings.welcome_text || "Chào mừng {user} đến với {group}.");
+  const welcomeDeleteSeconds = Number(welcomeSettings.welcome_delete_seconds ?? 30) || 30;
+  const welcomeButtonsText = String(welcomeSettings.welcome_buttons_text || "");
+  useEffect(() => {
+    setWelcomeDraftText(welcomeText);
+    setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
+    setWelcomeDraftButtonsText(welcomeButtonsText);
+  }, [welcomeText, welcomeDeleteSeconds, welcomeButtonsText, welcomeModuleRow?.id]);
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -3769,12 +4312,11 @@ export default function HomePage() {
                           selectLayer(layer.key);
                         }}
                         startIcon={<LayerIcon size={17} />}
-                        endIcon={moduleOff ? <Chip size="small" label="OFF" color="default" /> : active && "isOn" in layer ? <Chip size="small" label="ON" color="success" /> : null}
                         sx={{
                           justifyContent: "flex-start",
                           opacity: moduleOff ? 0.46 : 1,
                           pointerEvents: locked ? "none" : "auto",
-                          "& .MuiButton-endIcon": { ml: "auto" }
+                          pr: 1.1,
                         }}
                       >
                         <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>{layer.shortTitle}</Box>
@@ -4085,29 +4627,42 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer.startsWith("module:") ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "rgba(17,24,33,0.86)" }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.5,
+              bgcolor: "background.paper",
+              borderColor: "divider",
+              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+            }}
+          >
             <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
               <Box>
                 <Typography variant="overline" color="primary">Module tabs</Typography>
                 <Typography variant="h6">{activeModuleHub.title}</Typography>
                 {!moduleEnabled ? <Typography variant="body2" color="warning.main">Module đang tắt. Bật module để sidebar cho phép vận hành.</Typography> : null}
               </Box>
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                {activeModuleHub.tables.map((key) => {
+              <TabsBar
+                tone="pill"
+                wrapped={false}
+                scrollable
+                value={activeKey}
+                onChange={(key) => openModuleConfigure(activeModuleHub.key, key)}
+                items={activeModuleHub.tables.map((key) => {
                   const item = meta?.tables.find((tableItem) => tableItem.key === key);
-                  if (!item) return null;
-                  return (
-                    <MuiButton
-                      key={key}
-                      variant={activeKey === key ? "contained" : "outlined"}
-                      color={activeKey === key ? "primary" : "inherit"}
-                      onClick={() => openModuleConfigure(activeModuleHub.key, key)}
-                    >
-                      {TABLE_TASK_LABELS[key] || item.label}
-                    </MuiButton>
-                  );
+                  if (!item) return { key, label: key };
+                  return {
+                    key,
+                    label: TABLE_TASK_LABELS[key] || item.label,
+                  };
                 })}
-              </Stack>
+                sx={{
+                  minHeight: "unset",
+                  "& .MuiTabs-flexContainer": {
+                    gap: 1,
+                  },
+                }}
+              />
             </Stack>
           </Paper>
         ) : null}
@@ -4125,6 +4680,60 @@ export default function HomePage() {
             goToScheduleContent={goToScheduleContent}
             startScheduledMessageFlow={startScheduledMessageFlow}
             lookupsGroupsLength={lookups.groups.length}
+          />
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "welcome" ? (
+          <WelcomeScreen
+            moduleEnabled={moduleEnabled}
+            welcomeEnabled={welcomeEnabled}
+            welcomeText={welcomeDraftText}
+            welcomeDeleteSeconds={welcomeDraftDeleteSeconds}
+            welcomeButtonsText={welcomeDraftButtonsText}
+            saving={saving}
+            onToggleModule={() => void toggleModule("welcome")}
+            onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}
+            onChangeText={setWelcomeDraftText}
+            onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
+            onChangeButtonsText={setWelcomeDraftButtonsText}
+            onSave={() => void saveWelcomeSettings({
+              welcome_text: welcomeDraftText,
+              welcome_delete_seconds: welcomeDraftDeleteSeconds,
+              welcome_buttons_text: welcomeDraftButtonsText
+            })}
+          />
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "entertainment" ? (
+          <GiveawayScreen
+            moduleEnabled={moduleEnabled}
+            campaigns={rows}
+            giveawayEntries={lookups.giveawayEntries}
+            selectedScope={selectedScope}
+            selectedScopeName={selectedScopeRow?.group_name || ""}
+            saving={saving}
+            onOpenEntries={openGiveawayEntries}
+            onDrawCampaign={drawGiveawayCampaign}
+            onCloseCampaign={closeGiveawayCampaign}
+            onToggleModule={() => void toggleModule("entertainment")}
+            onCreateCampaign={createGiveawayCampaign}
+          />
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "share_unlock" ? (
+          <ShareUnlockScreen
+            moduleEnabled={moduleEnabled}
+            saving={saving}
+            selectedScope={selectedScope}
+            selectedScopeName={selectedScopeRow?.group_name || ""}
+            campaigns={lookups.shareUnlockCampaigns.filter((row) => !selectedScope || String(row.source_chat_id || "") === String(selectedScope))}
+            invites={lookups.shareUnlockInvites}
+            referrals={lookups.shareUnlockReferrals}
+            onToggleModule={() => void toggleModule("share_unlock")}
+            onToggleCampaignStatus={toggleShareUnlockCampaignStatus}
+            onCreateCampaign={createShareUnlockCampaign}
+            onOpenInvites={openShareUnlockInvites}
+            onOpenReferrals={openShareUnlockReferrals}
           />
         ) : null}
 
@@ -4169,6 +4778,7 @@ export default function HomePage() {
             selectedScope={selectedScope}
             openTaskData={openTaskData}
             selectLayer={selectLayer}
+            startCreate={startCreate}
           />
         ) : null}
 
@@ -4404,6 +5014,396 @@ export default function HomePage() {
                     changeHiddenLinkAction={changeModerationHiddenLinkAction}
                   />
                 ) : null}
+                {activeLayer === "module:moderation" && activeConfigSection.title === "Spam, cảnh báo & ban" ? (
+                  <Stack spacing={1.5}>
+                    {spamConfigBlocks.map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      const toggleRow = moderationConfigRowMap.get(block.toggleKey);
+                      const blockOn = toggleRow ? String(toggleRow.value).toLowerCase() !== "false" : true;
+                      const hasBooleanToggle = Boolean(toggleRow && isConfigBoolean(toggleRow));
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+                              <Box>
+                                <Typography variant="subtitle1">{block.title}</Typography>
+                                <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                              </Box>
+                              {hasBooleanToggle && toggleRow ? (
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                                  <Chip size="small" label={blockOn ? "Bật" : "Tắt"} color={blockOn ? "success" : "default"} />
+                                  <Switch
+                                    checked={blockOn}
+                                    disabled={saving}
+                                    onChange={() => toggleConfigValue(toggleRow)}
+                                  />
+                                </Stack>
+                              ) : null}
+                            </Stack>
+
+                            {blockOn ? (
+                              <Grid container spacing={1.5}>
+                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey).map((row) => {
+                                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                  const booleanValue = isConfigBoolean(row);
+                                  const valueOn = String(row.value).toLowerCase() === "true";
+                                  const editorKind = configEditorKind(String(row.key || ""));
+                                  return (
+                                    <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: row.enabled === false ? 0.7 : 1 }}>
+                                        <Stack spacing={1.5}>
+                                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                            <Box>
+                                              <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                              <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch
+                                                  disabled={saving}
+                                                  onClick={() => toggleConfigValue(row)}
+                                                  title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                                                  checked={valueOn}
+                                                />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" disabled={saving} onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                          </Stack>
+
+                                          {editing ? (
+                                            <ConfigEditor
+                                              draft={draft as ConfigEditorDraft}
+                                              saving={saving}
+                                              editorKind={editorKind}
+                                              configSelectOptions={configSelectOptions}
+                                              configPlaceholders={configPlaceholders}
+                                              fieldUnitHint={fieldUnitHint}
+                                              setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                              closeFocusedPanel={closeFocusedPanel}
+                                              save={save}
+                                            />
+                                          ) : (
+                                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                              <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                              <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                            </Paper>
+                                          )}
+                                        </Stack>
+                                      </Paper>
+                                    </Grid>
+                                  );
+                                })}
+                              </Grid>
+                            ) : null}
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : activeLayer === "module:moderation" && activeConfigSection.title === "Mẫu tin kiểm duyệt" ? (
+                  <Stack spacing={1.5}>
+                    {templateConfigBlocks.map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Box>
+                              <Typography variant="subtitle1">{block.title}</Typography>
+                              <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                            </Box>
+                            <Grid container spacing={1.5}>
+                              {blockRows.map((row) => {
+                                const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                const booleanValue = isConfigBoolean(row);
+                                const valueOn = String(row.value).toLowerCase() === "true";
+                                const editorKind = configEditorKind(String(row.key || ""));
+                                return (
+                                  <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: row.enabled === false ? 0.7 : 1 }}>
+                                      <Stack spacing={1.5}>
+                                        <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                          <Box>
+                                            <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                            <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                          </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch
+                                                  disabled={saving}
+                                                  onClick={() => toggleConfigValue(row)}
+                                                  title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                                                  checked={valueOn}
+                                                />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" disabled={saving} onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                        </Stack>
+
+                                        {editing ? (
+                                          <ConfigEditor
+                                            draft={draft as ConfigEditorDraft}
+                                            saving={saving}
+                                            editorKind={editorKind}
+                                            configSelectOptions={configSelectOptions}
+                                            configPlaceholders={configPlaceholders}
+                                            fieldUnitHint={fieldUnitHint}
+                                            setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                            closeFocusedPanel={closeFocusedPanel}
+                                            save={save}
+                                          />
+                                        ) : (
+                                          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                            <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                            <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                          </Paper>
+                                        )}
+                                      </Stack>
+                                    </Paper>
+                                  </Grid>
+                                );
+                              })}
+                            </Grid>
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : activeLayer === "module:moderation" && activeConfigSection.title === "Bio, link & cảnh báo" ? (
+                  <Stack spacing={1.5}>
+                    {bioLinkConfigBlocks.map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      const toggleRow = block.toggleKey ? moderationConfigRowMap.get(block.toggleKey) : undefined;
+                      const blockOn = toggleRow ? String(toggleRow.value).toLowerCase() !== "false" : true;
+                      const hasToggle = Boolean(toggleRow && isConfigBoolean(toggleRow));
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+                              <Box>
+                                <Typography variant="subtitle1">{block.title}</Typography>
+                                <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                              </Box>
+                              {hasToggle && toggleRow ? (
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                  <Chip size="small" label={blockOn ? "Bật" : "Tắt"} color={blockOn ? "success" : "default"} />
+                                  <Switch checked={blockOn} disabled={saving} onChange={() => toggleConfigValue(toggleRow)} />
+                                </Stack>
+                              ) : null}
+                            </Stack>
+                            {blockOn ? (
+                              <Grid container spacing={1.5}>
+                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey).map((row) => {
+                                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                  const booleanValue = isConfigBoolean(row);
+                                  const valueOn = String(row.value).toLowerCase() === "true";
+                                  const editorKind = configEditorKind(String(row.key || ""));
+                                  return (
+                                    <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: row.enabled === false ? 0.7 : 1 }}>
+                                        <Stack spacing={1.5}>
+                                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                            <Box>
+                                              <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                              <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch disabled={saving || !blockOn} onClick={() => toggleConfigValue(row)} checked={valueOn} />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" disabled={!blockOn || saving} onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                          </Stack>
+                                          {editing ? (
+                                            <ConfigEditor
+                                              draft={draft as ConfigEditorDraft}
+                                              saving={saving}
+                                              editorKind={editorKind}
+                                              configSelectOptions={configSelectOptions}
+                                              configPlaceholders={configPlaceholders}
+                                              fieldUnitHint={fieldUnitHint}
+                                              setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                              closeFocusedPanel={closeFocusedPanel}
+                                              save={save}
+                                            />
+                                          ) : (
+                                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                              <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                              <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                            </Paper>
+                                          )}
+                                        </Stack>
+                                      </Paper>
+                                    </Grid>
+                                  );
+                                })}
+                              </Grid>
+                            ) : null}
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : activeLayer === "module:moderation" && activeConfigSection.title === "Cài đặt khác" ? (
+                  <Stack spacing={1.5}>
+                    {otherConfigBlocks.map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Box>
+                              <Typography variant="subtitle1">{block.title}</Typography>
+                              <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                            </Box>
+                            <Grid container spacing={1.5}>
+                              {blockRows.map((row) => {
+                                const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                const booleanValue = isConfigBoolean(row);
+                                const valueOn = String(row.value).toLowerCase() === "true";
+                                const editorKind = configEditorKind(String(row.key || ""));
+                                return (
+                                  <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: row.enabled === false ? 0.7 : 1 }}>
+                                      <Stack spacing={1.5}>
+                                        <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                          <Box>
+                                            <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                            <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                          </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch
+                                                  disabled={saving}
+                                                  onClick={() => toggleConfigValue(row)}
+                                                  title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                                                  checked={valueOn}
+                                                />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" disabled={saving} onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                        </Stack>
+                                        {editing ? (
+                                          <ConfigEditor
+                                            draft={draft as ConfigEditorDraft}
+                                            saving={saving}
+                                            editorKind={editorKind}
+                                            configSelectOptions={configSelectOptions}
+                                            configPlaceholders={configPlaceholders}
+                                            fieldUnitHint={fieldUnitHint}
+                                            setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                            closeFocusedPanel={closeFocusedPanel}
+                                            save={save}
+                                          />
+                                        ) : (
+                                          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                            <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                            <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                          </Paper>
+                                        )}
+                                      </Stack>
+                                    </Paper>
+                                  </Grid>
+                                );
+                              })}
+                            </Grid>
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : activeLayer === "module:moderation" && activeConfigSection.title === "Thiết lập dùng chung" ? (
+                  <Stack spacing={1.5}>
+                    {moderationBlocks.map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      const toggleRow = moderationConfigRowMap.get(block.toggleKey);
+                      const blockOn = toggleRow ? String(toggleRow.value).toLowerCase() !== "false" : true;
+                      const blockEditable = blockOn || block.key === "core";
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+                              <Box>
+                                <Typography variant="subtitle1">{block.title}</Typography>
+                                <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                              </Box>
+                              {toggleRow ? (
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                                  <Chip size="small" label={blockOn ? "Bật" : "Tắt"} color={blockOn ? "success" : "default"} />
+                                  <Switch
+                                    checked={blockOn}
+                                    disabled={saving}
+                                    onChange={() => toggleConfigValue(toggleRow)}
+                                  />
+                                </Stack>
+                              ) : null}
+                            </Stack>
+
+                            {blockEditable ? (
+                              <Grid container spacing={1.5}>
+                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey).map((row) => {
+                                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                  const booleanValue = isConfigBoolean(row);
+                                  const valueOn = String(row.value).toLowerCase() === "true";
+                                  const editorKind = configEditorKind(String(row.key || ""));
+                                  const isDisabled = row.enabled === false;
+                                  return (
+                                    <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: isDisabled ? 0.7 : 1 }}>
+                                        <Stack spacing={1.5}>
+                                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                            <Box>
+                                              <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                              <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch
+                                                  disabled={saving || !blockOn}
+                                                  onClick={() => toggleConfigValue(row)}
+                                                  title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                                                  checked={valueOn}
+                                                />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                          </Stack>
+
+                                          {editing ? (
+                                            <ConfigEditor
+                                              draft={draft as ConfigEditorDraft}
+                                              saving={saving}
+                                              editorKind={editorKind}
+                                              configSelectOptions={configSelectOptions}
+                                              configPlaceholders={configPlaceholders}
+                                              fieldUnitHint={fieldUnitHint}
+                                              setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                              closeFocusedPanel={closeFocusedPanel}
+                                              save={save}
+                                            />
+                                          ) : (
+                                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                              <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                              <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                            </Paper>
+                                          )}
+                                        </Stack>
+                                      </Paper>
+                                    </Grid>
+                                  );
+                                })}
+                              </Grid>
+                            ) : (
+                              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  Bật {block.title.toLowerCase()} để mở cài đặt con.
+                                </Typography>
+                              </Paper>
+                            )}
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : (
                 <Grid container spacing={1.5}>
                   {activeConfigSection.rows.map((row) => {
                     const editing = selected?.id === row.id && Object.keys(draft).length > 0;
@@ -4469,6 +5469,7 @@ export default function HomePage() {
                     </Grid>
                   ) : null}
                 </Grid>
+                )}
                 </Stack>
               </Paper>
             ) : (
@@ -4523,205 +5524,216 @@ export default function HomePage() {
             startCreate={startCreate}
           />
 
-          {hasFocusedPanel ? (
-          // task-outcome-strip
-          // layer-workbench
-          // config-center
-          // config-section
-          // channel-console
-          // editor-panel
-          <Paper
-            component="section"
-            role="dialog"
-            aria-label={Object.keys(draft).length ? "Chế độ chỉnh sửa" : "Inspector vận hành"}
-            sx={{
-              border: "1px solid rgba(148, 163, 184, 0.16)",
-              borderRadius: 3,
-              p: 2.5,
-              bgcolor: "rgba(17, 24, 33, 0.95)",
-              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.35)"
+          <Dialog
+            open={hasFocusedPanel}
+            onClose={closeFocusedPanel}
+            maxWidth="md"
+            fullWidth
+            scroll="paper"
+            aria-labelledby="focused-panel-title"
+            slotProps={{
+              backdrop: {
+                sx: { backgroundColor: "rgba(15, 23, 42, 0.32)" }
+              },
+              paper: {
+                sx: {
+                  borderRadius: 4,
+                  bgcolor: "background.paper",
+                  color: "text.primary",
+                  boxShadow: "0 32px 80px rgba(15, 23, 42, 0.28)",
+                  border: "1px solid",
+                  borderColor: "divider"
+                }
+              }
             }}
           >
+            <DialogTitle id="focused-panel-title" sx={{ pb: 1 }}>
+              {Object.keys(draft).length ? "Thêm mới" : "Inspector vận hành"}
+            </DialogTitle>
+            <DialogContent dividers sx={{ p: 3 }}>
               {Object.keys(draft).length ? (
-              <form onSubmit={save}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 2 }}>
-                  <Box>
-                    <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.4 }}>
-                      Form vận hành
-                    </Typography>
-                    <Typography variant="h5">{selected ? "Chỉnh sửa" : "Thêm mới"}</Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    <MuiButton
-                      variant={showAdvancedFields ? "contained" : "outlined"}
-                      size="small"
-                      onClick={() => setShowAdvancedFields((value) => !value)}
-                    >
-                      <SlidersHorizontal size={16} />
-                      Advanced
-                    </MuiButton>
-                    <MuiButton variant="outlined" size="small" onClick={closeFocusedPanel} sx={{ minWidth: 0, px: 1.5 }}>
-                      <X size={17} />
-                    </MuiButton>
-                  </Box>
-                </Box>
-                {!showAdvancedFields ? (
-                  <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "rgba(2, 132, 199, 0.08)" }}>
-                    Đang ẩn field kỹ thuật như ID, timestamp, JSON settings và raw config key.
-                  </Paper>
-                ) : null}
-                {table.key === "groups" ? (
-                  <>
-                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }} aria-label="Nhóm cấu hình group">
-                      {groupEditorTabs.map((tab) => (
-                        <MuiButton
-                          key={tab.label}
-                          variant={activeGroupTab === tab.label ? "contained" : "outlined"}
-                          size="small"
-                          onClick={() => {
-                            setActiveGroupTab(tab.label);
-                            if (tab.label === "Kỹ thuật") {
-                              setShowAdvancedFields(true);
-                            }
-                          }}
-                        >
-                          {tab.label}
-                          <Box component="span" sx={{ ml: 1, fontWeight: 800 }}>
-                            {tab.count}
-                          </Box>
-                        </MuiButton>
-                      ))}
-                    </Box>
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      <strong>Đây là setup cho group đang chọn.</strong> Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.
-                    </Alert>
-                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
-                      <Chip label="Giây: 300 = 5 phút" variant="outlined" />
-                      <Chip label="0 = tắt / vĩnh viễn / không tự xóa" variant="outlined" />
-                      <Chip label="warn = xóa tin vi phạm + cảnh báo" variant="outlined" />
-                    </Box>
-                  </>
-                ) : null}
-                <Box sx={{ display: "grid", gap: 2 }}>
-                  {editorFieldGroups.map(([section, fields]) => (
-                    <Paper key={section} variant="outlined" sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" sx={{ mb: 1.5, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.2 }}>
-                        {section}
+                <form onSubmit={save}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, mb: 2 }}>
+                    <Box>
+                      <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.4 }}>
+                        Form vận hành
                       </Typography>
-                      {fields.map((field) => {
-                        const lookupOptions = lookupOptionsForField(field);
-                        const fieldHint = [field.helper, fieldUnitHint(field), configFieldHint(String(field.key))].filter(Boolean).join(" · ");
-                        return (
-                        <Box key={field.key} sx={{ mb: 1.75 }}>
-                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.75 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{field.label}</Typography>
-                            {field.type === "boolean" ? (
-                              <Switch checked={Boolean(draft[field.key])} onChange={(event) => updateField(field, event.target.checked)} />
-                            ) : null}
-                          </Box>
-                          {field.type === "textarea" ? (
-                            <>
-                              <TextField
-                                multiline
-                                minRows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
-                                value={draft[field.key] ?? ""}
-                                onChange={(event) => updateField(field, event.target.value)}
-                                placeholder={field.placeholder}
-                                fullWidth
-                              />
-                              {configPlaceholders(field.key).length ? (
+                      <Typography variant="h5">{selected ? "Chỉnh sửa" : "Thêm mới"}</Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <MuiButton
+                        variant={showAdvancedFields ? "contained" : "outlined"}
+                        size="small"
+                        onClick={() => setShowAdvancedFields((value) => !value)}
+                      >
+                        <SlidersHorizontal size={16} />
+                        Advanced
+                      </MuiButton>
+                      <MuiButton variant="outlined" size="small" onClick={closeFocusedPanel} sx={{ minWidth: 0, px: 1.5 }}>
+                        <X size={17} />
+                      </MuiButton>
+                    </Box>
+                  </Box>
+                  {!showAdvancedFields ? (
+                    <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "rgba(2, 132, 199, 0.08)" }}>
+                      Đang ẩn field kỹ thuật như ID, timestamp, JSON settings và raw config key.
+                    </Paper>
+                  ) : null}
+                  {table.key === "groups" ? (
+                    <>
+                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }} aria-label="Nhóm cấu hình group">
+                        {groupEditorTabs.map((tab) => (
+                          <MuiButton
+                            key={tab.label}
+                            variant={activeGroupTab === tab.label ? "contained" : "outlined"}
+                            size="small"
+                            onClick={() => {
+                              setActiveGroupTab(tab.label);
+                              if (tab.label === "Kỹ thuật") {
+                                setShowAdvancedFields(true);
+                              }
+                            }}
+                          >
+                            {tab.label}
+                            <Box component="span" sx={{ ml: 1, fontWeight: 800 }}>
+                              {tab.count}
+                            </Box>
+                          </MuiButton>
+                        ))}
+                      </Box>
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <strong>Đây là setup cho group đang chọn.</strong> Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.
+                      </Alert>
+                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+                        <Chip label="Giây: 300 = 5 phút" variant="outlined" />
+                        <Chip label="0 = tắt / vĩnh viễn / không tự xóa" variant="outlined" />
+                        <Chip label="warn = xóa tin vi phạm + cảnh báo" variant="outlined" />
+                      </Box>
+                    </>
+                  ) : null}
+                  <Box sx={{ display: "grid", gap: 2 }}>
+                    {editorFieldGroups.map(([section, fields]) => (
+                      <Paper key={section} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1.5, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.2 }}>
+                          {section}
+                        </Typography>
+                        {fields.map((field) => {
+                          const lookupOptions = lookupOptionsForField(field);
+                          const fieldHint = [field.helper, fieldUnitHint(field), configFieldHint(String(field.key))].filter(Boolean).join(" · ");
+                          return (
+                            <Box key={field.key} sx={{ mb: 1.75 }}>
+                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.75 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>{field.label}</Typography>
+                                {field.type === "boolean" ? (
+                                  <Switch checked={Boolean(draft[field.key])} onChange={(event) => updateField(field, event.target.checked)} />
+                                ) : null}
+                              </Box>
+                              {field.type === "textarea" ? (
+                                <>
+                                  <TextField
+                                    multiline
+                                    minRows={field.key === "message" || field.key === "policy_text" || field.key === "value" ? 6 : 3}
+                                    value={draft[field.key] ?? ""}
+                                    onChange={(event) => updateField(field, event.target.value)}
+                                    placeholder={field.placeholder}
+                                    fullWidth
+                                  />
+                                  {configPlaceholders(field.key).length ? (
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                      Placeholder: {configPlaceholders(field.key).join(" · ")}
+                                    </Typography>
+                                  ) : null}
+                                  {commandField(field) ? (
+                                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
+                                      {COMMAND_OPTIONS.map((command) => {
+                                        const selectedCommand = String(draft[field.key] || "").split(",").map((item) => item.trim()).includes(command);
+                                        return (
+                                          <MuiButton
+                                            key={command}
+                                            size="small"
+                                            variant={selectedCommand ? "contained" : "outlined"}
+                                            onClick={() => toggleCommand(field, command)}
+                                          >
+                                            {selectedCommand ? <Check size={13} /> : null}
+                                            /{command}
+                                          </MuiButton>
+                                        );
+                                      })}
+                                    </Box>
+                                  ) : null}
+                                </>
+                              ) : field.type === "boolean" ? (
+                                null
+                              ) : field.type === "select" || lookupOptions.length ? (
+                                <TextField
+                                  select
+                                  fullWidth
+                                  value={draft[field.key] ?? ""}
+                                  onChange={(event) => updateField(field, event.target.value)}
+                                >
+                                  <MenuItem value="">Mặc định</MenuItem>
+                                  {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({ value: option, label: option })) || []).map((option: { value: string; label: string }) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              ) : (
+                                <TextField
+                                  type={field.type === "number" ? "number" : "text"}
+                                  value={draft[field.key] ?? ""}
+                                  onChange={(event) => updateField(field, event.target.value)}
+                                  placeholder={field.placeholder}
+                                  fullWidth
+                                />
+                              )}
+                              {fieldHint ? (
                                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                                  Placeholder: {configPlaceholders(field.key).join(" · ")}
+                                  {fieldHint}
                                 </Typography>
                               ) : null}
-                              {commandField(field) ? (
-                                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
-                                  {COMMAND_OPTIONS.map((command) => {
-                                    const selectedCommand = String(draft[field.key] || "").split(",").map((item) => item.trim()).includes(command);
-                                    return (
-                                      <MuiButton
-                                        key={command}
-                                        size="small"
-                                        variant={selectedCommand ? "contained" : "outlined"}
-                                        onClick={() => toggleCommand(field, command)}
-                                      >
-                                        {selectedCommand ? <Check size={13} /> : null}
-                                        /{command}
-                                      </MuiButton>
-                                    );
-                                  })}
-                                </Box>
-                              ) : null}
-                            </>
-                          ) : field.type === "boolean" ? (
-                            null
-                          ) : field.type === "select" || lookupOptions.length ? (
-                            <TextField
-                              select
-                              fullWidth
-                              value={draft[field.key] ?? ""}
-                              onChange={(event) => updateField(field, event.target.value)}
-                            >
-                              <MenuItem value="">Mặc định</MenuItem>
-                              {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({ value: option, label: option })) || []).map((option: { value: string; label: string }) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                          ) : (
-                            <TextField
-                              type={field.type === "number" ? "number" : "text"}
-                              value={draft[field.key] ?? ""}
-                              onChange={(event) => updateField(field, event.target.value)}
-                              placeholder={field.placeholder}
-                              fullWidth
-                            />
-                          )}
-                          {fieldHint ? (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                              {fieldHint}
-                            </Typography>
-                          ) : null}
-                        </Box>
-                        );
-                      })}
-                    </Paper>
-                  ))}
-                </Box>
-                <datalist id="bot-options">
-                  {lookups.bots.map((bot) => (
-                    <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
-                      {bot.name || bot.bot_key}
-                    </option>
-                  ))}
-                </datalist>
-                <datalist id="group-options">
-                  {lookups.groups.map((group) => {
-                    const groupId = group.group_id || group.chat_id || "";
-                    return (
-                      <option key={groupId || group.id} value={groupId}>
-                        {group.group_name || groupId}
+                            </Box>
+                          );
+                        })}
+                      </Paper>
+                    ))}
+                  </Box>
+                  <datalist id="bot-options">
+                    {lookups.bots.map((bot) => (
+                      <option key={bot.bot_key || bot.id} value={bot.bot_key || ""}>
+                        {bot.name || bot.bot_key}
                       </option>
-                    );
-                  })}
-                </datalist>
-                <datalist id="message-pool-options">
-                  {messagePools.map((pool) => (
-                    <option key={pool} value={pool} />
-                  ))}
-                </datalist>
-                <datalist id="video-pool-options">
-                  {videoPools.map((pool) => (
-                    <option key={pool} value={pool} />
-                  ))}
-                </datalist>
-                <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2 }}>
+                    ))}
+                  </datalist>
+                  <datalist id="group-options">
+                    {lookups.groups.map((group) => {
+                      const groupId = group.group_id || group.chat_id || "";
+                      return (
+                        <option key={groupId || group.id} value={groupId}>
+                          {group.group_name || groupId}
+                        </option>
+                      );
+                    })}
+                  </datalist>
+                  <datalist id="message-pool-options">
+                    {messagePools.map((pool) => (
+                      <option key={pool} value={pool} />
+                    ))}
+                  </datalist>
+                  <datalist id="video-pool-options">
+                    {videoPools.map((pool) => (
+                      <option key={pool} value={pool} />
+                    ))}
+                  </datalist>
+                  <DialogActions sx={{ px: 0, pt: 2 }}>
+                    <MuiButton variant="outlined" onClick={closeFocusedPanel}>
+                      Hủy
+                    </MuiButton>
                     <MuiButton variant="contained" disabled={saving} type="submit" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={17} />}>
                       Lưu
                     </MuiButton>
-                </Box>
-              </form>
+                  </DialogActions>
+                </form>
             ) : selected ? (
               <Box sx={{ display: "grid", gap: 2 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
@@ -4816,11 +5828,11 @@ export default function HomePage() {
                   onDelete={() => remove(selected)}
                   onTest={() => setNotice(UI_COPY.inspector.testReady)}
                   noticeText={notice}
-                 />
-               </Box>
-             ) : null}
-           </Paper>
-           ) : null}
+                />
+              </Box>
+            ) : null}
+            </DialogContent>
+          </Dialog>
         </Box>
         )}
         </>

@@ -21,7 +21,6 @@ export default function ModerationToggles(props: ModerationTogglesProps) {
     <Section
       eyebrow="Cài đặt kiểm duyệt tự động"
       title="Quét link ẩn và mention"
-      subtitle="Điều chỉnh ngay trên tab này theo bot/group đang chọn."
       icon={<Wrench size={20} />}
     >
       <Stack
