@@ -173,6 +173,24 @@ class ModerationModule(BotModule):
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
+            self.forward_new_members_to_welcome(message)
+
+    def forward_new_members_to_welcome(self, message):
+        try:
+            for module in getattr(self.app, "modules", []) or []:
+                if getattr(module, "name", "") != "welcome":
+                    continue
+                handler = getattr(module, "handle_new_members", None)
+                if callable(handler):
+                    LOGGER.info(
+                        "Forward new_chat_members from moderation to welcome for bot %s chat %s.",
+                        self.settings.bot_key,
+                        getattr(message.chat, "id", None),
+                    )
+                    handler(message)
+                return
+        except Exception as exc:
+            LOGGER.warning("Cannot forward new_chat_members to welcome for bot %s: %s", self.settings.bot_key, exc)
 
     def is_bot_membership_service_message(self, message):
         if message.content_type == "new_chat_members":
