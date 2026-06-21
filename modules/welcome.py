@@ -16,7 +16,6 @@ class WelcomeModule(BotModule):
 
     def register(self):
         LOGGER.info("Register welcome handler for bot %s.", self.settings.bot_key)
-        self.bot.message_handler(content_types=["new_chat_members"])(self.active(self.handle_new_members))
         if hasattr(self.bot, "chat_member_handler"):
             self.bot.chat_member_handler()(self.active(self.handle_chat_member))
 

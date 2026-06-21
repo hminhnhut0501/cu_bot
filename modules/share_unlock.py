@@ -15,7 +15,6 @@ class ShareUnlockModule(BotModule):
         self.bot.message_handler(commands=["shareunlock", "moikhoashare"])(self.active(self.handle_shareunlock))
         self.bot.message_handler(commands=["shareprogress", "tiendoshare"])(self.active(self.handle_shareprogress))
         self.bot.callback_query_handler(func=lambda call: (call.data or "").startswith("shareunlock:"))(self.active(self.handle_callback))
-        self.bot.message_handler(content_types=["new_chat_members"])(self.active(self.handle_new_members))
 
     def is_enabled(self):
         return self.module_enabled("share_unlock", True)
