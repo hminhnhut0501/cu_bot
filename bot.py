@@ -63,6 +63,7 @@ def attach_raw_update_logger(bot, bot_key):
                 channel_post = getattr(update, "channel_post", None)
                 chat_member = getattr(update, "chat_member", None)
                 my_chat_member = getattr(update, "my_chat_member", None)
+                chat_join_request = getattr(update, "chat_join_request", None)
                 callback_query = getattr(update, "callback_query", None)
                 summary = {
                     "update_id": getattr(update, "update_id", None),
@@ -71,6 +72,7 @@ def attach_raw_update_logger(bot, bot_key):
                     "channel_post_type": getattr(channel_post, "content_type", None) if channel_post else None,
                     "has_chat_member": bool(chat_member),
                     "has_my_chat_member": bool(my_chat_member),
+                    "has_chat_join_request": bool(chat_join_request),
                     "has_callback_query": bool(callback_query),
                 }
                 if message:
@@ -85,6 +87,10 @@ def attach_raw_update_logger(bot, bot_key):
                     summary["my_chat_member_chat_id"] = getattr(getattr(my_chat_member, "chat", None), "id", None)
                     summary["my_chat_member_old_status"] = getattr(getattr(my_chat_member, "old_chat_member", None), "status", None)
                     summary["my_chat_member_new_status"] = getattr(getattr(my_chat_member, "new_chat_member", None), "status", None)
+                if chat_join_request:
+                    summary["chat_join_request_chat_id"] = getattr(getattr(chat_join_request, "chat", None), "id", None)
+                    summary["chat_join_request_user_id"] = getattr(getattr(chat_join_request, "from_user", None), "id", None)
+                    summary["chat_join_request_bio"] = bool(getattr(chat_join_request, "bio", None))
                 LOGGER.info("Raw update bot_key=%s: %s", bot_key, summary)
         except Exception as exc:
             LOGGER.warning("Raw update logger failed for bot_key=%s: %s", bot_key, exc)

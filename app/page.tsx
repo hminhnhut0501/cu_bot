@@ -890,6 +890,7 @@ function titleFor(row: Row, table: TableConfig) {
       module_update: "Đã đổi trạng thái module",
       member_joined: "Thành viên vào nhóm",
       member_left: "Thành viên rời nhóm",
+      member_join_request: "Yêu cầu tham gia nhóm",
       scam_report_confirmed: "Đã xác nhận báo cáo scam",
       scam_report_rejected: "Đã từ chối báo cáo scam"
     };
@@ -2271,7 +2272,7 @@ export default function HomePage() {
     rowMatchesQuickFilter
   }).filter((row) => {
     if (activeLayer === "members" && table?.key === "audit_logs") {
-      return ["member_joined", "member_left"].includes(String(row.action || "").toLowerCase());
+      return ["member_joined", "member_left", "member_join_request"].includes(String(row.action || "").toLowerCase());
     }
     return true;
   }), [rows, activeBotKey, selectedScope, table?.key, quickFilter, activeLayer]);
@@ -2387,7 +2388,7 @@ export default function HomePage() {
     if (table?.key !== "audit_logs" || activeLayer !== "members") {
       return [] as Row[];
     }
-    return visibleRows.filter((row) => ["member_joined", "member_left"].includes(String(row.action || "").toLowerCase()));
+    return visibleRows.filter((row) => ["member_joined", "member_left", "member_join_request"].includes(String(row.action || "").toLowerCase()));
   }, [activeLayer, table?.key, visibleRows]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
@@ -4898,6 +4899,7 @@ export default function HomePage() {
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                   <Chip label={`Tổng ${memberActivityRows.length}`} />
                   <Chip color="success" label={`Join ${memberActivityRows.filter((row) => String(row.action || "") === "member_joined").length}`} />
+                  <Chip color="info" label={`Request ${memberActivityRows.filter((row) => String(row.action || "") === "member_join_request").length}`} />
                   <Chip color="warning" label={`Out ${memberActivityRows.filter((row) => String(row.action || "") === "member_left").length}`} />
                 </Stack>
               </Stack>

@@ -13,6 +13,8 @@ class JoinRouterModule(BotModule):
     def register(self):
         LOGGER.info("Register join router for bot %s.", self.settings.bot_key)
         self.bot.message_handler(content_types=["new_chat_members", "left_chat_member"])(self.active(self.handle_membership_message))
+        if hasattr(self.bot, "chat_join_request_handler"):
+            self.bot.chat_join_request_handler()(self.active(self.handle_join_request))
 
     def is_enabled(self):
         # Always load the router so join events can be fanned out even when
@@ -52,6 +54,20 @@ class JoinRouterModule(BotModule):
             getattr(user, "id", None),
         )
         self.audit_member_event(chat_id, "member_left", user, "service_message")
+
+    def handle_join_request(self, request):
+        chat = getattr(request, "chat", None)
+        user = getattr(request, "from_user", None)
+        chat_id = getattr(chat, "id", None)
+        if not chat or not user:
+            return
+        LOGGER.info(
+            "Join router received join request for bot %s in chat %s user %s.",
+            self.settings.bot_key,
+            chat_id,
+            getattr(user, "id", None),
+        )
+        self.audit_member_event(chat_id, "member_join_request", user, "chat_join_request")
 
     def forward(self, message, module_name):
         try:
