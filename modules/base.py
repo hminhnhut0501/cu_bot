@@ -1,4 +1,10 @@
 from functools import wraps
+import logging
+import threading
+import time
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class BotModule:
@@ -32,3 +38,36 @@ class BotModule:
 
     def start(self):
         pass
+
+    def delete_later(self, chat_id, message_id, delay_seconds, reason="delayed_delete"):
+        def worker():
+            try:
+                LOGGER.info(
+                    "Scheduled delete in %ss for chat=%s message=%s reason=%s.",
+                    delay_seconds,
+                    chat_id,
+                    message_id,
+                    reason,
+                )
+                time.sleep(max(0, int(delay_seconds)))
+                self.bot.delete_message(chat_id, message_id)
+                LOGGER.info(
+                    "Deleted delayed message chat=%s message=%s reason=%s.",
+                    chat_id,
+                    message_id,
+                    reason,
+                )
+            except Exception as exc:
+                LOGGER.warning(
+                    "Cannot delete delayed message chat=%s message=%s reason=%s: %s",
+                    chat_id,
+                    message_id,
+                    reason,
+                    exc,
+                )
+
+        threading.Thread(
+            target=worker,
+            name=f"delete-later:{chat_id}:{message_id}",
+            daemon=True,
+        ).start()
