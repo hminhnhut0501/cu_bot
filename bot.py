@@ -3,12 +3,16 @@ import os
 import threading
 import time
 from dataclasses import replace
+from types import MethodType
 
 import requests
 import telebot
 
 from core.app import BotApplication
 from core.config import load_settings
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def bool_env(name, default=False):
@@ -42,11 +46,61 @@ def load_active_bot_rows(settings):
     return [row for row in rows if row.get("bot_key") and row.get("bot_token")]
 
 
+def attach_raw_update_logger(bot, bot_key):
+    original = getattr(bot, "process_new_updates", None)
+    if not callable(original):
+        LOGGER.warning("Raw update logger unavailable for bot_key=%s: process_new_updates missing.", bot_key)
+        return
+
+    if getattr(bot, "_raw_update_logger_attached", False):
+        return
+
+    def wrapped(self, updates):
+        try:
+            for update in updates or []:
+                message = getattr(update, "message", None)
+                edited_message = getattr(update, "edited_message", None)
+                channel_post = getattr(update, "channel_post", None)
+                chat_member = getattr(update, "chat_member", None)
+                my_chat_member = getattr(update, "my_chat_member", None)
+                callback_query = getattr(update, "callback_query", None)
+                summary = {
+                    "update_id": getattr(update, "update_id", None),
+                    "message_type": getattr(message, "content_type", None) if message else None,
+                    "edited_message_type": getattr(edited_message, "content_type", None) if edited_message else None,
+                    "channel_post_type": getattr(channel_post, "content_type", None) if channel_post else None,
+                    "has_chat_member": bool(chat_member),
+                    "has_my_chat_member": bool(my_chat_member),
+                    "has_callback_query": bool(callback_query),
+                }
+                if message:
+                    summary["chat_id"] = getattr(getattr(message, "chat", None), "id", None)
+                    summary["new_chat_members"] = len(getattr(message, "new_chat_members", None) or [])
+                    summary["has_left_chat_member"] = bool(getattr(message, "left_chat_member", None))
+                if chat_member:
+                    summary["chat_member_chat_id"] = getattr(getattr(chat_member, "chat", None), "id", None)
+                    summary["chat_member_old_status"] = getattr(getattr(chat_member, "old_chat_member", None), "status", None)
+                    summary["chat_member_new_status"] = getattr(getattr(chat_member, "new_chat_member", None), "status", None)
+                if my_chat_member:
+                    summary["my_chat_member_chat_id"] = getattr(getattr(my_chat_member, "chat", None), "id", None)
+                    summary["my_chat_member_old_status"] = getattr(getattr(my_chat_member, "old_chat_member", None), "status", None)
+                    summary["my_chat_member_new_status"] = getattr(getattr(my_chat_member, "new_chat_member", None), "status", None)
+                LOGGER.info("Raw update bot_key=%s: %s", bot_key, summary)
+        except Exception as exc:
+            LOGGER.warning("Raw update logger failed for bot_key=%s: %s", bot_key, exc)
+        return original(updates)
+
+    bot.process_new_updates = MethodType(wrapped, bot)
+    bot._raw_update_logger_attached = True
+    LOGGER.info("Attached raw update logger for bot_key=%s.", bot_key)
+
+
 def start_bot(settings, keep_alive_enabled=None):
     runtime_settings = settings
     if keep_alive_enabled is not None:
         runtime_settings = replace(settings, keep_alive_enabled=keep_alive_enabled)
     bot = telebot.TeleBot(runtime_settings.bot_token, parse_mode=runtime_settings.parse_mode)
+    attach_raw_update_logger(bot, runtime_settings.bot_key)
     app = BotApplication(bot, runtime_settings)
     app.start()
 
