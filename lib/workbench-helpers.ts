@@ -232,6 +232,15 @@ export function buildCommandInsights(args: {
       targetTable: "audit_logs"
     });
   }
+  insights.push({
+    severity: "info",
+    title: "Theo dõi thành viên ra vào nhóm",
+    body: "Mở màn Thành viên để xem lịch sử join và out theo từng group.",
+    impact: "Dễ kiểm tra biến động thành viên của bot.",
+    action: "Mở thành viên",
+    targetLayer: "members",
+    targetTable: "audit_logs"
+  });
   if (!insights.length) {
     insights.push({
       severity: "healthy",

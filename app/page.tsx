@@ -372,6 +372,16 @@ const CORE_LAYERS = [
     tone: "main",
     tables: ["audit_logs", "scam_reports"],
     navSection: "Vận hành"
+  },
+  {
+    key: "members",
+    title: "Thành viên",
+    shortTitle: "Thành viên",
+    desc: "Theo dõi nhật ký join/out của thành viên trong group bot đang quản lý.",
+    icon: Users,
+    tone: "security",
+    tables: ["audit_logs", "member_roles", "admins"],
+    navSection: "Vận hành"
   }
 ];
 const SYSTEM_LAYERS = [
@@ -878,6 +888,8 @@ function titleFor(row: Row, table: TableConfig) {
       role_update: "Đã đổi quyền",
       title_update: "Đã đổi tiêu đề",
       module_update: "Đã đổi trạng thái module",
+      member_joined: "Thành viên vào nhóm",
+      member_left: "Thành viên rời nhóm",
       scam_report_confirmed: "Đã xác nhận báo cáo scam",
       scam_report_rejected: "Đã từ chối báo cáo scam"
     };
@@ -2257,7 +2269,12 @@ export default function HomePage() {
     selectedGroup: selectedScope,
     quickFilter,
     rowMatchesQuickFilter
-  }), [rows, activeBotKey, selectedScope, table?.key, quickFilter]);
+  }).filter((row) => {
+    if (activeLayer === "members" && table?.key === "audit_logs") {
+      return ["member_joined", "member_left"].includes(String(row.action || "").toLowerCase());
+    }
+    return true;
+  }), [rows, activeBotKey, selectedScope, table?.key, quickFilter, activeLayer]);
   const channelRows = useMemo(
     () => visibleRows.filter((row) => channelPostTabFor(row) === channelTab).sort((left, right) => Date.parse(String(right.updated_at || right.created_at || 0)) - Date.parse(String(left.updated_at || left.created_at || 0))),
     [channelTab, visibleRows]
@@ -2366,6 +2383,12 @@ export default function HomePage() {
     };
   }, [currentBot?.bot_key, lookups.groups.length, scheduleIssues.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedScope]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
+  const memberActivityRows = useMemo(() => {
+    if (table?.key !== "audit_logs" || activeLayer !== "members") {
+      return [] as Row[];
+    }
+    return visibleRows.filter((row) => ["member_joined", "member_left"].includes(String(row.action || "").toLowerCase()));
+  }, [activeLayer, table?.key, visibleRows]);
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
     return MODULE_HUBS.find((module) => module.key === moduleKey);
@@ -4857,8 +4880,29 @@ export default function HomePage() {
         <>
         <Banners error={error} notice={notice} toast={toast} />
 
-        {table.key === "audit_logs" ? (
+        {table.key === "audit_logs" && activeLayer !== "members" ? (
           <AuditConsole auditStats={auditStats} />
+        ) : null}
+
+        {table.key === "audit_logs" && activeLayer === "members" ? (
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+                <Box>
+                  <Typography variant="overline" color="text.secondary">Nhật ký thành viên</Typography>
+                  <Typography variant="h5">Join / out theo group đang chọn</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Bot ghi lại các lần thành viên vào hoặc rời nhóm trong phạm vi bot đang quản lý.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                  <Chip label={`Tổng ${memberActivityRows.length}`} />
+                  <Chip color="success" label={`Join ${memberActivityRows.filter((row) => String(row.action || "") === "member_joined").length}`} />
+                  <Chip color="warning" label={`Out ${memberActivityRows.filter((row) => String(row.action || "") === "member_left").length}`} />
+                </Stack>
+              </Stack>
+            </Stack>
+          </Paper>
         ) : null}
 
         {table.key === "scam_reports" ? (

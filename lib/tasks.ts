@@ -57,6 +57,15 @@ export const ADMIN_TASKS: AdminTaskDefinition[] = [
     priority: "high"
   },
   {
+    id: "review-member-activity",
+    title: "Theo dõi thành viên ra vào nhóm",
+    description: "Xem lịch sử join/out theo từng group để kiểm tra biến động thành viên.",
+    outcome: "Nhật ký thành viên trong group được theo dõi tập trung theo bot và phạm vi.",
+    targetLayer: "members",
+    targetTable: "audit_logs",
+    priority: "normal"
+  },
+  {
     id: "review-scam",
     title: "Duyệt báo cáo scam",
     description: "Xác nhận báo cáo hợp lệ hoặc từ chối dữ liệu sai.",
