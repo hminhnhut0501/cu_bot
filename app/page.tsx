@@ -4128,10 +4128,11 @@ export default function HomePage() {
 
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const moduleWorkbenchActive = activeLayer.startsWith("module:");
+  const moduleUsesDedicatedScreenOnly = activeLayer.startsWith("module:") && ["welcome"].includes(activeModuleHub.key);
   const setupWorkbench = activeLayer === "bot" || activeLayer === "group";
   const showOverview = workMode === "overview";
   const showOperations = !showOverview;
-  const showPrimaryTask = activeLayer !== "modules" && !showOverview;
+  const showPrimaryTask = activeLayer !== "modules" && !showOverview && !moduleUsesDedicatedScreenOnly;
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
   const scopeCrumbs = useMemo(() => buildScopeCrumbs({
@@ -4690,6 +4691,7 @@ export default function HomePage() {
             welcomeText={welcomeDraftText}
             welcomeDeleteSeconds={welcomeDraftDeleteSeconds}
             welcomeButtonsText={welcomeDraftButtonsText}
+            hasSavedConfig={Boolean(welcomeModuleRow?.id)}
             saving={saving}
             onToggleModule={() => void toggleModule("welcome")}
             onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}

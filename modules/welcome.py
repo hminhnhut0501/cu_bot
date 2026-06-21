@@ -82,7 +82,7 @@ class WelcomeModule(BotModule):
             me = self.bot.get_me()
             member = self.bot.get_chat_member(chat_id, me.id)
             status = str(getattr(member, "status", "") or "").lower()
-            if status in {"creator", "administrator"}:
+            if status in {"creator", "administrator", "member"}:
                 return True
             permissions = getattr(member, "permissions", None)
             return bool(getattr(permissions, "can_send_messages", False))

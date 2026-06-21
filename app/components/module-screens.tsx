@@ -107,6 +107,7 @@ export function WelcomeScreen(props: {
   welcomeText: string;
   welcomeDeleteSeconds: number;
   welcomeButtonsText: string;
+  hasSavedConfig: boolean;
   saving: boolean;
   onToggleModule: () => void;
   onToggleWelcome: () => void;
@@ -135,25 +136,42 @@ export function WelcomeScreen(props: {
             <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
           </Box>
 
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Chip size="small" color={props.moduleEnabled && props.welcomeEnabled ? "success" : "default"} label={props.moduleEnabled && props.welcomeEnabled ? "Đang chạy" : "Chưa chạy"} />
+            <Chip size="small" variant="outlined" label={props.hasSavedConfig ? "Đã có cấu hình" : "Chưa lưu cấu hình"} />
+            <Chip size="small" variant="outlined" label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Không tự xóa"} />
+          </Stack>
+
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={1.5}>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
                 <Box>
                   <Typography variant="subtitle2">Tin chào</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Mẫu tin + nút inline sẽ chỉnh trong popup.
+                    Mẫu tin, nút inline và thời gian tự xóa sẽ chỉnh trong popup.
                   </Typography>
                 </Box>
                 <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={!props.moduleEnabled}>
-                  Tạo mới
+                  {props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}
                 </MuiButton>
               </Box>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                <Stack spacing={0.75}>
+                  <Typography variant="caption" color="text.secondary">Preview nhanh</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                    {props.welcomeText || "Chưa có mẫu tin chào."}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {props.welcomeButtonsText ? `Có ${props.welcomeButtonsText.split("\n").filter(Boolean).length} nút inline` : "Chưa có nút inline"}
+                  </Typography>
+                </Stack>
+              </Paper>
             </Stack>
           </Paper>
         </Stack>
       </Paper>
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Tạo Welcome</DialogTitle>
+        <DialogTitle>{props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={1.5} sx={{ pt: 1 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
