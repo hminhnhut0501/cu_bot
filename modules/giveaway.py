@@ -299,7 +299,13 @@ class GiveawayModule(BotModule):
 
     def reply_html(self, message, text, reply_markup=None):
         try:
-            self.bot.reply_to(message, text, parse_mode="HTML", reply_markup=reply_markup, disable_web_page_preview=True)
+            self.bot.reply_to(
+                message,
+                text,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                **self.link_preview_kwargs(True),
+            )
         except Exception:
             self.reply(message, text)
 

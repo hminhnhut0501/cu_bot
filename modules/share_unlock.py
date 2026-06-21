@@ -258,12 +258,24 @@ class ShareUnlockModule(BotModule):
 
     def reply_html(self, message, text, reply_markup=None):
         try:
-            self.bot.reply_to(message, text, parse_mode="HTML", reply_markup=reply_markup, disable_web_page_preview=True)
+            self.bot.reply_to(
+                message,
+                text,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                **self.link_preview_kwargs(True),
+            )
         except Exception:
             self.reply(message, text)
 
     def safe_send(self, chat_id, text, reply_markup=None):
         try:
-            return self.bot.send_message(chat_id, text, parse_mode="HTML", reply_markup=reply_markup, disable_web_page_preview=True)
+            return self.bot.send_message(
+                chat_id,
+                text,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                **self.link_preview_kwargs(True),
+            )
         except Exception:
             return None

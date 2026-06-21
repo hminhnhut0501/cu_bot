@@ -283,8 +283,8 @@ class WelcomeModule(BotModule):
                 chat_id,
                 text,
                 parse_mode="HTML",
-                disable_web_page_preview=True,
                 reply_markup=markup,
+                **self.link_preview_kwargs(True),
             )
             delete_after = as_int(self.setting("welcome_delete_seconds", 30), 30)
             if delete_after > 0:

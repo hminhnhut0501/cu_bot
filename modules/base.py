@@ -75,3 +75,14 @@ class BotModule:
             name=f"delete-later:{chat_id}:{message_id}",
             daemon=True,
         ).start()
+
+    def link_preview_kwargs(self, disable=True):
+        if not disable:
+            return {}
+        try:
+            from telebot.types import LinkPreviewOptions
+
+            return {"link_preview_options": LinkPreviewOptions(is_disabled=True)}
+        except Exception:
+            # Fallback for older pyTelegramBotAPI releases.
+            return {"disable_web_page_preview": True}
