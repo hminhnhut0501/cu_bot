@@ -1,5 +1,4 @@
 import logging
-import json
 from html import escape
 
 from core.utils import as_bool, as_int
@@ -15,31 +14,44 @@ class WelcomeModule(BotModule):
     priority = 12
 
     def register(self):
+        LOGGER.info("Register welcome handler for bot %s.", self.settings.bot_key)
         self.bot.message_handler(content_types=["new_chat_members"])(self.active(self.handle_new_members))
 
     def is_enabled(self):
-        return self.module_enabled("welcome", False)
+        # Always register the handler so Welcome can be toggled live from Admin CP
+        # without needing a process restart. Runtime checks happen inside the handler.
+        return True
+
+    def module_row(self, fresh=False):
+        rows = self.store.fresh_rows("module_settings") if fresh else self.store.rows("module_settings")
+        for row in rows:
+            if (row.get("bot_key") or "").strip() != self.settings.bot_key:
+                continue
+            if (row.get("module_key") or "").strip() != "welcome":
+                continue
+            return row
+        return None
 
     def module_enabled(self, module_key, default=True):
-        for row in self.store.rows("module_settings"):
-            if (row.get("module_key") or "").strip() != module_key:
-                continue
+        row = self.module_row(fresh=True if module_key == "welcome" else False)
+        if row and (row.get("module_key") or "").strip() == module_key:
             return as_bool(row.get("enabled"), default)
         return default
 
     def setting(self, key, default=None):
-        for row in self.store.rows("module_settings"):
-            if (row.get("module_key") or "").strip() != "welcome":
-                continue
-            settings = row.get("settings") or {}
-            if isinstance(settings, str):
-                try:
-                    import json
-                    settings = json.loads(settings)
-                except Exception:
-                    settings = {}
-            if isinstance(settings, dict) and settings.get(key) not in (None, ""):
-                return settings.get(key)
+        row = self.module_row()
+        if not row:
+            return default
+        settings = row.get("settings") or {}
+        if isinstance(settings, str):
+            try:
+                import json
+
+                settings = json.loads(settings)
+            except Exception:
+                settings = {}
+        if isinstance(settings, dict) and settings.get(key) not in (None, ""):
+            return settings.get(key)
         return default
 
     def buttons_setting(self):
@@ -65,15 +77,28 @@ class WelcomeModule(BotModule):
         return markup
 
     def handle_new_members(self, message):
+        chat_id = getattr(getattr(message, "chat", None), "id", None)
+        members = getattr(message, "new_chat_members", None) or []
+        LOGGER.info(
+            "Welcome event received for bot %s in chat %s with %s new member(s).",
+            self.settings.bot_key,
+            chat_id,
+            len(members),
+        )
+
         if not self.module_enabled("welcome", False):
+            LOGGER.info("Welcome module disabled for bot %s. Skip chat %s.", self.settings.bot_key, chat_id)
             return
         if not self.can_send_messages(message.chat.id):
+            LOGGER.warning("Welcome cannot send messages for bot %s in chat %s.", self.settings.bot_key, chat_id)
             return
 
-        for user in message.new_chat_members or []:
+        for user in members:
             if getattr(user, "is_bot", False):
+                LOGGER.info("Skip welcome for bot user %s in chat %s.", getattr(user, "id", None), chat_id)
                 continue
             if self.admin_exempt(message.chat.id, getattr(user, "id", None)):
+                LOGGER.info("Skip welcome for admin user %s in chat %s.", getattr(user, "id", None), chat_id)
                 continue
             self.send_welcome(message.chat.id, user)
 
@@ -126,6 +151,7 @@ class WelcomeModule(BotModule):
     def send_welcome(self, chat_id, user):
         text = self.render_text(chat_id, user)
         if not text.strip():
+            LOGGER.info("Welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
             return False
         try:
             markup = self.parse_buttons(self.buttons_setting())
@@ -139,7 +165,19 @@ class WelcomeModule(BotModule):
             delete_after = as_int(self.setting("welcome_delete_seconds", 30), 30)
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "welcome_notice")
+            LOGGER.info(
+                "Welcome sent for bot %s in chat %s to user %s.",
+                self.settings.bot_key,
+                chat_id,
+                getattr(user, "id", None),
+            )
             return True
         except Exception as exc:
-            LOGGER.warning("Cannot send welcome message in %s: %s", chat_id, exc)
+            LOGGER.warning(
+                "Cannot send welcome message for bot %s in %s to user %s: %s",
+                self.settings.bot_key,
+                chat_id,
+                getattr(user, "id", None),
+                exc,
+            )
             return False
