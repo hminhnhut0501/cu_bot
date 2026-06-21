@@ -62,6 +62,24 @@ async function persistRuntimeStatus(moduleRow: { id: number; settings?: unknown 
     .eq("id", moduleRow.id);
 }
 
+async function writeAuditLog(payload: {
+  bot_key: string;
+  chat_id: string;
+  action: string;
+  details: string;
+  target_user_id?: string;
+}) {
+  const supabaseAdmin = getSupabaseAdmin() as any;
+  await supabaseAdmin.from("audit_logs").insert({
+    bot_key: payload.bot_key,
+    chat_id: payload.chat_id,
+    actor_user_id: "admin_cp",
+    action: payload.action,
+    target_user_id: payload.target_user_id || "",
+    details: payload.details,
+  });
+}
+
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
     return unauthorized();
@@ -126,25 +144,39 @@ export async function POST(request: NextRequest) {
 
     if (!telegramResponse.ok || telegramPayload?.ok === false) {
       const errorMessage = String(telegramPayload?.description || "Telegram không gửi được tin test Welcome.");
+      await writeAuditLog({
+        bot_key: botKey,
+        chat_id: chatId,
+        action: "welcome_test_failed",
+        details: `source=cp_direct_api,error=${errorMessage}`,
+      });
       await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
         welcome_runtime_last_error_at: nowIso,
         welcome_runtime_last_error_message: errorMessage,
         welcome_runtime_last_chat_id: chatId,
         welcome_runtime_last_test_at: nowIso,
+        welcome_runtime_last_test_source: "cp_direct_api",
       });
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
+    await writeAuditLog({
+      bot_key: botKey,
+      chat_id: chatId,
+      action: "welcome_test_sent",
+      details: `source=cp_direct_api,message_id=${String(telegramPayload?.result?.message_id || "")}`,
+    });
     await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
       welcome_runtime_last_success_at: nowIso,
       welcome_runtime_last_chat_id: chatId,
       welcome_runtime_last_test_at: nowIso,
       welcome_runtime_last_test_message_id: String(telegramPayload?.result?.message_id || ""),
+      welcome_runtime_last_test_source: "cp_direct_api",
     });
 
     return NextResponse.json({
       ok: true,
-      message: "Đã gửi tin test Welcome vào group đang chọn.",
+      message: "Đã gửi tin test Welcome vào group đang chọn. Lưu ý: test này đi trực tiếp từ CP, không tạo log trong Render runtime.",
       preview: text,
     });
   } catch (error) {

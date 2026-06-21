@@ -188,6 +188,9 @@ export function WelcomeScreen(props: {
                   <Typography variant="body2" color="text.secondary">
                     Gửi thử đúng mẫu Welcome vào group đang chọn để kiểm tra quyền bot và runtime.
                   </Typography>
+                  <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.5 }}>
+                    Nút test này gửi trực tiếp từ Control Panel qua Telegram API, không đi qua Render runtime.
+                  </Typography>
                 </Box>
                 <MuiButton
                   variant="contained"
