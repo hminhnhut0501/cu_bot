@@ -118,3 +118,7 @@ class RuntimeState:
                 return False
             self.recent_welcome_events[key] = now
             return True
+
+    def release_welcome(self, chat_id, user_id):
+        with self.lock:
+            self.recent_welcome_events.pop((int(chat_id), int(user_id)), None)

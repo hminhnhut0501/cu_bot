@@ -17,6 +17,21 @@ from modules.base import BotModule
 LOGGER = logging.getLogger(__name__)
 TELEBOT_LOGGER = logging.getLogger("TeleBot")
 
+# Telegram does not include chat_member in the default getUpdates subscription.
+# Welcome depends on it for private invite links where no service message survives.
+POLLING_ALLOWED_UPDATES = [
+    "message",
+    "edited_message",
+    "channel_post",
+    "edited_channel_post",
+    "callback_query",
+    "poll",
+    "poll_answer",
+    "my_chat_member",
+    "chat_member",
+    "chat_join_request",
+]
+
 
 class BotApplication:
     def __init__(self, bot, settings):
@@ -65,6 +80,11 @@ class BotApplication:
             time.sleep(self.settings.polling_startup_delay_seconds)
 
         self.remove_existing_webhook()
+        LOGGER.info(
+            "Polling bot_key=%s with allowed_updates=%s",
+            self.settings.bot_key,
+            POLLING_ALLOWED_UPDATES,
+        )
 
         first_run = True
         conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))
@@ -76,6 +96,7 @@ class BotApplication:
                     timeout=25,
                     long_polling_timeout=20,
                     logger_level=logging.ERROR,
+                    allowed_updates=POLLING_ALLOWED_UPDATES,
                 )
                 first_run = False
                 conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))

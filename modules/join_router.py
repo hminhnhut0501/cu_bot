@@ -2,6 +2,11 @@ import logging
 
 from modules.base import BotModule
 
+try:
+    from telebot.handler_backends import ContinueHandling
+except ImportError:  # pragma: no cover - compatibility with old TeleBot builds
+    ContinueHandling = None
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -13,6 +18,8 @@ class JoinRouterModule(BotModule):
     def register(self):
         LOGGER.info("Register join router for bot %s.", self.settings.bot_key)
         self.bot.message_handler(content_types=["new_chat_members", "left_chat_member"])(self.active(self.handle_membership_message))
+        if hasattr(self.bot, "chat_member_handler"):
+            self.bot.chat_member_handler()(self.active(self.handle_chat_member))
         if hasattr(self.bot, "chat_join_request_handler"):
             self.bot.chat_join_request_handler()(self.active(self.handle_join_request))
 
@@ -24,9 +31,9 @@ class JoinRouterModule(BotModule):
     def handle_membership_message(self, message):
         if getattr(message, "content_type", "") == "new_chat_members":
             self.handle_new_members(message)
-            return
-        if getattr(message, "content_type", "") == "left_chat_member":
+        elif getattr(message, "content_type", "") == "left_chat_member":
             self.handle_left_member(message)
+        return self.continue_handling()
 
     def handle_new_members(self, message):
         chat_id = getattr(getattr(message, "chat", None), "id", None)
@@ -60,7 +67,7 @@ class JoinRouterModule(BotModule):
         user = getattr(request, "from_user", None)
         chat_id = getattr(chat, "id", None)
         if not chat or not user:
-            return
+            return self.continue_handling()
         LOGGER.info(
             "Join router received join request for bot %s in chat %s user %s.",
             self.settings.bot_key,
@@ -68,6 +75,81 @@ class JoinRouterModule(BotModule):
             getattr(user, "id", None),
         )
         self.audit_member_event(chat_id, "member_join_request", user, "chat_join_request")
+        return self.continue_handling()
+
+    @staticmethod
+    def is_join_transition(old_member, new_member):
+        old_status = str(getattr(old_member, "status", "") or "").lower()
+        new_status = str(getattr(new_member, "status", "") or "").lower()
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
+
+        was_member = old_status in {"creator", "administrator", "member"} or (
+            old_status == "restricted" and old_is_member is True
+        )
+        is_member = new_status in {"creator", "administrator", "member"} or (
+            new_status == "restricted" and new_is_member is True
+        )
+        return not was_member and is_member
+
+    @staticmethod
+    def is_leave_transition(old_member, new_member):
+        old_status = str(getattr(old_member, "status", "") or "").lower()
+        new_status = str(getattr(new_member, "status", "") or "").lower()
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
+
+        was_member = old_status in {"creator", "administrator", "member"} or (
+            old_status == "restricted" and old_is_member is True
+        )
+        is_member = new_status in {"creator", "administrator", "member"} or (
+            new_status == "restricted" and new_is_member is True
+        )
+        return was_member and not is_member
+
+    def handle_chat_member(self, update):
+        chat = getattr(update, "chat", None)
+        old_member = getattr(update, "old_chat_member", None)
+        new_member = getattr(update, "new_chat_member", None)
+        user = getattr(new_member, "user", None)
+        chat_id = getattr(chat, "id", None)
+        if not chat or not old_member or not new_member or not user or chat_id is None:
+            LOGGER.warning("Join router received incomplete chat_member update for bot %s.", self.settings.bot_key)
+            return self.continue_handling()
+
+        old_status = str(getattr(old_member, "status", "") or "").lower()
+        new_status = str(getattr(new_member, "status", "") or "").lower()
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
+        LOGGER.info(
+            "Join router received member state for bot %s chat %s user %s: "
+            "%s(is_member=%s) -> %s(is_member=%s).",
+            self.settings.bot_key,
+            chat_id,
+            getattr(user, "id", None),
+            old_status or "-",
+            old_is_member,
+            new_status or "-",
+            new_is_member,
+        )
+
+        if self.is_join_transition(old_member, new_member):
+            self.audit_member_event(chat_id, "member_joined", user, "member_state")
+            self.forward_chat_member(update, "welcome")
+        elif self.is_leave_transition(old_member, new_member):
+            self.audit_member_event(chat_id, "member_left", user, "member_state")
+        else:
+            LOGGER.info(
+                "Join router ignored non-membership transition for bot %s chat %s user %s.",
+                self.settings.bot_key,
+                chat_id,
+                getattr(user, "id", None),
+            )
+        return self.continue_handling()
+
+    @staticmethod
+    def continue_handling():
+        return ContinueHandling() if ContinueHandling is not None else None
 
     def forward(self, message, module_name):
         try:
@@ -86,6 +168,34 @@ class JoinRouterModule(BotModule):
                 return
         except Exception as exc:
             LOGGER.warning("Join router cannot forward to %s for bot %s: %s", module_name, self.settings.bot_key, exc)
+
+    def forward_chat_member(self, update, module_name):
+        try:
+            for module in getattr(self.app, "modules", []) or []:
+                if getattr(module, "name", "") != module_name:
+                    continue
+                handler = getattr(module, "handle_chat_member", None)
+                if callable(handler):
+                    LOGGER.info(
+                        "Join router forwarded member state to %s for bot %s chat %s.",
+                        module_name,
+                        self.settings.bot_key,
+                        getattr(getattr(update, "chat", None), "id", None),
+                    )
+                    handler(update)
+                return
+            LOGGER.warning(
+                "Join router cannot find module %s for bot %s.",
+                module_name,
+                self.settings.bot_key,
+            )
+        except Exception as exc:
+            LOGGER.warning(
+                "Join router cannot forward member state to %s for bot %s: %s",
+                module_name,
+                self.settings.bot_key,
+                exc,
+            )
 
     def audit_member_event(self, chat_id, action, user, source):
         user_id = str(getattr(user, "id", "") or "")

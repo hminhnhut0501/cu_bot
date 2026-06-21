@@ -83,6 +83,13 @@ def attach_raw_update_logger(bot, bot_key):
                     summary["chat_member_chat_id"] = getattr(getattr(chat_member, "chat", None), "id", None)
                     summary["chat_member_old_status"] = getattr(getattr(chat_member, "old_chat_member", None), "status", None)
                     summary["chat_member_new_status"] = getattr(getattr(chat_member, "new_chat_member", None), "status", None)
+                    summary["chat_member_old_is_member"] = getattr(getattr(chat_member, "old_chat_member", None), "is_member", None)
+                    summary["chat_member_new_is_member"] = getattr(getattr(chat_member, "new_chat_member", None), "is_member", None)
+                    summary["chat_member_user_id"] = getattr(
+                        getattr(getattr(chat_member, "new_chat_member", None), "user", None),
+                        "id",
+                        None,
+                    )
                 if my_chat_member:
                     summary["my_chat_member_chat_id"] = getattr(getattr(my_chat_member, "chat", None), "id", None)
                     summary["my_chat_member_old_status"] = getattr(getattr(my_chat_member, "old_chat_member", None), "status", None)

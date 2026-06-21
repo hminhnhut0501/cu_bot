@@ -15,13 +15,13 @@ class WelcomeModule(BotModule):
     priority = 12
 
     def register(self):
-        LOGGER.info("Register welcome handler for bot %s.", self.settings.bot_key)
-        if hasattr(self.bot, "chat_member_handler"):
-            self.bot.chat_member_handler()(self.active(self.handle_chat_member))
+        # Membership updates are registered once by join_router. Keeping Welcome
+        # as a pure consumer avoids duplicate handlers and ordering surprises.
+        LOGGER.info("Register welcome consumer for bot %s.", self.settings.bot_key)
 
     def is_enabled(self):
-        # Always register the handler so Welcome can be toggled live from Admin CP
-        # without needing a process restart. Runtime checks happen inside the handler.
+        # Always load the consumer so Welcome can be toggled live from Admin CP
+        # without needing a process restart. Runtime checks happen per event.
         return True
 
     def module_row(self, fresh=False):
@@ -144,18 +144,19 @@ class WelcomeModule(BotModule):
 
         old_status = str(getattr(old_member, "status", "") or "").lower()
         new_status = str(getattr(new_member, "status", "") or "").lower()
-        if new_status not in {"member", "administrator", "restricted"}:
-            return
-        if old_status not in {"left", "kicked"}:
-            return
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
 
         LOGGER.info(
-            "Welcome chat_member fallback received for bot %s in chat %s user %s (%s -> %s).",
+            "Welcome member-state candidate received for bot %s in chat %s user %s "
+            "(%s/is_member=%s -> %s/is_member=%s).",
             self.settings.bot_key,
             chat_id,
             getattr(from_user, "id", None),
             old_status or "-",
+            old_is_member,
             new_status or "-",
+            new_is_member,
         )
         self.update_runtime_status(
             welcome_runtime_last_event_at=self.now_iso(),
@@ -167,11 +168,24 @@ class WelcomeModule(BotModule):
             chat_id,
             "welcome_event_received",
             target_user_id=getattr(from_user, "id", None),
-            details=f"source=member_state,old={old_status},new={new_status}",
+            details=(
+                f"source=member_state,old={old_status},new={new_status},"
+                f"old_is_member={old_is_member},new_is_member={new_is_member}"
+            ),
         )
         if not self.module_enabled("welcome", False):
+            LOGGER.info(
+                "Welcome module disabled for bot %s. Skip member-state candidate in chat %s.",
+                self.settings.bot_key,
+                chat_id,
+            )
             return
         if not self.can_send_messages(chat_id):
+            LOGGER.warning(
+                "Welcome cannot send messages for bot %s in chat %s after member-state event.",
+                self.settings.bot_key,
+                chat_id,
+            )
             self.update_runtime_status(
                 welcome_runtime_last_error_at=self.now_iso(),
                 welcome_runtime_last_error_message=f"Bot không có quyền gửi tin ở chat {chat_id}.",
@@ -190,7 +204,11 @@ class WelcomeModule(BotModule):
         if user_id is not None and not self.state.should_process_welcome(chat_id, user_id, 12):
             LOGGER.info("Skip duplicate welcome event for user %s in chat %s.", user_id, chat_id)
             return
-        self.send_welcome(chat_id, user, source=source)
+        sent = self.send_welcome(chat_id, user, source=source)
+        if not sent and user_id is not None:
+            # A service message and a member-state update can arrive close
+            # together. Let the second signal retry if the first send failed.
+            self.state.release_welcome(chat_id, user_id)
 
     def can_send_messages(self, chat_id):
         try:
