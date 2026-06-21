@@ -35,10 +35,20 @@ class BotApplication:
         )
 
     def start(self):
+        LOGGER.info(
+            "Boot bot_key=%s with enabled_modules allowlist=%s",
+            self.settings.bot_key,
+            sorted(self.settings.enabled_modules) if self.settings.enabled_modules else "ALL",
+        )
         if self.settings.keep_alive_enabled:
             keep_alive(self.settings.keep_alive_port)
 
         self.modules = self._load_modules()
+        LOGGER.info(
+            "Loaded modules for bot_key=%s: %s",
+            self.settings.bot_key,
+            [module.name for module in self.modules],
+        )
         for module in self.modules:
             LOGGER.info("Starting module: %s", module.name)
             module.register()
@@ -158,9 +168,24 @@ class BotApplication:
         for cls in sorted(module_classes, key=lambda item: item.priority):
             module = cls(self)
             if self.settings.enabled_modules and module.name not in self.settings.enabled_modules:
+                LOGGER.info(
+                    "Skip module %s for bot_key=%s because it is not in ENABLED_MODULES allowlist.",
+                    module.name,
+                    self.settings.bot_key,
+                )
                 continue
-            if module.is_enabled():
+            enabled = module.is_enabled()
+            LOGGER.info(
+                "Module check bot_key=%s module=%s enabled=%s priority=%s",
+                self.settings.bot_key,
+                module.name,
+                enabled,
+                getattr(module, "priority", "?"),
+            )
+            if enabled:
                 instances.append(module)
+            else:
+                LOGGER.info("Skip module %s for bot_key=%s because is_enabled() returned false.", module.name, self.settings.bot_key)
         return instances
 
     def run_background(self, name, target):
