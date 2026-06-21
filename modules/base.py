@@ -39,7 +39,7 @@ class BotModule:
     def start(self):
         pass
 
-    def delete_later(self, chat_id, message_id, delay_seconds, reason="delayed_delete"):
+    def delete_later(self, chat_id, message_id, delay_seconds, reason="delayed_delete", on_success=None, on_error=None):
         def worker():
             try:
                 LOGGER.info(
@@ -57,6 +57,8 @@ class BotModule:
                     message_id,
                     reason,
                 )
+                if callable(on_success):
+                    on_success()
             except Exception as exc:
                 LOGGER.warning(
                     "Cannot delete delayed message chat=%s message=%s reason=%s: %s",
@@ -65,6 +67,8 @@ class BotModule:
                     reason,
                     exc,
                 )
+                if callable(on_error):
+                    on_error(exc)
 
         threading.Thread(
             target=worker,

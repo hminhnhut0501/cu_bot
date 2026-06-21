@@ -15,6 +15,7 @@ class RuntimeState:
     pending_verifications: dict[tuple[int, int], dict] = field(default_factory=dict)
     auto_reply_user_cooldown: dict[tuple[int, int, str], float] = field(default_factory=dict)
     auto_reply_trigger_cooldown: dict[tuple[int, str], float] = field(default_factory=dict)
+    recent_welcome_events: dict[tuple[int, int], float] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
 
     def mark_activity(self, chat_id):
@@ -106,4 +107,14 @@ class RuntimeState:
                 return False
             self.auto_reply_user_cooldown[user_key] = now
             self.auto_reply_trigger_cooldown[trigger_key_scoped] = now
+            return True
+
+    def should_process_welcome(self, chat_id, user_id, dedupe_seconds=12):
+        now = time()
+        key = (int(chat_id), int(user_id))
+        with self.lock:
+            last_seen = self.recent_welcome_events.get(key, 0)
+            if dedupe_seconds > 0 and now - last_seen < dedupe_seconds:
+                return False
+            self.recent_welcome_events[key] = now
             return True

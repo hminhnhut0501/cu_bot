@@ -117,6 +117,8 @@ export function WelcomeScreen(props: {
   runtimeLastErrorAt: string;
   runtimeLastErrorMessage: string;
   runtimeLastTestAt: string;
+  runtimeLastEventSource: string;
+  runtimeDeleteStatus: string;
   onToggleModule: () => void;
   onToggleWelcome: () => void;
   onChangeText: (value: string) => void;
@@ -203,6 +205,10 @@ export function WelcomeScreen(props: {
                 <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi thành công: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
                 <Chip size="small" color={props.runtimeLastErrorAt ? "warning" : "default"} label={props.runtimeLastErrorAt ? `Lỗi gần nhất: ${props.runtimeLastErrorAt}` : "Chưa có lỗi runtime"} />
                 {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} /> : null}
+                {props.runtimeDeleteStatus ? <Chip size="small" variant="outlined" label={props.runtimeDeleteStatus} /> : null}
+                {props.runtimeLastEventSource === "member_state" ? (
+                  <Chip size="small" color="warning" variant="outlined" label="Join event đã nhận qua member-state, service message có thể đã bị xóa" />
+                ) : null}
               </Stack>
 
               {props.runtimeLastErrorMessage ? (

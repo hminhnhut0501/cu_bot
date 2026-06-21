@@ -4257,6 +4257,28 @@ export default function HomePage() {
   const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
   const welcomeRuntimeLastErrorMessage = String(welcomeSettings.welcome_runtime_last_error_message || "");
   const welcomeRuntimeLastTestAt = formatDateTime(welcomeSettings.welcome_runtime_last_test_at);
+  const welcomeRuntimeLastEventSource = String(welcomeSettings.welcome_runtime_last_event_source || "");
+  const welcomeAuditRows = useMemo(
+    () =>
+      lookups.auditLogs
+        .filter((row) => String(row.action || "").startsWith("welcome_"))
+        .filter((row) => !selectedBot || !row.bot_key || row.bot_key === selectedBot)
+        .filter((row) => !selectedScope || String(row.chat_id || "") === String(selectedScope)),
+    [lookups.auditLogs, selectedBot, selectedScope]
+  );
+  const lastWelcomeDeleteSuccess = useMemo(
+    () => welcomeAuditRows.find((row) => String(row.action || "") === "welcome_delete_success") || null,
+    [welcomeAuditRows]
+  );
+  const lastWelcomeDeleteFailure = useMemo(
+    () => welcomeAuditRows.find((row) => String(row.action || "") === "welcome_delete_failed") || null,
+    [welcomeAuditRows]
+  );
+  const welcomeDeleteStatus = lastWelcomeDeleteFailure
+    ? `Xóa gần nhất lỗi: ${formatDateTime(lastWelcomeDeleteFailure.created_at || lastWelcomeDeleteFailure.updated_at)}`
+    : lastWelcomeDeleteSuccess
+      ? `Xóa gần nhất OK: ${formatDateTime(lastWelcomeDeleteSuccess.created_at || lastWelcomeDeleteSuccess.updated_at)}`
+      : "";
   useEffect(() => {
     setWelcomeDraftText(welcomeText);
     setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
@@ -4737,6 +4759,8 @@ export default function HomePage() {
             runtimeLastErrorAt={welcomeSettings.welcome_runtime_last_error_at ? welcomeRuntimeLastErrorAt : ""}
             runtimeLastErrorMessage={welcomeRuntimeLastErrorMessage}
             runtimeLastTestAt={welcomeSettings.welcome_runtime_last_test_at ? welcomeRuntimeLastTestAt : ""}
+            runtimeLastEventSource={welcomeRuntimeLastEventSource}
+            runtimeDeleteStatus={welcomeDeleteStatus}
             onToggleModule={() => void toggleModule("welcome")}
             onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}
             onChangeText={setWelcomeDraftText}

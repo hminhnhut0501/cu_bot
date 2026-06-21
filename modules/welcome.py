@@ -17,6 +17,8 @@ class WelcomeModule(BotModule):
     def register(self):
         LOGGER.info("Register welcome handler for bot %s.", self.settings.bot_key)
         self.bot.message_handler(content_types=["new_chat_members"])(self.active(self.handle_new_members))
+        if hasattr(self.bot, "chat_member_handler"):
+            self.bot.chat_member_handler()(self.active(self.handle_chat_member))
 
     def is_enabled(self):
         # Always register the handler so Welcome can be toggled live from Admin CP
@@ -114,7 +116,9 @@ class WelcomeModule(BotModule):
             welcome_runtime_last_event_at=self.now_iso(),
             welcome_runtime_last_chat_id=str(chat_id or ""),
             welcome_runtime_last_event_count=len(members),
+            welcome_runtime_last_event_source="service_message",
         )
+        self.audit(chat_id, "welcome_event_received", details=f"source=service_message,count={len(members)}")
 
         if not self.module_enabled("welcome", False):
             LOGGER.info("Welcome module disabled for bot %s. Skip chat %s.", self.settings.bot_key, chat_id)
@@ -128,13 +132,66 @@ class WelcomeModule(BotModule):
             return
 
         for user in members:
-            if getattr(user, "is_bot", False):
-                LOGGER.info("Skip welcome for bot user %s in chat %s.", getattr(user, "id", None), chat_id)
-                continue
-            if self.admin_exempt(message.chat.id, getattr(user, "id", None)):
-                LOGGER.info("Skip welcome for admin user %s in chat %s.", getattr(user, "id", None), chat_id)
-                continue
-            self.send_welcome(message.chat.id, user)
+            self.process_welcome_candidate(message.chat.id, user, source="service_message")
+
+    def handle_chat_member(self, update):
+        chat = getattr(update, "chat", None)
+        new_member = getattr(update, "new_chat_member", None)
+        old_member = getattr(update, "old_chat_member", None)
+        from_user = getattr(new_member, "user", None) or getattr(update, "from_user", None)
+        chat_id = getattr(chat, "id", None)
+        if not chat or not new_member or not from_user or chat_id is None:
+            return
+
+        old_status = str(getattr(old_member, "status", "") or "").lower()
+        new_status = str(getattr(new_member, "status", "") or "").lower()
+        if new_status not in {"member", "administrator", "restricted"}:
+            return
+        if old_status not in {"left", "kicked"}:
+            return
+
+        LOGGER.info(
+            "Welcome chat_member fallback received for bot %s in chat %s user %s (%s -> %s).",
+            self.settings.bot_key,
+            chat_id,
+            getattr(from_user, "id", None),
+            old_status or "-",
+            new_status or "-",
+        )
+        self.update_runtime_status(
+            welcome_runtime_last_event_at=self.now_iso(),
+            welcome_runtime_last_chat_id=str(chat_id or ""),
+            welcome_runtime_last_event_count=1,
+            welcome_runtime_last_event_source="member_state",
+        )
+        self.audit(
+            chat_id,
+            "welcome_event_received",
+            target_user_id=getattr(from_user, "id", None),
+            details=f"source=member_state,old={old_status},new={new_status}",
+        )
+        if not self.module_enabled("welcome", False):
+            return
+        if not self.can_send_messages(chat_id):
+            self.update_runtime_status(
+                welcome_runtime_last_error_at=self.now_iso(),
+                welcome_runtime_last_error_message=f"Bot không có quyền gửi tin ở chat {chat_id}.",
+            )
+            return
+        self.process_welcome_candidate(chat_id, from_user, source="member_state")
+
+    def process_welcome_candidate(self, chat_id, user, source):
+        user_id = getattr(user, "id", None)
+        if getattr(user, "is_bot", False):
+            LOGGER.info("Skip welcome for bot user %s in chat %s.", user_id, chat_id)
+            return
+        if self.admin_exempt(chat_id, user_id):
+            LOGGER.info("Skip welcome for admin user %s in chat %s.", user_id, chat_id)
+            return
+        if user_id is not None and not self.state.should_process_welcome(chat_id, user_id, 12):
+            LOGGER.info("Skip duplicate welcome event for user %s in chat %s.", user_id, chat_id)
+            return
+        self.send_welcome(chat_id, user, source=source)
 
     def can_send_messages(self, chat_id):
         try:
@@ -182,7 +239,19 @@ class WelcomeModule(BotModule):
         except Exception:
             return str(template)
 
-    def send_welcome(self, chat_id, user):
+    def audit(self, chat_id, action, target_user_id="", details="", actor_user_id="bot"):
+        try:
+            self.store.insert("audit_logs", {
+                "chat_id": str(chat_id or ""),
+                "actor_user_id": str(actor_user_id or "bot"),
+                "action": action,
+                "target_user_id": str(target_user_id or ""),
+                "details": details,
+            })
+        except Exception as exc:
+            LOGGER.warning("Cannot write welcome audit %s for bot %s: %s", action, self.settings.bot_key, exc)
+
+    def send_welcome(self, chat_id, user, source="service_message"):
         text = self.render_text(chat_id, user)
         if not text.strip():
             LOGGER.info("Welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
@@ -202,17 +271,47 @@ class WelcomeModule(BotModule):
             )
             delete_after = as_int(self.setting("welcome_delete_seconds", 30), 30)
             if delete_after > 0:
-                self.delete_later(chat_id, sent.message_id, delete_after, "welcome_notice")
+                self.audit(
+                    chat_id,
+                    "welcome_delete_scheduled",
+                    target_user_id=getattr(user, "id", None),
+                    details=f"delay_seconds={delete_after},message_id={sent.message_id}",
+                )
+                self.delete_later(
+                    chat_id,
+                    sent.message_id,
+                    delete_after,
+                    "welcome_notice",
+                    on_success=lambda: self.audit(
+                        chat_id,
+                        "welcome_delete_success",
+                        target_user_id=getattr(user, "id", None),
+                        details=f"message_id={sent.message_id}",
+                    ),
+                    on_error=lambda exc: self.audit(
+                        chat_id,
+                        "welcome_delete_failed",
+                        target_user_id=getattr(user, "id", None),
+                        details=f"message_id={sent.message_id},error={exc}",
+                    ),
+                )
             LOGGER.info(
                 "Welcome sent for bot %s in chat %s to user %s.",
                 self.settings.bot_key,
                 chat_id,
                 getattr(user, "id", None),
             )
+            self.audit(
+                chat_id,
+                "welcome_sent",
+                target_user_id=getattr(user, "id", None),
+                details=f"source={source},message_id={sent.message_id}",
+            )
             self.update_runtime_status(
                 welcome_runtime_last_success_at=self.now_iso(),
                 welcome_runtime_last_chat_id=str(chat_id or ""),
                 welcome_runtime_last_user_id=str(getattr(user, "id", "") or ""),
+                welcome_runtime_last_sent_source=source,
             )
             return True
         except Exception as exc:
