@@ -3161,8 +3161,9 @@ export default function HomePage() {
     }
     setSelected(null);
     const nextDraft = emptyValues(table);
-    if (table.key !== "bots" && selectedBot && table.fields.some((field) => field.key === "bot_key")) {
-      nextDraft.bot_key = selectedBot;
+    const currentBotKey = activeBotKey || selectedBot || "main";
+    if (table.key !== "bots" && table.fields.some((field) => field.key === "bot_key")) {
+      nextDraft.bot_key = currentBotKey;
     }
     if (selectedScope && table.key !== "groups") {
       if (table.fields.some((field) => field.key === "group_id")) {
@@ -3293,21 +3294,25 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
+      const submitDraft = { ...draft };
+      if (table.fields.some((field) => field.key === "bot_key") && !String(submitDraft.bot_key || "").trim()) {
+        submitDraft.bot_key = activeBotKey || selectedBot || "main";
+      }
       if (table.key === "config" && activeLayer === "module:moderation") {
-        const fallbackRow = selected || { key: draft.key || "", value: draft.value ?? "", enabled: true };
-        await saveRowValues(fallbackRow, draft);
+        const fallbackRow = selected || { key: submitDraft.key || "", value: submitDraft.value ?? "", enabled: true };
+        await saveRowValues(fallbackRow, submitDraft);
         setWorkMode("operate");
         return;
       }
       if (selected?.id && !(table.key === "config" && isVirtualConfigRow(selected))) {
         await api(`/api/${table.key}`, {
           method: "PATCH",
-          body: JSON.stringify({ id: selected.id, values: draft })
+          body: JSON.stringify({ id: selected.id, values: submitDraft })
         });
       } else {
         await api(`/api/${table.key}`, {
           method: "POST",
-          body: JSON.stringify(draft)
+          body: JSON.stringify(submitDraft)
         });
       }
       setNotice("Đã lưu thay đổi.");
