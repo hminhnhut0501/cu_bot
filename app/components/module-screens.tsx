@@ -109,12 +109,21 @@ export function WelcomeScreen(props: {
   welcomeButtonsText: string;
   hasSavedConfig: boolean;
   saving: boolean;
+  testing: boolean;
+  selectedGroupName: string;
+  selectedGroupId: string;
+  runtimeLastEventAt: string;
+  runtimeLastSuccessAt: string;
+  runtimeLastErrorAt: string;
+  runtimeLastErrorMessage: string;
+  runtimeLastTestAt: string;
   onToggleModule: () => void;
   onToggleWelcome: () => void;
   onChangeText: (value: string) => void;
   onChangeDeleteSeconds: (value: string) => void;
   onChangeButtonsText: (value: string) => void;
   onSave: () => void;
+  onTestRuntime: () => void;
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const c = {
@@ -166,6 +175,42 @@ export function WelcomeScreen(props: {
                   </Typography>
                 </Stack>
               </Paper>
+            </Stack>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack spacing={1.5}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                <Box>
+                  <Typography variant="subtitle2">Kiểm tra runtime Welcome</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Gửi thử đúng mẫu Welcome vào group đang chọn để kiểm tra quyền bot và runtime.
+                  </Typography>
+                </Box>
+                <MuiButton
+                  variant="contained"
+                  startIcon={<FlaskConical size={16} />}
+                  onClick={props.onTestRuntime}
+                  disabled={props.testing || props.saving || !props.moduleEnabled || !props.welcomeEnabled || !props.selectedGroupId}
+                >
+                  {props.testing ? "Đang gửi test..." : "Gửi test Welcome"}
+                </MuiButton>
+              </Box>
+
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                <Chip size="small" variant="outlined" label={`Group test: ${props.selectedGroupName || "Chưa chọn group"}`} />
+                <Chip size="small" color={props.runtimeLastEventAt ? "info" : "default"} label={props.runtimeLastEventAt ? `Đã nhận event: ${props.runtimeLastEventAt}` : "Chưa nhận event"} />
+                <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi thành công: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
+                <Chip size="small" color={props.runtimeLastErrorAt ? "warning" : "default"} label={props.runtimeLastErrorAt ? `Lỗi gần nhất: ${props.runtimeLastErrorAt}` : "Chưa có lỗi runtime"} />
+                {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} /> : null}
+              </Stack>
+
+              {props.runtimeLastErrorMessage ? (
+                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                  <Typography variant="caption" color="text.secondary">Lỗi gần nhất</Typography>
+                  <Typography variant="body2">{props.runtimeLastErrorMessage}</Typography>
+                </Paper>
+              ) : null}
             </Stack>
           </Paper>
         </Stack>

@@ -2207,6 +2207,7 @@ export default function HomePage() {
   const [welcomeDraftText, setWelcomeDraftText] = useState("");
   const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
   const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
+  const [welcomeTesting, setWelcomeTesting] = useState(false);
 
   useEffect(() => {
     if (!toast) {
@@ -3480,6 +3481,36 @@ export default function HomePage() {
     }
   }
 
+  async function testWelcomeRuntime() {
+    if (!selectedScopeRow) {
+      flashToast("Hãy chọn group trước khi test Welcome.", "error");
+      return;
+    }
+    setWelcomeTesting(true);
+    setError("");
+    setNotice("");
+    try {
+      const payload = await api("/api/welcome/test", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: selectedBot || "main",
+          chat_id: selectedScopeRow.group_id || selectedScopeRow.chat_id || selectedScope || "",
+          group_name: selectedScopeRow.group_name || selectedScope || "",
+        }),
+      });
+      setNotice(String(payload.message || "Đã gửi test Welcome."));
+      flashToast(String(payload.message || "Đã gửi test Welcome."));
+      await refreshAfterMutation("module_settings", { reloadRows: false, reloadLookups: true });
+    } catch (err) {
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
+      await refreshAfterMutation("module_settings", { reloadRows: false, reloadLookups: true });
+    } finally {
+      setWelcomeTesting(false);
+    }
+  }
+
   async function createGiveawayCampaign(nextValues: {
     chat_id: string;
     title: string;
@@ -4221,6 +4252,11 @@ export default function HomePage() {
   const welcomeText = String(welcomeSettings.welcome_text || "Chào mừng {user} đến với {group}.");
   const welcomeDeleteSeconds = Number(welcomeSettings.welcome_delete_seconds ?? 30) || 30;
   const welcomeButtonsText = String(welcomeSettings.welcome_buttons_text || "");
+  const welcomeRuntimeLastEventAt = formatDateTime(welcomeSettings.welcome_runtime_last_event_at);
+  const welcomeRuntimeLastSuccessAt = formatDateTime(welcomeSettings.welcome_runtime_last_success_at);
+  const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
+  const welcomeRuntimeLastErrorMessage = String(welcomeSettings.welcome_runtime_last_error_message || "");
+  const welcomeRuntimeLastTestAt = formatDateTime(welcomeSettings.welcome_runtime_last_test_at);
   useEffect(() => {
     setWelcomeDraftText(welcomeText);
     setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
@@ -4693,6 +4729,14 @@ export default function HomePage() {
             welcomeButtonsText={welcomeDraftButtonsText}
             hasSavedConfig={Boolean(welcomeModuleRow?.id)}
             saving={saving}
+            testing={welcomeTesting}
+            selectedGroupName={selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : ""}
+            selectedGroupId={selectedScopeRow ? String(selectedScopeRow.group_id || selectedScopeRow.chat_id || selectedScope) : ""}
+            runtimeLastEventAt={welcomeSettings.welcome_runtime_last_event_at ? welcomeRuntimeLastEventAt : ""}
+            runtimeLastSuccessAt={welcomeSettings.welcome_runtime_last_success_at ? welcomeRuntimeLastSuccessAt : ""}
+            runtimeLastErrorAt={welcomeSettings.welcome_runtime_last_error_at ? welcomeRuntimeLastErrorAt : ""}
+            runtimeLastErrorMessage={welcomeRuntimeLastErrorMessage}
+            runtimeLastTestAt={welcomeSettings.welcome_runtime_last_test_at ? welcomeRuntimeLastTestAt : ""}
             onToggleModule={() => void toggleModule("welcome")}
             onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}
             onChangeText={setWelcomeDraftText}
@@ -4703,6 +4747,7 @@ export default function HomePage() {
               welcome_delete_seconds: welcomeDraftDeleteSeconds,
               welcome_buttons_text: welcomeDraftButtonsText
             })}
+            onTestRuntime={() => void testWelcomeRuntime()}
           />
         ) : null}
 

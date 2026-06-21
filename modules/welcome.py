@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from html import escape
 
 from core.utils import as_bool, as_int
@@ -37,6 +38,30 @@ class WelcomeModule(BotModule):
         if row and (row.get("module_key") or "").strip() == module_key:
             return as_bool(row.get("enabled"), default)
         return default
+
+    def update_runtime_status(self, **changes):
+        row = self.module_row(fresh=True)
+        if not row or not row.get("id"):
+            return
+        settings = row.get("settings") or {}
+        if isinstance(settings, str):
+            try:
+                import json
+
+                settings = json.loads(settings)
+            except Exception:
+                settings = {}
+        if not isinstance(settings, dict):
+            settings = {}
+        settings.update(changes)
+        try:
+            self.store.update("module_settings", row["id"], {"settings": settings})
+        except Exception as exc:
+            LOGGER.warning("Cannot update welcome runtime status for bot %s: %s", self.settings.bot_key, exc)
+
+    @staticmethod
+    def now_iso():
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     def setting(self, key, default=None):
         row = self.module_row()
@@ -85,12 +110,21 @@ class WelcomeModule(BotModule):
             chat_id,
             len(members),
         )
+        self.update_runtime_status(
+            welcome_runtime_last_event_at=self.now_iso(),
+            welcome_runtime_last_chat_id=str(chat_id or ""),
+            welcome_runtime_last_event_count=len(members),
+        )
 
         if not self.module_enabled("welcome", False):
             LOGGER.info("Welcome module disabled for bot %s. Skip chat %s.", self.settings.bot_key, chat_id)
             return
         if not self.can_send_messages(message.chat.id):
             LOGGER.warning("Welcome cannot send messages for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            self.update_runtime_status(
+                welcome_runtime_last_error_at=self.now_iso(),
+                welcome_runtime_last_error_message=f"Bot không có quyền gửi tin ở chat {chat_id}.",
+            )
             return
 
         for user in members:
@@ -152,6 +186,10 @@ class WelcomeModule(BotModule):
         text = self.render_text(chat_id, user)
         if not text.strip():
             LOGGER.info("Welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            self.update_runtime_status(
+                welcome_runtime_last_error_at=self.now_iso(),
+                welcome_runtime_last_error_message="Mẫu tin Welcome đang trống.",
+            )
             return False
         try:
             markup = self.parse_buttons(self.buttons_setting())
@@ -171,6 +209,11 @@ class WelcomeModule(BotModule):
                 chat_id,
                 getattr(user, "id", None),
             )
+            self.update_runtime_status(
+                welcome_runtime_last_success_at=self.now_iso(),
+                welcome_runtime_last_chat_id=str(chat_id or ""),
+                welcome_runtime_last_user_id=str(getattr(user, "id", "") or ""),
+            )
             return True
         except Exception as exc:
             LOGGER.warning(
@@ -179,5 +222,11 @@ class WelcomeModule(BotModule):
                 chat_id,
                 getattr(user, "id", None),
                 exc,
+            )
+            self.update_runtime_status(
+                welcome_runtime_last_error_at=self.now_iso(),
+                welcome_runtime_last_error_message=str(exc),
+                welcome_runtime_last_chat_id=str(chat_id or ""),
+                welcome_runtime_last_user_id=str(getattr(user, "id", "") or ""),
             )
             return False
