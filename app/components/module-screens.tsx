@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   LinearProgress,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -787,6 +788,170 @@ export function ShareUnlockScreen(props: {
             disabled={!props.moduleEnabled || !props.selectedScope}
           >
             Lưu campaign
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
+    </Section>
+  );
+}
+
+export function AutoReplyScreen(props: {
+  moduleEnabled: boolean;
+  saving: boolean;
+  selectedBotKey: string;
+  selectedBotName: string;
+  stats: { total: number; enabled: number; smart: number; risky: number };
+  rows: Array<Record<string, any>>;
+  createOpen: boolean;
+  onOpenCreate: () => void;
+  onCloseCreate: () => void;
+  onToggleModule: () => void;
+  onCreateAutoReply: (draft: {
+    bot_key: string;
+    trigger: string;
+    match: string;
+    reply: string;
+    enabled: boolean;
+    notes: string;
+  }) => void;
+}) {
+  const [trigger, setTrigger] = useState("hello");
+  const [match, setMatch] = useState("smart");
+  const [reply, setReply] = useState("Chào {user}, mình có thể giúp gì cho bạn?");
+  const [notes, setNotes] = useState("");
+  const [enabled, setEnabled] = useState(true);
+
+  return (
+    <Section eyebrow="MODULE" title="Auto reply" subtitle="Tạo câu trả lời tự động theo trigger, sau đó chỉnh popup riêng cho rõ ràng.">
+      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+        <Stack spacing={2}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật Auto reply</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Chỉ phản hồi đúng trigger đã khai báo, ưu tiên `smart` để giảm trả lời bừa.
+              </Typography>
+            </Box>
+            <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
+          </Box>
+
+          <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
+            <StatCard compact label="Tổng rule" value={props.stats.total} tone="primary" />
+            <StatCard compact label="Đang bật" value={props.stats.enabled} tone="success" />
+            <StatCard compact label="Smart" value={props.stats.smart} tone="info" />
+            <StatCard compact label="Trigger ngắn" value={props.stats.risky} tone="warning" />
+          </Box>
+
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" } }}>
+              <Box>
+                <Typography variant="subtitle2">Câu trả lời tự động</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Mở popup riêng để tạo rule mới, không dùng form chung.
+              </Typography>
+            </Box>
+              <MuiButton variant="contained" onClick={props.onOpenCreate} disabled={!props.moduleEnabled}>
+                Tạo câu trả lời tự động
+              </MuiButton>
+            </Stack>
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+            <Stack spacing={1.25}>
+              <Typography variant="subtitle2">Danh sách rule</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Bot đang dùng bot: {props.selectedBotName || "Chưa chọn"}
+              </Typography>
+              <Box sx={{ display: "grid", gap: 1.1 }}>
+                {props.rows.length ? props.rows.map((row) => {
+                  const statusOn = row.enabled !== false;
+                  return (
+                    <Paper key={String(row.id || row.trigger)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", opacity: statusOn ? 1 : 0.72 }}>
+                      <Stack spacing={1}>
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{String(row.trigger || "Chưa đặt trigger")}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Match: {String(row.match || "smart")} · Bot: {String(row.bot_key || props.selectedBotName || "-")}
+                            </Typography>
+                          </Box>
+                          <Chip size="small" color={statusOn ? "success" : "default"} label={statusOn ? "Đang chạy" : "Đang tắt"} />
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
+                          {String(row.reply || "Chưa có nội dung trả lời.")}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  );
+                }) : (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                    <Typography variant="body2" color="text.secondary">Chưa có auto reply nào. Tạo mới để bắt đầu.</Typography>
+                  </Paper>
+                )}
+              </Box>
+            </Stack>
+          </Paper>
+        </Stack>
+      </Paper>
+
+      <Dialog open={props.createOpen} onClose={props.onCloseCreate} fullWidth maxWidth="md">
+        <DialogTitle>Tạo câu trả lời tự động</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} sx={{ pt: 1 }}>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Bot áp dụng</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {props.selectedBotName || "Bot đang chọn"}
+                </Typography>
+              </Stack>
+            </Paper>
+            <TextField label="Trigger" value={trigger} onChange={(e) => setTrigger(e.target.value)} helperText="Ví dụ: hello, support, giá." />
+            <TextField
+              select
+              label="Kiểu khớp"
+              value={match}
+              onChange={(e) => setMatch(e.target.value)}
+              helperText="smart: hiểu theo ngữ cảnh, exact: trùng câu, contains: có chứa cụm từ, regex: nâng cao"
+            >
+              <MenuItem value="smart">Smart (khuyên dùng)</MenuItem>
+              <MenuItem value="exact">Trùng nguyên câu</MenuItem>
+              <MenuItem value="contains">Có chứa cụm từ</MenuItem>
+              <MenuItem value="regex">Regex</MenuItem>
+            </TextField>
+            <TextField
+              multiline
+              minRows={5}
+              label="Nội dung trả lời"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              helperText="Có thể dùng nhiều dòng, / hoặc || để bot trả lời ngẫu nhiên."
+            />
+            <TextField multiline minRows={2} label="Ghi chú" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">Bật rule ngay sau khi lưu</Typography>
+              <Switch checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <MuiButton variant="outlined" onClick={props.onCloseCreate}>Hủy</MuiButton>
+          <MuiButton
+            variant="contained"
+            onClick={() => {
+              props.onCreateAutoReply({
+                bot_key: props.selectedBotKey || "main",
+                trigger,
+                match,
+                reply,
+                enabled,
+                notes,
+              });
+              props.onCloseCreate();
+            }}
+            disabled={!props.moduleEnabled}
+          >
+            Lưu auto reply
           </MuiButton>
         </DialogActions>
       </Dialog>

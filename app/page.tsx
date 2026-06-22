@@ -61,7 +61,7 @@ import {
 
 import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
-import { AutomationScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
+import { AutomationScreen, AutoReplyScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
 import AuditConsole from "./components/screens/AuditConsole";
 import ScamInbox from "./components/screens/ScamInbox";
 import BulkPanel from "./components/screens/BulkPanel";
@@ -2221,6 +2221,7 @@ export default function HomePage() {
   const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
   const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
   const [welcomeTesting, setWelcomeTesting] = useState(false);
+  const [autoReplyCreateOpen, setAutoReplyCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!toast) {
@@ -3159,6 +3160,11 @@ export default function HomePage() {
     if (!table) {
       return;
     }
+    if (table.key === "auto_replies") {
+      setAutoReplyCreateOpen(true);
+      setNotice("Đã mở popup tạo auto reply.");
+      return;
+    }
     setSelected(null);
     const nextDraft = emptyValues(table);
     const currentBotKey = activeBotKey || selectedBot || "main";
@@ -3712,6 +3718,47 @@ export default function HomePage() {
     }
   }
 
+  async function createAutoReply(nextValues: {
+    bot_key: string;
+    trigger: string;
+    match: string;
+    reply: string;
+    enabled: boolean;
+    notes: string;
+  }) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      if (!nextValues.trigger.trim()) {
+        throw new Error("Hãy nhập trigger cho auto reply.");
+      }
+      await api("/api/auto_replies", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: nextValues.bot_key || selectedBot || activeBotKey || "main",
+          trigger: nextValues.trigger,
+          match: nextValues.match || "smart",
+          reply: nextValues.reply,
+          enabled: Boolean(nextValues.enabled),
+          notes: nextValues.notes,
+        })
+      });
+      setNotice("Đã tạo auto reply.");
+      flashToast("Đã tạo auto reply.");
+      await refreshAfterMutation("auto_replies", { reloadRows: true, reloadLookups: true });
+      setActiveLayer("module:auto_reply");
+      setActiveModule("auto_reply");
+      setActiveKey("auto_replies");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể tạo auto reply.";
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function openShareUnlockInvites(campaignId: string) {
     setActiveLayer("module:share_unlock");
     setActiveModule("share_unlock");
@@ -4198,7 +4245,7 @@ export default function HomePage() {
   const setupWorkbench = activeLayer === "bot" || activeLayer === "group";
   const showOverview = workMode === "overview";
   const showOperations = !showOverview;
-  const showPrimaryTask = activeLayer !== "modules" && !showOverview && !moduleUsesDedicatedScreenOnly;
+  const showPrimaryTask = activeLayer !== "modules" && !showOverview && !moduleUsesDedicatedScreenOnly && activeModuleHub.key !== "auto_reply";
   const readOnlyTable = table?.key === "audit_logs";
   const emptyState = emptyStateFor(table?.key || "");
   const scopeCrumbs = useMemo(() => buildScopeCrumbs({
@@ -4807,6 +4854,22 @@ export default function HomePage() {
               welcome_buttons_text: welcomeDraftButtonsText
             })}
             onTestRuntime={() => void testWelcomeRuntime()}
+          />
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "auto_reply" ? (
+          <AutoReplyScreen
+            moduleEnabled={moduleEnabled}
+            saving={saving}
+            selectedBotKey={activeBotKey || selectedBot || "main"}
+            selectedBotName={currentBot?.name || activeBotKey || selectedBot || "main"}
+            stats={autoReplyStats}
+            rows={rows}
+            createOpen={autoReplyCreateOpen}
+            onOpenCreate={() => setAutoReplyCreateOpen(true)}
+            onCloseCreate={() => setAutoReplyCreateOpen(false)}
+            onToggleModule={() => void toggleModule("auto_reply")}
+            onCreateAutoReply={createAutoReply}
           />
         ) : null}
 
