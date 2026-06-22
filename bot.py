@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 import time
+import warnings
 from dataclasses import replace
 from types import MethodType
 
@@ -13,6 +14,12 @@ from core.config import load_settings
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class _DeprecatedTeleBotWarningFilter(logging.Filter):
+    def filter(self, record):
+        message = record.getMessage()
+        return "can_send_media_messages" not in message
 
 
 def bool_env(name, default=False):
@@ -163,12 +170,19 @@ def start_multi_bot_mode():
 
 
 def main():
+    warnings.filterwarnings(
+        "ignore",
+        message=r'.*can_send_media_messages.*',
+        category=Warning,
+    )
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
-    logging.getLogger("TeleBot").setLevel(logging.WARNING)
-    logging.getLogger("telebot").setLevel(logging.WARNING)
+    for logger_name in ("TeleBot", "telebot"):
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.WARNING)
+        logger.addFilter(_DeprecatedTeleBotWarningFilter())
 
     if bool_env("MULTI_BOT_ENABLED", False):
         start_multi_bot_mode()
