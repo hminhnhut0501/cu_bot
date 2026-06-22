@@ -3177,7 +3177,13 @@ export default function HomePage() {
     setWorkMode("edit");
     setShowAdvancedFields(false);
     setActiveGroupTab(table.key === "groups" ? "Nhóm" : "Thông tin");
-    setNotice("");
+    setNotice(table.key === "auto_replies" ? "Đã mở form tạo auto reply." : "");
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        const element = document.querySelector('[aria-labelledby="focused-panel-title"]');
+        element?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
   }
 
   function startScheduledMessageFlow() {
