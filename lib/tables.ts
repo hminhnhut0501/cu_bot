@@ -168,14 +168,21 @@ export const TABLES: TableConfig[] = [
   {
     key: "keywords",
     label: "Từ khóa cấm",
-    description: "Ban theo keyword, chống keyword cấm, NSFW/porn hoặc scam.",
+    description: "Xóa tin vi phạm, cộng cảnh báo nội bộ và tự ban khi chạm ngưỡng.",
     titleField: "keyword",
     summaryFields: ["bot_key", "match", "action", "reason"],
     fields: [
       botKey,
       { key: "keyword", label: "Từ khóa", type: "text", required: true, section: "Rule" },
       { key: "match", label: "Kiểu khớp", type: "select", options: ["contains", "regex"], section: "Rule" },
-      { key: "action", label: "Hành động", type: "select", options: ["delete", "warn", "mute", "kick", "ban"], section: "Rule" },
+      {
+        key: "action",
+        label: "Hành động",
+        type: "select",
+        options: ["delete", "warn", "mute", "kick", "ban"],
+        section: "Rule",
+        helper: "Delete = xóa tin + cộng cảnh báo nội bộ. Khi chạm ngưỡng Ban sau số cảnh báo ở phần kiểm duyệt, bot sẽ tự ban."
+      },
       { key: "reason", label: "Lý do", type: "text", section: "Rule" },
       enabled,
       notes

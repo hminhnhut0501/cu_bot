@@ -201,14 +201,24 @@ export default function Topbar(props: TopbarProps) {
         spacing={1.5}
         sx={{ alignItems: { md: "center" }, flexWrap: "wrap" }}
       >
-        <TextField
-          select
-          size="small"
-          label="Bot"
-          value={activeBotKey || selectedBot || ""}
-          onChange={(event) => selectBot(event.target.value)}
-          sx={{ minWidth: { xs: "100%", md: 200 } }}
-        >
+          <TextField
+            select
+            size="small"
+            label="Bot"
+            value={activeBotKey || selectedBot || ""}
+            slotProps={{
+              select: {
+                MenuProps: {
+                  disablePortal: true,
+                  slotProps: {
+                    paper: { sx: { maxHeight: 320, zIndex: 2000 } },
+                  },
+                },
+              },
+            }}
+            onChange={(event) => selectBot(event.target.value)}
+            sx={{ minWidth: { xs: "100%", md: 200 } }}
+          >
           {bots.map((bot) => (
             <MenuItem key={bot.bot_key || bot.id} value={String(bot.bot_key || "")}>
               {bot.name || bot.bot_key}
@@ -222,6 +232,16 @@ export default function Topbar(props: TopbarProps) {
           size="small"
           label="Scope"
           value={selectedScope}
+          slotProps={{
+            select: {
+              MenuProps: {
+                disablePortal: true,
+                slotProps: {
+                  paper: { sx: { maxHeight: 320, zIndex: 2000 } },
+                },
+              },
+            },
+          }}
           onChange={(event) => {
             setSelectedScope(event.target.value);
             setSelected(null);

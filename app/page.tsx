@@ -414,8 +414,8 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
   },
   keywords: {
     title: "Rule kiểm duyệt",
-    body: "Mỗi từ khóa có kiểu khớp và hành động riêng. Bot luôn xóa tin vi phạm trước rồi mới warn/mute/kick/ban nếu cần.",
-    steps: ["contains cho từ khóa thường", "regex cho mẫu nâng cao", "action = warn nếu muốn cộng cảnh báo trước khi ban"]
+    body: "Rule từ khóa sẽ xóa tin vi phạm trước. Nếu action là delete thì bot vẫn cộng cảnh báo nội bộ, đủ ngưỡng ban_after_warnings sẽ tự ban.",
+    steps: ["delete = xóa tin + cộng cảnh báo", "ban_after_warnings quyết định khi nào ban", "regex cho mẫu nâng cao"]
   },
   bot_metrics: {
     title: "Dashboard",
@@ -1708,7 +1708,7 @@ function workflowFor(tableKey: string, rows: Row[], selectedCount: number) {
     }));
     return {
       title: "Quy trình chặn nội dung xấu",
-      body: "Paste nhiều từ khóa một lần, chọn hành động mặc định, rồi bật/tắt hoặc xóa hàng loạt ngay trong danh sách.",
+      body: "Rule từ khóa đang dùng kiểu xóa tin trước, sau đó cộng cảnh báo nội bộ. Khi chạm ban_after_warnings, bot sẽ tự ban để tránh lách luật.",
       icon: ShieldCheck,
       chips: [
         { label: "Đã chọn", value: selectedCount },
@@ -4985,6 +4985,12 @@ export default function HomePage() {
           <ScamInbox scamInboxStats={scamInboxStats} />
         ) : null}
 
+        {table.key === "keywords" ? (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <strong>Luật từ khóa:</strong> nếu action = <code>delete</code> thì bot vẫn xóa tin và cộng cảnh báo nội bộ. Khi user chạm ngưỡng <code>ban_after_warnings</code>, bot sẽ tự ban để tránh spam lách luật.
+          </Alert>
+        ) : null}
+
         {table.key !== "config" && table.key !== "channel_posts" ? (
           <TabsBar
             items={quickFilters.map((filter) => ({ key: filter.key || "all", label: filter.label }))}
@@ -5860,10 +5866,25 @@ export default function HomePage() {
                                   select
                                   fullWidth
                                   value={draft[field.key] ?? ""}
+                                  slotProps={{
+                                    select: {
+                                      MenuProps: {
+                                        disablePortal: true,
+                                        slotProps: {
+                                          paper: { sx: { maxHeight: 320, zIndex: 2000 } },
+                                        },
+                                      },
+                                    },
+                                  }}
                                   onChange={(event) => updateField(field, event.target.value)}
                                 >
                                   <MenuItem value="">Mặc định</MenuItem>
-                                  {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({ value: option, label: option })) || []).map((option: { value: string; label: string }) => (
+                                  {(lookupOptions.length ? lookupOptions : field.options?.map((option: string) => ({
+                                    value: option,
+                                    label: table.key === "keywords" && field.key === "action" && option === "delete"
+                                      ? "Xóa tin + cộng cảnh báo"
+                                      : option
+                                  })) || []).map((option: { value: string; label: string }) => (
                                     <MenuItem key={option.value} value={option.value}>
                                       {option.label}
                                     </MenuItem>

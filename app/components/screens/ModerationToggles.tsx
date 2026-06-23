@@ -50,6 +50,18 @@ export default function ModerationToggles(props: ModerationTogglesProps) {
           size="small"
           label="Cách xử lý"
           value={props.hiddenLinkAction}
+          slotProps={{
+            select: {
+              MenuProps: {
+                disablePortal: true,
+                slotProps: {
+                  paper: {
+                    sx: { maxHeight: 320, zIndex: 2000 },
+                  },
+                },
+              },
+            },
+          }}
           onChange={(event) => props.changeHiddenLinkAction(event.target.value)}
         >
           <MenuItem value="warn">Warn</MenuItem>

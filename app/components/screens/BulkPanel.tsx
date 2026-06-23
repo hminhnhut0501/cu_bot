@@ -87,7 +87,7 @@ export default function BulkPanel(props: BulkPanelProps) {
             value={bulkDefaults.action}
             onChange={(event: ChangeEvent<HTMLInputElement>) => updateBulkDefault("action", event.target.value)}
           >
-            <MenuItem value="delete">delete</MenuItem>
+            <MenuItem value="delete">Xóa tin + cộng cảnh báo</MenuItem>
             <MenuItem value="warn">warn</MenuItem>
             <MenuItem value="mute">mute</MenuItem>
             <MenuItem value="kick">kick</MenuItem>

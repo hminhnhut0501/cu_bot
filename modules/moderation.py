@@ -565,6 +565,17 @@ class ModerationModule(BotModule):
                     rule_action=action,
                 )
                 self.apply_action(message, action, reason, trigger="keyword")
+                if action == "delete":
+                    # Keyword rules often want "xóa tin" as the visible action,
+                    # but repeated violations should still escalate to a ban.
+                    self.warn_user(
+                        message.chat.id,
+                        message.from_user.id,
+                        reason,
+                        user=message.from_user,
+                        trigger="keyword",
+                        send_notice=False,
+                    )
                 return True
         return False
 

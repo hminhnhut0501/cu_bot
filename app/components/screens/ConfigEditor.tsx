@@ -3,6 +3,7 @@
 import {
   Box,
   Button as MuiButton,
+  MenuItem,
   Stack,
   Switch,
   TextField,
@@ -73,14 +74,26 @@ export default function ConfigEditor({
             label="Chọn giá trị cố định"
             size="small"
             value={String(draft.value ?? "")}
+            slotProps={{
+              select: {
+                MenuProps: {
+                  disablePortal: true,
+                  slotProps: {
+                    paper: {
+                      sx: { maxHeight: 320, zIndex: 2000 },
+                    },
+                  },
+                },
+              },
+            }}
             onChange={(event: ChangeEvent<HTMLInputElement>) =>
               setDraft((current) => ({ ...current, value: event.target.value }))
             }
           >
             {configSelectOptions(String(draft.key || "")).map((option) => (
-              <option key={option.value} value={option.value}>
+              <MenuItem key={option.value} value={option.value}>
                 {option.label}
-              </option>
+              </MenuItem>
             ))}
           </TextField>
         ) : editorKind === "number" ? (
