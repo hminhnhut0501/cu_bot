@@ -3830,9 +3830,8 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      await api("/api/auto_replies", {
-        method: "DELETE",
-        body: JSON.stringify({ id: row.id })
+      await api(`/api/auto_replies?id=${encodeURIComponent(String(row.id))}`, {
+        method: "DELETE"
       });
       setNotice("Đã xóa auto reply.");
       flashToast("Đã xóa auto reply.");
