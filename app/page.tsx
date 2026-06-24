@@ -1316,6 +1316,38 @@ function auditLogRows(row: Row) {
   return specificRows.length ? [...baseRows, ...specificRows] : [...baseRows, { label: "Chi tiết gốc", value: displayValue(details.raw || row.details) }];
 }
 
+function auditLogCardData(row: Row, groupNameForId: (groupId: string) => string) {
+  const details = parseDetails(row.details);
+  const groupId = String(row.chat_id || details.chat_id || details.group_id || "");
+  const targetId = String(row.target_user_id || details.target_user_id || details.target_username || "");
+  const actorId = String(details.actor_user_id || row.actor_user_id || "");
+  const action = actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] });
+  const severity = auditLogSeverity(row);
+  return {
+    time: formatDateTime(row.created_at || details.created_at),
+    action,
+    severity,
+    groupLabel: groupNameForId(groupId) || groupId || "Chưa rõ group",
+    groupId,
+    actorLabel: auditActor(row, details),
+    actorId,
+    targetLabel: displayValue(details.target_username || row.target_user_id || details.target_user_id || details.target_username || targetId),
+    targetId,
+    reason: auditReason(row, details),
+    brief: auditLogSpecificRows(row, details).slice(0, 2),
+    raw: details.raw || row.details,
+  };
+}
+
+function auditActionTone(action: string): "error" | "warning" | "success" | "info" | "default" {
+  const normalized = String(action || "").toLowerCase();
+  if (["ban", "kick", "scam_report_confirmed"].includes(normalized)) return "error";
+  if (["delete_message", "warn", "scam_report_rejected"].includes(normalized)) return "warning";
+  if (["member_joined", "member_join_request"].includes(normalized)) return "success";
+  if (["mute", "restrict", "module_update", "role_update", "title_update"].includes(normalized)) return "info";
+  return "default";
+}
+
 function auditLogEssentials(row: Row) {
   const details = parseDetails(row.details);
   const specificRows = auditLogSpecificRows(row, details);
@@ -2296,6 +2328,16 @@ export default function HomePage() {
     }
     return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope) || null;
   }, [lookups.groups, selectedScope]);
+  const groupNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const group of lookups.groups) {
+      const groupId = String(group.group_id || group.chat_id || "").trim();
+      if (!groupId) continue;
+      map.set(groupId, String(group.group_name || group.title || groupId));
+    }
+    return map;
+  }, [lookups.groups]);
+  const groupNameForId = (groupId: string) => groupNameById.get(String(groupId).trim()) || String(groupId || "");
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
   const scamInboxStats = useMemo(() => {
@@ -2391,6 +2433,7 @@ export default function HomePage() {
     }
     return visibleRows.filter((row) => ["member_joined", "member_left", "member_join_request"].includes(String(row.action || "").toLowerCase()));
   }, [activeLayer, table?.key, visibleRows]);
+  const [expandedMemberAuditIds, setExpandedMemberAuditIds] = useState<Set<string>>(() => new Set());
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
     return MODULE_HUBS.find((module) => module.key === moduleKey);
@@ -4977,6 +5020,56 @@ export default function HomePage() {
                   <Chip color="warning" label={`Out ${memberActivityRows.filter((row) => String(row.action || "") === "member_left").length}`} />
                 </Stack>
               </Stack>
+              <Stack spacing={1.25}>
+                {memberActivityRows.slice(0, 20).map((row) => {
+                  const data = auditLogCardData(row, groupNameForId);
+                  const rowId = String(row.id || `${row.created_at}-${row.action}`);
+                  const expanded = expandedMemberAuditIds.has(rowId);
+                  return (
+                    <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                      <Stack spacing={1}>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {data.time}
+                            </Typography>
+                            <Chip size="small" color={auditActionTone(String(row.action || data.action))} label={data.action} />
+                            <Chip size="small" variant="outlined" label={`Group: ${data.groupLabel}`} />
+                            <Chip size="small" variant="outlined" label={`User: ${data.targetLabel} · ${data.targetId || "-"}`} />
+                            <MuiButton size="small" variant="text" onClick={() => setExpandedMemberAuditIds((current) => {
+                              const next = new Set(current);
+                              if (next.has(rowId)) next.delete(rowId); else next.add(rowId);
+                              return next;
+                            })}>
+                              {expanded ? "Thu gọn" : "Chi tiết"}
+                            </MuiButton>
+                          </Stack>
+                        </Stack>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {String(row.action || "") === "member_left" ? "Rời nhóm" : String(row.action || "") === "member_join_request" ? "Yêu cầu vào nhóm" : "Vào nhóm"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Người thực hiện: {data.actorLabel}{data.actorId ? ` (${data.actorId})` : ""}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            · {data.reason}
+                          </Typography>
+                        </Stack>
+                        {expanded ? (
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                            {auditLogRows(row).map((item) => (
+                              <Typography key={`${item.label}-${item.value}`} variant="caption" color="text.secondary">
+                                <strong>{item.label}</strong> {item.value}
+                              </Typography>
+                            ))}
+                          </Stack>
+                        ) : null}
+                      </Stack>
+                    </Paper>
+                  );
+                })}
+              </Stack>
             </Stack>
           </Paper>
         ) : null}
@@ -5705,11 +5798,14 @@ export default function HomePage() {
             titleFor={titleFor as (row: Record<string, unknown>, table: { key: string }) => string}
             previewText={previewText as (row: Record<string, unknown>, table: { key: string }) => string}
             auditLogSummary={auditLogSummary}
+            auditLogCardData={(row) => auditLogCardData(row, groupNameForId)}
             healthState={healthState as (row: Record<string, unknown>, tableKey?: string) => { label: string; className: string }}
             actionBadge={actionBadge as (row: Record<string, unknown>, table: { key: string }) => string}
             scamReportFacts={scamReportFacts}
             auditLogSeverity={auditLogSeverity}
+            auditLogDetails={auditLogRows}
             auditLogEssentials={auditLogEssentials}
+            auditActionTone={auditActionTone}
             fieldByKey={fieldByKey as (table: { fields?: Array<{ key: string; label?: string }> } & Record<string, unknown>, key: string) => { key: string; label?: string } | undefined}
             displayValue={displayValue}
             saving={saving}
