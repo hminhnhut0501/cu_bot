@@ -2254,6 +2254,14 @@ export default function HomePage() {
   const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
   const [welcomeTesting, setWelcomeTesting] = useState(false);
   const [autoReplyCreateOpen, setAutoReplyCreateOpen] = useState(false);
+  const [autoReplyEditingId, setAutoReplyEditingId] = useState<string | null>(null);
+  const [autoReplyDraft, setAutoReplyDraft] = useState({
+    trigger: "hello",
+    match: "smart",
+    reply: "Chào {user}, mình có thể giúp gì cho bạn?",
+    notes: "",
+    enabled: true,
+  });
 
   useEffect(() => {
     if (!toast) {
@@ -3776,25 +3784,61 @@ export default function HomePage() {
       if (!nextValues.trigger.trim()) {
         throw new Error("Hãy nhập trigger cho auto reply.");
       }
-      await api("/api/auto_replies", {
-        method: "POST",
-        body: JSON.stringify({
-          bot_key: nextValues.bot_key || selectedBot || activeBotKey || "main",
-          trigger: nextValues.trigger,
-          match: nextValues.match || "smart",
-          reply: nextValues.reply,
-          enabled: Boolean(nextValues.enabled),
-          notes: nextValues.notes,
-        })
-      });
-      setNotice("Đã tạo auto reply.");
-      flashToast("Đã tạo auto reply.");
+      const payload = {
+        bot_key: nextValues.bot_key || selectedBot || activeBotKey || "main",
+        trigger: nextValues.trigger,
+        match: nextValues.match || "smart",
+        reply: nextValues.reply,
+        enabled: Boolean(nextValues.enabled),
+        notes: nextValues.notes,
+      };
+      if (autoReplyEditingId) {
+        await api("/api/auto_replies", {
+          method: "PATCH",
+          body: JSON.stringify({ id: autoReplyEditingId, values: payload })
+        });
+        setNotice("Đã cập nhật auto reply.");
+        flashToast("Đã cập nhật auto reply.");
+      } else {
+        await api("/api/auto_replies", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        setNotice("Đã tạo auto reply.");
+        flashToast("Đã tạo auto reply.");
+      }
       await refreshAfterMutation("auto_replies", { reloadRows: true, reloadLookups: true });
       setActiveLayer("module:auto_reply");
       setActiveModule("auto_reply");
       setActiveKey("auto_replies");
+      setAutoReplyEditingId(null);
+      setAutoReplyDraft({ trigger: "hello", match: "smart", reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể tạo auto reply.";
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteAutoReply(row: Row) {
+    if (!window.confirm(`Xóa auto reply "${String(row.trigger || "")}"?`)) {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/auto_replies", {
+        method: "DELETE",
+        body: JSON.stringify({ id: row.id })
+      });
+      setNotice("Đã xóa auto reply.");
+      flashToast("Đã xóa auto reply.");
+      await refreshAfterMutation("auto_replies", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể xóa auto reply.";
       setError(message);
       flashToast(message, "error");
     } finally {
@@ -4909,10 +4953,28 @@ export default function HomePage() {
             stats={autoReplyStats}
             rows={rows}
             createOpen={autoReplyCreateOpen}
+            createDraft={autoReplyDraft}
+            editingRuleId={autoReplyEditingId}
             onOpenCreate={() => setAutoReplyCreateOpen(true)}
-            onCloseCreate={() => setAutoReplyCreateOpen(false)}
+            onEditAutoReply={(row) => {
+              setAutoReplyEditingId(String(row.id || ""));
+              setAutoReplyDraft({
+                trigger: String(row.trigger || "hello"),
+                match: String(row.match || "smart"),
+                reply: String(row.reply || ""),
+                notes: String(row.notes || ""),
+                enabled: row.enabled !== false,
+              });
+              setAutoReplyCreateOpen(true);
+            }}
+            onCloseCreate={() => {
+              setAutoReplyCreateOpen(false);
+              setAutoReplyEditingId(null);
+              setAutoReplyDraft({ trigger: "hello", match: "smart", reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
+            }}
             onToggleModule={() => void toggleModule("auto_reply")}
             onCreateAutoReply={createAutoReply}
+            onDeleteAutoReply={(row) => void deleteAutoReply(row)}
           />
         ) : null}
 
