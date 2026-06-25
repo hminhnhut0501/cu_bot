@@ -429,6 +429,7 @@ const TABLE_GUIDES: Record<string, { title: string; body: string; steps: string[
   }
 };
 const COMMAND_OPTIONS = ["start", "help", "policy", "reload", "checkbio", "debuggroup", "warn", "ban", "unban", "giveaway", "giveaways", "join", "draw", "shareunlock", "shareprogress", "check", "report"];
+const CP_STATE_STORAGE_KEY = "cu_bot_cp_state";
 const CONFIG_LABELS: Record<string, string> = {
   moderation_enabled: "Bật kiểm duyệt",
   policy_text: "Nội quy nhóm",
@@ -2208,6 +2209,24 @@ function layerContainsTable(layer: { tables: string[] }, tableKey: string) {
   return layer.tables.includes(tableKey);
 }
 
+function loadCpState() {
+  if (typeof window === "undefined") {
+    return {} as Record<string, string>;
+  }
+  try {
+    return JSON.parse(window.localStorage.getItem(CP_STATE_STORAGE_KEY) || "{}") as Record<string, string>;
+  } catch {
+    return {} as Record<string, string>;
+  }
+}
+
+function saveCpState(nextState: Record<string, string>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.setItem(CP_STATE_STORAGE_KEY, JSON.stringify(nextState));
+}
+
 export default function HomePage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState("");
@@ -2293,6 +2312,61 @@ export default function HomePage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    const stored = loadCpState();
+    if (stored.activeLayer) {
+      setActiveLayer(stored.activeLayer);
+    }
+    if (stored.search !== undefined) {
+      setSearch(stored.search);
+    }
+    if (stored.activeKey && meta?.tables.some((item) => item.key === stored.activeKey)) {
+      setActiveKey(stored.activeKey);
+    }
+    if (stored.selectedBot) {
+      setSelectedBot(stored.selectedBot);
+    }
+    if (stored.selectedScope) {
+      setSelectedScope(stored.selectedScope);
+    }
+    if (stored.workMode === "overview" || stored.workMode === "operate" || stored.workMode === "edit") {
+      setWorkMode(stored.workMode);
+    }
+    if (stored.scanMode === "scan" || stored.scanMode === "detail") {
+      setScanMode(stored.scanMode);
+    }
+    if (stored.activeConfigTab) {
+      setActiveConfigTab(stored.activeConfigTab);
+    }
+    if (stored.activeGroupTab) {
+      setActiveGroupTab(stored.activeGroupTab);
+    }
+    if (stored.channelTab === "queue" || stored.channelTab === "scheduled" || stored.channelTab === "sent" || stored.channelTab === "deleted" || stored.channelTab === "failed") {
+      setChannelTab(stored.channelTab as ChannelPostTab);
+    }
+  }, [loading, meta?.tables]);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    saveCpState({
+      activeLayer,
+      activeKey,
+      search,
+      selectedBot,
+      selectedScope,
+      workMode,
+      scanMode,
+      activeConfigTab,
+      activeGroupTab,
+      channelTab,
+    });
+  }, [activeConfigTab, activeGroupTab, activeKey, activeLayer, channelTab, loading, scanMode, search, selectedBot, selectedScope, workMode]);
 
   const table = useMemo(() => meta?.tables.find((item) => item.key === activeKey), [activeKey, meta]);
   const parsedBulkRows = useMemo(() => (table ? parseBulkRows(table.key, bulkText, bulkDefaults) : []), [bulkText, bulkDefaults, table]);
