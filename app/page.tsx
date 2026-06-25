@@ -2228,12 +2228,13 @@ function saveCpState(nextState: Record<string, string>) {
 }
 
 export default function HomePage() {
+  const initialCpState = typeof window === "undefined" ? {} : loadCpState();
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [activeKey, setActiveKey] = useState("");
+  const [activeKey, setActiveKey] = useState(initialCpState.activeKey || "");
   const [rows, setRows] = useState<Row[]>([]);
   const [selected, setSelected] = useState<Row | null>(null);
   const [draft, setDraft] = useState<Row>({});
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialCpState.search || "");
   const [password, setPassword] = useState("");
   const [savedPassword, setSavedPassword] = useState("");
   const [loading, setLoading] = useState(true);
@@ -2245,25 +2246,25 @@ export default function HomePage() {
   const [bulkText, setBulkText] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkDefaults, setBulkDefaults] = useState<BulkDefaults>(defaultBulkDefaults);
-  const [selectedBot, setSelectedBot] = useState("");
-  const [selectedScope, setSelectedScope] = useState("");
+  const [selectedBot, setSelectedBot] = useState(initialCpState.selectedBot || "");
+  const [selectedScope, setSelectedScope] = useState(initialCpState.selectedScope || "");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [activeConfigTab, setActiveConfigTab] = useState("");
-  const [activeLayer, setActiveLayer] = useState("overview");
+  const [activeConfigTab, setActiveConfigTab] = useState(initialCpState.activeConfigTab || "");
+  const [activeLayer, setActiveLayer] = useState(initialCpState.activeLayer || "overview");
   const [advancedUnlocked, setAdvancedUnlocked] = useState(false);
   const [activeModule, setActiveModule] = useState("moderation");
   const [showTaskData, setShowTaskData] = useState(false);
-  const [scanMode, setScanMode] = useState<"scan" | "detail">("scan");
-  const [workMode, setWorkMode] = useState<WorkMode>("overview");
+  const [scanMode, setScanMode] = useState<"scan" | "detail">((initialCpState.scanMode === "detail" ? "detail" : "scan"));
+  const [workMode, setWorkMode] = useState<WorkMode>((initialCpState.workMode === "edit" ? "edit" : initialCpState.workMode === "operate" ? "operate" : "overview"));
   const [quickFilter, setQuickFilter] = useState("");
   const [quickTestInput, setQuickTestInput] = useState("");
   const [showAdvancedFields, setShowAdvancedFields] = useState(false);
-  const [activeGroupTab, setActiveGroupTab] = useState("Thông tin");
+  const [activeGroupTab, setActiveGroupTab] = useState(initialCpState.activeGroupTab || "Thông tin");
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
-  const [channelTab, setChannelTab] = useState<ChannelPostTab>("queue");
+  const [channelTab, setChannelTab] = useState<ChannelPostTab>((initialCpState.channelTab === "scheduled" || initialCpState.channelTab === "sent" || initialCpState.channelTab === "deleted" || initialCpState.channelTab === "failed") ? initialCpState.channelTab : "queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
   const [channelComposer, setChannelComposer] = useState<Row>({});
@@ -2303,7 +2304,27 @@ export default function HomePage() {
       })
       .then((payload: Meta) => {
         setMeta(payload);
-        setActiveKey(payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "");
+        const restored = loadCpState();
+        const fallbackKey = payload.tables.find((item) => item.key === "bot_metrics")?.key || payload.tables[0]?.key || "";
+        setActiveKey(restored.activeKey && payload.tables.some((item) => item.key === restored.activeKey) ? restored.activeKey : fallbackKey);
+        if (restored.activeLayer) {
+          setActiveLayer(restored.activeLayer);
+        }
+        if (restored.activeConfigTab) {
+          setActiveConfigTab(restored.activeConfigTab);
+        }
+        if (restored.activeGroupTab) {
+          setActiveGroupTab(restored.activeGroupTab);
+        }
+        if (restored.search !== undefined) {
+          setSearch(restored.search);
+        }
+        if (restored.selectedBot) {
+          setSelectedBot(restored.selectedBot);
+        }
+        if (restored.selectedScope) {
+          setSelectedScope(restored.selectedScope);
+        }
       })
       .catch((err) => {
         setMeta(FALLBACK_META);
