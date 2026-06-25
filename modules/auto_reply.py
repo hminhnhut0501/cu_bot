@@ -58,14 +58,20 @@ class AutoReplyModule(BotModule):
             if not self.in_scope(message, row):
                 continue
             trigger = (row.get("trigger") or "").strip()
-            if not trigger:
+            trigger_variants = self.expand_trigger_variants(trigger)
+            if not trigger_variants:
                 continue
-            trigger_norm = normalize_text(trigger)
-            if len(trigger_norm) < min_trigger_length:
-                continue
-            matched, score = self.match_rule(trigger, trigger_norm, text, normalized, (row.get("match") or "smart").lower())
-            if matched:
-                scored_candidates.append((score, row, trigger_norm))
+            match_mode = (row.get("match") or "smart").lower()
+            best_match = None
+            for variant in trigger_variants:
+                trigger_norm = normalize_text(variant)
+                if len(trigger_norm) < min_trigger_length:
+                    continue
+                matched, score = self.match_rule(variant, trigger_norm, text, normalized, match_mode)
+                if matched and (best_match is None or score > best_match[0]):
+                    best_match = (score, trigger_norm)
+            if best_match:
+                scored_candidates.append((best_match[0], row, best_match[1]))
 
         if not scored_candidates:
             return
@@ -93,6 +99,30 @@ class AutoReplyModule(BotModule):
 
     def tokenize(self, text):
         return re.findall(r"[a-z0-9_]+", normalize_text(text or ""))
+
+    def expand_trigger_variants(self, trigger_raw):
+        text = str(trigger_raw or "").strip()
+        if not text:
+            return []
+        variants = []
+        for line in text.splitlines():
+            parts = [part.strip() for part in line.split("||")]
+            for part in parts:
+                if not part:
+                    continue
+                for variant in part.split(","):
+                    value = variant.strip()
+                    if value:
+                        variants.append(value)
+        seen = set()
+        deduped = []
+        for item in variants:
+            key = normalize_text(item)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            deduped.append(item)
+        return deduped
 
     def contains_whole_word(self, source_normalized, trigger_normalized):
         if " " in trigger_normalized:
