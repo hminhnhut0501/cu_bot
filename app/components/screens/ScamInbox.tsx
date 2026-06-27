@@ -93,6 +93,11 @@ function attachmentFiles(row: ScamInboxRow) {
   return Array.isArray(files) ? files : [];
 }
 
+function attachmentPreviewUrl(file: ScamInboxRow) {
+  const fileId = file.telegram_file_id || file.telegram_file_unique_id;
+  return fileId ? `/api/scam_media?file_id=${encodeURIComponent(fileId)}` : "";
+}
+
 export default function ScamInbox({
   scamInboxStats,
   scamReports,
@@ -378,7 +383,16 @@ export default function ScamInbox({
                                 >
                                   <Stack spacing={0.75}>
                                     <Box sx={{ height: 84, borderRadius: 1, bgcolor: "rgba(15, 118, 110, 0.08)", display: "grid", placeItems: "center" }}>
-                                      <ImageIcon size={24} />
+                                      {attachmentPreviewUrl(file) ? (
+                                        <Box
+                                          component="img"
+                                          src={attachmentPreviewUrl(file)}
+                                          alt={file.file_name || file.telegram_file_id || "attachment"}
+                                          sx={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 1 }}
+                                        />
+                                      ) : (
+                                        <ImageIcon size={24} />
+                                      )}
                                     </Box>
                                     <Typography variant="caption" noWrap sx={{ fontWeight: 700 }}>
                                       {file.media_type || "file"}

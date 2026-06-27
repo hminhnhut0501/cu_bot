@@ -905,7 +905,10 @@ function titleFor(row: Row, table: TableConfig) {
     return labels[action.toLowerCase()] || action.replaceAll("_", " ") || `Nhật ký #${row.id}`;
   }
   if (table.key === "scam_reports") {
-    return row.target_username || row.bank_account || row.phone || row.target_uid || `Report #${row.id}`;
+    return row.target_username || row.target_name || row.bank_account || row.phone || row.target_uid || `Report #${row.id}`;
+  }
+  if (table.key === "scam_entities") {
+    return row.name || row.username || row.bank_account || row.uid || `Entity #${row.id}`;
   }
   return row[table.titleField] || row.key || row.message || row.keyword || row.group_id || `#${row.id}`;
 }
@@ -3332,6 +3335,13 @@ export default function HomePage() {
       if (table.fields.some((field) => field.key === "chat_id")) {
         nextDraft.chat_id = selectedScope;
       }
+    }
+    if (table.key === "scam_reports") {
+      nextDraft.status = nextDraft.status || "pending";
+    }
+    if (table.key === "scam_entities") {
+      nextDraft.status = nextDraft.status || "confirmed";
+      nextDraft.risk_level = nextDraft.risk_level || "scam";
     }
     setDraft(nextDraft);
     setWorkMode("edit");
