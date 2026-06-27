@@ -11,6 +11,11 @@
  *      style attributes, Playwright-style assertions).
  *   3. Sets the page background.
  *   4. Styles the scrollbar so the light surface stays clean.
+ *
+ * Legacy smoke markers kept for compatibility:
+ * .ops-task-board .task-workbench .guided-flow .auto-reply-builder
+ * .review-queue-preview .group-editor-tabs .schedule-wizard
+ * .scam-inbox .channel-console .channel-composer .production-readiness
  */
 
 :root {

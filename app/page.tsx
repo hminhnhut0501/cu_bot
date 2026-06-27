@@ -87,6 +87,9 @@ import { buildCommandInsights, buildEditorFieldGroups, buildGroupEditorTabs, bui
 // Thiết lập, kiểm thử và theo dõi bảo vệ
 // Tạo câu trả lời đúng ngữ cảnh
 // Duyệt báo cáo và xây hồ sơ scam
+// task-outcome-strip
+// scam-inbox
+// channel-composer
 // scope-breadcrumb
 // schedule-wizard
 // production-readiness
@@ -4154,26 +4157,14 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      await api("/api/scam_entities", {
+      await api(`/api/scam_reports/${row.id}/confirm`, {
         method: "POST",
         body: JSON.stringify({
-          bot_key: row.bot_key || selectedBot || "main",
-          uid: row.target_uid || "",
-          username: row.target_username || "",
-          bank_account: row.bank_account || "",
-          phone: row.phone || "",
-          name: "",
-          risk_level: "scam",
-          reason: row.admin_note || "Xác nhận từ báo cáo thành viên",
-          evidence: row.evidence || "",
-          source: "scam_report",
-          status: "confirmed",
-          enabled: true
+          reviewed_by: "admin_cp",
+          reason: row.admin_note || row.reason || "Xác nhận từ báo cáo thành viên",
+          scam_percent: Number(row.scam_percent || row.confidence_score || 100),
+          confidence_score: Number(row.confidence_score || row.scam_percent || 100)
         })
-      });
-      await api("/api/scam_reports", {
-        method: "PATCH",
-        body: JSON.stringify({ id: row.id, values: { ...row, status: "confirmed" } })
       });
       await writeAuditLog("scam_report_confirmed", row, { evidence: row.evidence || "" });
       setNotice("Đã xác nhận report và tạo dữ liệu scam.");
@@ -4193,13 +4184,67 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      await api("/api/scam_reports", {
-        method: "PATCH",
-        body: JSON.stringify({ id: row.id, values: { ...row, status: "rejected" } })
+      await api(`/api/scam_reports/${row.id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({
+          reviewed_by: "admin_cp",
+          admin_note: row.admin_note || ""
+        })
       });
       await writeAuditLog("scam_report_rejected", row, { admin_note: row.admin_note || "" });
       setNotice("Đã đánh dấu báo cáo là từ chối.");
       flashToast("Đã đánh dấu báo cáo là từ chối.");
+      await refreshAfterMutation("scam_reports", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function duplicateScamReport(row: Row) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/scam_reports/${row.id}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify({
+          reviewed_by: "admin_cp",
+          duplicate_of: row.duplicate_of || "",
+          admin_note: row.admin_note || row.notes || "Đánh dấu trùng từ CP"
+        })
+      });
+      await writeAuditLog("scam_report_duplicate", row, { duplicate_of: row.duplicate_of || "" });
+      setNotice("Đã đánh dấu report là trùng.");
+      flashToast("Đã đánh dấu report là trùng.");
+      await refreshAfterMutation("scam_reports", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      const message = friendlySaveError(err);
+      setError(message);
+      flashToast(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function needMoreInfoScamReport(row: Row) {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/scam_reports/${row.id}/need-more-info`, {
+        method: "POST",
+        body: JSON.stringify({
+          reviewed_by: "admin_cp",
+          admin_note: row.admin_note || row.notes || "Cần bổ sung thêm bằng chứng / thông tin"
+        })
+      });
+      await writeAuditLog("scam_report_need_more_info", row, { admin_note: row.admin_note || "" });
+      setNotice("Đã chuyển report sang trạng thái cần bổ sung.");
+      flashToast("Đã chuyển report sang trạng thái cần bổ sung.");
       await refreshAfterMutation("scam_reports", { reloadRows: true, reloadLookups: true });
     } catch (err) {
       const message = friendlySaveError(err);
@@ -5231,7 +5276,25 @@ export default function HomePage() {
         ) : null}
 
         {table.key === "scam_reports" ? (
-          <ScamInbox scamInboxStats={scamInboxStats} />
+          <ScamInbox
+            scamInboxStats={scamInboxStats}
+            scamReports={lookups.scamReports}
+            onOpenAllReports={() => {
+              setQuickFilter("all");
+              setSelected(null);
+            }}
+            onOpenReport={(id) => {
+              const next = lookups.scamReports.find((row) => String(row.id) === String(id));
+              if (next) {
+                setSelected(next);
+              }
+            }}
+            onConfirm={confirmScamReport}
+            onReject={rejectScamReport}
+            onDuplicate={duplicateScamReport}
+            onNeedMoreInfo={needMoreInfoScamReport}
+            onEdit={(row) => startEdit(row)}
+          />
         ) : null}
 
         {table.key === "keywords" ? (

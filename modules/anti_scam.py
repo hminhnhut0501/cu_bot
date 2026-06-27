@@ -1,6 +1,10 @@
 import re
+import os
+import json
+import requests
 
 from modules.base import BotModule
+from core.utils import normalize_text
 
 
 class AntiScamModule(BotModule):
@@ -11,6 +15,44 @@ class AntiScamModule(BotModule):
         self.bot.message_handler(commands=["check", "kiemtra", "tra"])(self.active(self.handle_check))
         self.bot.message_handler(commands=["report", "baocao"])(self.active(self.handle_report))
         self.bot.message_handler(commands=["addscam", "themscam"])(self.active(self.handle_add_scam))
+        self.bot.message_handler(content_types=["photo", "document", "video"])(self.active(self.handle_media_report))
+
+    def api_base_url(self):
+        return (os.environ.get("SCAM_API_BASE_URL") or os.environ.get("CONTROL_PANEL_URL") or os.environ.get("NEXT_PUBLIC_SITE_URL") or "").rstrip("/")
+
+    def api_password(self):
+        return os.environ.get("SCAM_API_PASSWORD") or os.environ.get("CP_ADMIN_PASSWORD") or ""
+
+    def api_headers(self):
+        headers = {"content-type": "application/json", "accept": "application/json"}
+        password = self.api_password()
+        if password:
+            headers["x-cp-password"] = password
+        return headers
+
+    def api_get(self, path, params=None):
+        base = self.api_base_url()
+        if not base:
+            return None
+        response = requests.get(f"{base}{path}", headers=self.api_headers(), params=params or {}, timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def api_post(self, path, payload):
+        base = self.api_base_url()
+        if not base:
+            return None
+        response = requests.post(f"{base}{path}", headers=self.api_headers(), json=payload, timeout=15)
+        response.raise_for_status()
+        return response.json()
+
+    def api_patch(self, path, payload):
+        base = self.api_base_url()
+        if not base:
+            return None
+        response = requests.patch(f"{base}{path}", headers=self.api_headers(), json=payload, timeout=15)
+        response.raise_for_status()
+        return response.json()
 
     def is_enabled(self):
         return self.module_enabled("anti_scam", True)
@@ -29,16 +71,18 @@ class AntiScamModule(BotModule):
             self.reply(message, self.text("check_usage_text", "Gửi: /check uid, username, số tài khoản hoặc số điện thoại cần tra cứu."))
             return
 
-        matches = self.find_scam_entities(query)
+        matches = self.lookup_scam(query)
         if not matches:
             self.reply(message, self.text("check_not_found_text", "Chưa thấy dữ liệu scam cho: {query}", query=query))
             return
 
         lines = [self.text("check_result_title", "Kết quả tra cứu:")]
         for row in matches[:5]:
+            percent = row.get("scam_percent") or row.get("confidence_score") or row.get("risk_level") or "scam"
             lines.extend([
                 "",
                 f"Trạng thái: {row.get('risk_level') or row.get('status') or 'scam'}",
+                f"Scam score: {percent}",
                 f"UID: {row.get('uid') or '-'}",
                 f"Username: {row.get('username') or '-'}",
                 f"Số tài khoản: {row.get('bank_account') or '-'}",
@@ -54,19 +98,20 @@ class AntiScamModule(BotModule):
         if not text:
             self.reply(message, self.text("report_usage_text", "Gửi: /report nội dung báo cáo, UID/username/số tài khoản và bằng chứng."))
             return
+        row = self.submit_report(message, text)
+        self.reply(message, self.text("report_received_text", "Đã ghi nhận báo cáo #{id}. Admin sẽ kiểm tra và xác nhận.", id=row.get("id", "-")))
+        self.notify_review_channel(row, text)
 
-        parsed = self.parse_report_text(text)
-        reporter = message.from_user
-        row = self.store.insert("scam_reports", {
-            "reporter_user_id": str(reporter.id),
-            "reporter_username": getattr(reporter, "username", "") or "",
-            "target_uid": parsed.get("uid", ""),
-            "target_username": parsed.get("username", ""),
-            "bank_account": parsed.get("bank_account", ""),
-            "phone": parsed.get("phone", ""),
-            "evidence": text,
-            "status": "pending",
-        })
+    def handle_media_report(self, message):
+        if getattr(message.chat, "type", "") != "private":
+            return
+        caption = getattr(message, "caption", "") or ""
+        if not caption.strip().startswith(("/report", "/baocao")):
+            return
+        text = self.command_text_from_text(caption)
+        if not text:
+            text = caption.strip()
+        row = self.submit_report(message, text)
         self.reply(message, self.text("report_received_text", "Đã ghi nhận báo cáo #{id}. Admin sẽ kiểm tra và xác nhận.", id=row.get("id", "-")))
         self.notify_review_channel(row, text)
 
@@ -91,31 +136,207 @@ class AntiScamModule(BotModule):
         })
         self.reply(message, self.text("addscam_success_text", "Đã thêm dữ liệu scam #{id}.", id=row.get("id", "-")))
 
-    def find_scam_entities(self, query):
+    def lookup_scam(self, query):
+        try:
+            payload = self.api_get("/api/scam_lookup", params={"q": query})
+            if payload and isinstance(payload.get("matches"), list):
+                return self.rank_matches(payload["matches"], query)
+        except Exception:
+            pass
+
         normalized = query.strip().lower().lstrip("@")
         matches = []
         for row in self.store.enabled_rows("scam_entities"):
             candidates = [
                 row.get("uid"),
+                row.get("normalized_uid"),
                 (row.get("username") or "").lower().lstrip("@"),
+                row.get("normalized_username"),
+                row.get("bank_account"),
+                row.get("normalized_bank_account"),
+                row.get("phone"),
+                row.get("normalized_phone"),
+                (row.get("name") or "").lower(),
+                row.get("normalized_name"),
+            ]
+            if any(normalize_text(str(item or "")) == normalize_text(normalized) for item in candidates if item):
+                matches.append(row)
+        return self.rank_matches(matches, query)
+
+    def rank_matches(self, rows, query):
+        normalized = self.normalize_value(query)
+        ranked = []
+        for row in rows:
+            tokens = [
+                row.get("normalized_uid"),
+                row.get("normalized_username"),
+                row.get("normalized_bank_account"),
+                row.get("normalized_phone"),
+                row.get("normalized_name"),
+                row.get("uid"),
+                row.get("username"),
                 row.get("bank_account"),
                 row.get("phone"),
-                (row.get("name") or "").lower(),
+                row.get("name"),
             ]
-            if any(str(item).strip().lower().lstrip("@") == normalized for item in candidates if item):
-                matches.append(row)
-        return matches
+            tokens = [self.normalize_value(item) for item in tokens if item]
+            exact = any(token == normalized for token in tokens)
+            contains = any(normalized and normalized in token for token in tokens)
+            score = int(row.get("scam_percent") or row.get("confidence_score") or 0)
+            if exact:
+                score += 100
+            elif contains:
+                score += 30
+            if str(row.get("status") or "").lower() == "confirmed":
+                score += 20
+            ranked.append((score, row))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        return [row for _, row in ranked]
+
+    def normalize_value(self, value):
+        return normalize_text(str(value or "")).replace(" ", "").replace(".", "").replace("-", "").replace("_", "")
+
+    def create_report(self, payload):
+        try:
+            created = self.api_post("/api/scam_reports", payload)
+            if created and created.get("row"):
+                return created["row"]
+        except Exception:
+            pass
+        return self.store.insert("scam_reports", payload)
+
+    def submit_report(self, message, text):
+        parsed = self.parse_report_text(text)
+        reporter = message.from_user
+        attachments = self.extract_attachments(message)
+        duplicates = self.find_duplicate_candidates(parsed)
+        payload = {
+            "reporter_user_id": str(reporter.id),
+            "reporter_username": getattr(reporter, "username", "") or "",
+            "reporter_chat_id": str(message.chat.id),
+            "source_chat_id": str(message.chat.id),
+            "source_message_id": str(message.message_id),
+            "target_uid": parsed.get("uid", ""),
+            "target_username": parsed.get("username", ""),
+            "target_name": parsed.get("name", ""),
+            "bank_account": parsed.get("bank_account", ""),
+            "phone": parsed.get("phone", ""),
+            "group_name": getattr(message.chat, "title", "") or "",
+            "group_id": str(message.chat.id),
+            "scammer_name": parsed.get("name", ""),
+            "admin_name": parsed.get("admin_name", ""),
+            "reason": parsed.get("reason", "") or text,
+            "notes": parsed.get("notes", ""),
+            "evidence_text": text,
+            "evidence_payload": {
+                "raw_text": text,
+                "files": attachments,
+                "duplicates": duplicates,
+            },
+            "attachment_count": len(attachments),
+            "confidence_score": self.compute_report_score(parsed, text, attachments, duplicates),
+            "scam_percent": self.compute_report_score(parsed, text, attachments, duplicates),
+            "status": "pending",
+        }
+        if duplicates:
+            payload["notes"] = self.append_note(payload.get("notes", ""), f"Phát hiện {len(duplicates)} candidate trùng.")
+        return self.create_report(payload)
+
+    def extract_attachments(self, message):
+        attachments = []
+        file_specs = [
+            ("photo", getattr(message, "photo", None)),
+            ("document", getattr(message, "document", None)),
+            ("video", getattr(message, "video", None)),
+        ]
+        for media_type, items in file_specs:
+            if not items:
+                continue
+            if media_type == "photo":
+                for item in items:
+                    attachments.append({
+                        "media_type": "photo",
+                        "telegram_file_id": getattr(item, "file_id", ""),
+                        "telegram_file_unique_id": getattr(item, "file_unique_id", ""),
+                        "file_size": getattr(item, "file_size", None),
+                        "width": getattr(item, "width", None),
+                        "height": getattr(item, "height", None),
+                        "caption": getattr(message, "caption", "") or "",
+                    })
+            else:
+                item = items
+                attachments.append({
+                    "media_type": media_type,
+                    "telegram_file_id": getattr(item, "file_id", ""),
+                    "telegram_file_unique_id": getattr(item, "file_unique_id", ""),
+                    "file_name": getattr(item, "file_name", "") or "",
+                    "mime_type": getattr(item, "mime_type", "") or "",
+                    "file_size": getattr(item, "file_size", None),
+                    "caption": getattr(message, "caption", "") or "",
+                })
+        return attachments
+
+    def find_duplicate_candidates(self, parsed):
+        candidates = []
+        keys = [parsed.get("uid"), parsed.get("username"), parsed.get("bank_account"), parsed.get("phone"), parsed.get("name")]
+        search_terms = [term for term in keys if term]
+        if not search_terms:
+            return []
+        query = " ".join(search_terms)
+        try:
+            payload = self.api_get("/api/scam_lookup", params={"q": query})
+            for item in (payload or {}).get("matches", [])[:5]:
+                if item.get("result_type") in {"entity", "report"}:
+                    candidates.append({
+                        "id": item.get("id"),
+                        "result_type": item.get("result_type"),
+                        "status": item.get("status"),
+                        "score": item.get("scam_percent") or item.get("confidence_score") or 0,
+                    })
+        except Exception:
+            pass
+        return candidates
+
+    def compute_report_score(self, parsed, text, attachments=None, duplicates=None):
+        attachments = attachments or []
+        duplicates = duplicates or []
+        score = 15
+        if parsed.get("uid"):
+            score += 20
+        if parsed.get("username"):
+            score += 15
+        if parsed.get("bank_account"):
+            score += 20
+        if parsed.get("phone"):
+            score += 15
+        if parsed.get("name"):
+            score += 10
+        if attachments:
+            score += min(15, len(attachments) * 5)
+        if duplicates:
+            score += min(20, len(duplicates) * 10)
+        if text:
+            score += min(10, len(text.split()) // 6)
+        return min(score, 100)
 
     def parse_report_text(self, text):
         username_match = re.search(r"@([a-zA-Z0-9_]{5,})", text)
         numbers = re.findall(r"\b\d{6,}\b", text)
         phone = next((item for item in numbers if len(item) in {9, 10, 11}), "")
         bank_account = next((item for item in numbers if item != phone), "")
+        name_match = re.search(r"(?:ten|name|scammer)\s*[:=]\s*([^\n|,;]+)", text, re.IGNORECASE)
+        reason_match = re.search(r"(?:ly do|reason)\s*[:=]\s*([^\n|,;]+)", text, re.IGNORECASE)
+        notes_match = re.search(r"(?:ghi chu|note|notes)\s*[:=]\s*([^\n|,;]+)", text, re.IGNORECASE)
+        admin_match = re.search(r"(?:admin)\s*[:=]\s*([^\n|,;]+)", text, re.IGNORECASE)
         return {
             "username": username_match.group(1) if username_match else "",
             "uid": numbers[0] if numbers else "",
             "phone": phone,
             "bank_account": bank_account,
+            "name": name_match.group(1).strip() if name_match else "",
+            "reason": reason_match.group(1).strip() if reason_match else "",
+            "notes": notes_match.group(1).strip() if notes_match else "",
+            "admin_name": admin_match.group(1).strip() if admin_match else "",
         }
 
     def notify_review_channel(self, row, text):
@@ -123,9 +344,30 @@ class AntiScamModule(BotModule):
         if not channel_id:
             return
         try:
-            self.bot.send_message(channel_id, self.text("scam_review_channel_text", "Báo cáo scam mới #{id}:\n{text}", id=row.get("id", "-"), text=text))
+            attachments = row.get("evidence_payload", {}).get("files", []) if isinstance(row.get("evidence_payload"), dict) else []
+            attachment_lines = []
+            for item in attachments[:3]:
+                attachment_lines.append(f"- {item.get('media_type', 'file')}: {item.get('telegram_file_id', '-')}")
+            body = self.text(
+                "scam_review_channel_text",
+                "Báo cáo scam mới #{id}:\n{text}",
+                id=row.get("id", "-"),
+                text=text,
+            )
+            if attachment_lines:
+                body = f"{body}\n\nBằng chứng:\n" + "\n".join(attachment_lines)
+            self.bot.send_message(channel_id, body)
         except Exception:
             return
+
+    def append_note(self, current, addition):
+        current = (current or "").strip()
+        addition = (addition or "").strip()
+        if not current:
+            return addition
+        if not addition:
+            return current
+        return f"{current}\n{addition}"
 
     def is_admin(self, chat_id, user_id):
         if int(user_id) in self.settings.owner_ids:
@@ -139,7 +381,12 @@ class AntiScamModule(BotModule):
         return False
 
     def command_text(self, message):
-        return (message.text or "").split(maxsplit=1)[1].strip() if len((message.text or "").split(maxsplit=1)) > 1 else ""
+        source = getattr(message, "text", "") or getattr(message, "caption", "") or ""
+        return self.command_text_from_text(source)
+
+    def command_text_from_text(self, source):
+        parts = (source or "").split(maxsplit=1)
+        return parts[1].strip() if len(parts) > 1 else ""
 
     def reply(self, message, text):
         try:
