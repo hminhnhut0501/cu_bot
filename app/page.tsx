@@ -845,7 +845,9 @@ function emptyValues(table: TableConfig) {
     if (field.type === "boolean") {
       values[field.key] = field.key === "enabled" || defaultBoolean.has(field.key);
     } else if (field.key === "bot_key") {
-      values[field.key] = "main";
+      values[field.key] = table.key === "bots" ? "" : "main";
+    } else if (field.key === "bot_token" && table.key === "bots") {
+      values[field.key] = "";
     } else if (field.key === "pool" || field.key.endsWith("_pool")) {
       values[field.key] = "default";
     } else if (field.key === "weight") {
@@ -3471,6 +3473,16 @@ export default function HomePage() {
     setNotice("");
     try {
       const submitDraft = { ...draft };
+      if (table.key === "bots") {
+        const botKey = String(submitDraft.bot_key || "").trim();
+        if (!botKey) {
+          throw new Error("Hãy nhập mã bot trước khi lưu.");
+        }
+        const duplicateBot = lookups.bots.some((bot) => String(bot.bot_key || "").trim() === botKey && String(bot.id || "") !== String(selected?.id || ""));
+        if (duplicateBot) {
+          throw new Error(`Mã bot \"${botKey}\" đã tồn tại. Hãy chọn mã khác.`);
+        }
+      }
       if (table.fields.some((field) => field.key === "bot_key") && !String(submitDraft.bot_key || "").trim()) {
         submitDraft.bot_key = activeBotKey || selectedBot || "main";
       }
