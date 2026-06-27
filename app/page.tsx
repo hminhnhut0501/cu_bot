@@ -192,11 +192,12 @@ type ChannelButtonDraft = { label: string; url: string; row: number };
 
 const drawerWidth = 292;
 
-const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards"]);
+const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
   "moderation_enabled",
   "delete_system_messages",
   "delete_forwarded_messages",
+  "allow_forward_messages",
   "scan_hidden_links",
   "scan_text_link",
   "scan_text_mention",
@@ -243,6 +244,7 @@ const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   moderation_enabled: "true",
   delete_system_messages: "true",
   delete_forwarded_messages: "true",
+  allow_forward_messages: "true",
   allow_automatic_forwards: "true",
   delete_inline_keyboard_messages: "true",
   delete_messages_from_bots: "true",
@@ -445,6 +447,7 @@ const CONFIG_LABELS: Record<string, string> = {
   scam_review_group_id: "Group review scam",
   delete_system_messages: "Xóa tin hệ thống",
   delete_forwarded_messages: "Chặn tin forward",
+  allow_forward_messages: "Cho phép forward",
   scan_hidden_links: "Quét link ẩn",
   scan_text_link: "Chặn text link",
   scan_text_mention: "Chặn text mention",
@@ -474,6 +477,9 @@ const CONFIG_LABELS: Record<string, string> = {
   spam_action: "Cách xử lý spam",
   spam_restrict_seconds: "Thời gian mute khi spam",
   forward_action: "Cách xử lý forward",
+  forward_allowed_content_types: "Loại nội dung forward được phép",
+  forward_spam_max_messages: "Số forward tối đa",
+  forward_spam_window_seconds: "Khung thời gian forward",
   inline_keyboard_action: "Cách xử lý bài có nút bấm",
   ban_after_warnings: "Ban sau số cảnh báo",
   ban_seconds: "Thời gian ban",
@@ -485,6 +491,8 @@ const CONFIG_LABELS: Record<string, string> = {
   forward_warning_delete_seconds: "Tự xóa cảnh báo forward",
   spam_notice_delete_seconds: "Tự xóa thông báo spam",
   violation_delete_retry_seconds: "Thử xóa lại tin vi phạm",
+  forward_violation_restrict_after: "Restrict sau số vi phạm forward",
+  forward_violation_ban_after: "Ban sau số vi phạm forward",
   media_spam_max_messages: "Số media spam tối đa",
   media_spam_window_seconds: "Khung thời gian media spam",
   media_spam_action: "Xử lý media spam",
@@ -532,14 +540,21 @@ const CONFIG_SECTIONS = [
     desc: "Các công tắc chặn nội dung thường gặp trong group.",
     icon: ShieldCheck,
     tone: "security",
-    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+  },
+  {
+    title: "Forward nâng cao",
+    desc: "Cho phép forward có kiểm soát, lọc theo loại nội dung và ngưỡng vi phạm riêng.",
+    icon: Send,
+    tone: "security",
+    keys: ["allow_forward_messages", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "forward_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds"]
   },
   {
     title: "Spam, cảnh báo & ban",
     desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
     icon: SlidersHorizontal,
     tone: "security",
-    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
+    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
   },
   {
     title: "Mẫu tin kiểm duyệt",
@@ -1013,7 +1028,7 @@ function configDisplayValue(row: Row) {
 
 function configValueCaption(row: Row) {
   const key = String(row.key || "");
-  if (["scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "scan_bio_links", "bio_link_delete_message", "duplicate_message_enabled", "send_on_boot", "send_if_silent", "show_policy_button"].includes(key)) {
+  if (["scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "scan_bio_links", "bio_link_delete_message", "duplicate_message_enabled", "send_on_boot", "send_if_silent", "show_policy_button"].includes(key)) {
     return "Bật / tắt";
   }
   if (key.endsWith("_seconds")) {
@@ -1042,6 +1057,9 @@ function configFieldHint(key: string) {
   if (["forward_warning_reason", "duplicate_message_reason"].includes(key)) {
     return "Đây là lý do cố định, không cần placeholder.";
   }
+  if (key === "forward_allowed_content_types") {
+    return "Nhập danh sách cách nhau bằng dấu phẩy, ví dụ: text, photo, video.";
+  }
   return "";
 }
 
@@ -1064,6 +1082,7 @@ function configEditorKind(key: string) {
     key.endsWith("_text") ||
     key.includes("reason") ||
     key.includes("commands") ||
+    key.includes("content_types") ||
     ["policy_text", "start_fallback_text", "help_menu_title", "scam_review_channel_text"].includes(key)
   ) {
     return "textarea";
@@ -1142,6 +1161,12 @@ function fieldUnitHint(field: FieldConfig) {
   }
   if (key === "scan_bio_links") {
     return "Bật để bot quét bio người gửi.";
+  }
+  if (key === "allow_forward_messages") {
+    return "Bật để cho forward đi qua nhưng vẫn scan nội dung.";
+  }
+  if (key === "forward_allowed_content_types") {
+    return "Ví dụ: text, photo, video. Để trống để cho phép mọi loại.";
   }
   if (key === "bio_link_delete_message") {
     return "Xóa tin vi phạm nếu bio chứa link.";
@@ -2626,6 +2651,7 @@ export default function HomePage() {
         "moderation_enabled",
         "delete_system_messages",
         "delete_forwarded_messages",
+        "allow_forward_messages",
         "allow_automatic_forwards",
         "delete_inline_keyboard_messages",
         "delete_messages_from_bots",
@@ -2657,10 +2683,16 @@ export default function HomePage() {
     },
     {
       key: "forward",
-      title: "Forward",
-      desc: "Luật xử lý tin chuyển tiếp và nội dung copy.",
-      toggleKey: "forward_action",
+      title: "Forward nâng cao",
+      desc: "Cho phép forward có kiểm soát, lọc theo loại nội dung và ngưỡng vi phạm riêng.",
+      toggleKey: "allow_forward_messages",
       keys: [
+        "allow_forward_messages",
+        "forward_allowed_content_types",
+        "forward_spam_max_messages",
+        "forward_spam_window_seconds",
+        "forward_violation_restrict_after",
+        "forward_violation_ban_after",
         "forward_action",
         "forward_warning_reason",
         "forward_warning_text",
@@ -2715,10 +2747,10 @@ export default function HomePage() {
     },
     {
       key: "forward",
-      title: "Forward",
-      desc: "Xử lý tin chuyển tiếp và bài có nút bấm.",
-      toggleKey: "forward_action",
-      keys: ["forward_action", "inline_keyboard_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds", "spam_restrict_text", "warning_text", "warning_notice_delete_seconds", "spam_notice_delete_seconds"]
+      title: "Forward nâng cao",
+      desc: "Cho phép forward có kiểm soát, chặn bot, lọc loại nội dung và siết theo vi phạm.",
+      toggleKey: "allow_forward_messages",
+      keys: ["allow_forward_messages", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "forward_action", "inline_keyboard_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds", "spam_restrict_text", "warning_text", "warning_notice_delete_seconds", "spam_notice_delete_seconds"]
     },
     {
       key: "duplicate",

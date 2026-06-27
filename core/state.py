@@ -10,7 +10,9 @@ class RuntimeState:
     user_windows: dict[tuple[int, int], deque] = field(default_factory=lambda: defaultdict(deque))
     user_content_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
     user_duplicate_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
+    user_forward_windows: dict[tuple[int, int], deque] = field(default_factory=lambda: defaultdict(deque))
     warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
+    forward_warnings: dict[tuple[int, int], int] = field(default_factory=lambda: defaultdict(int))
     bio_scan_cache: dict[tuple[int, int], tuple[float, bool]] = field(default_factory=dict)
     pending_verifications: dict[tuple[int, int], dict] = field(default_factory=dict)
     auto_reply_user_cooldown: dict[tuple[int, int, str], float] = field(default_factory=dict)
@@ -58,6 +60,16 @@ class RuntimeState:
                 window.popleft()
             return len(window)
 
+    def add_user_forward_message(self, chat_id, user_id, window_seconds):
+        key = (int(chat_id), int(user_id))
+        current_time = time()
+        with self.lock:
+            window = self.user_forward_windows[key]
+            window.append(current_time)
+            while window and current_time - window[0] > window_seconds:
+                window.popleft()
+            return len(window)
+
     def add_warning(self, chat_id, user_id):
         key = (int(chat_id), int(user_id))
         with self.lock:
@@ -67,6 +79,16 @@ class RuntimeState:
     def reset_warnings(self, chat_id, user_id):
         with self.lock:
             self.warnings.pop((int(chat_id), int(user_id)), None)
+
+    def add_forward_warning(self, chat_id, user_id):
+        key = (int(chat_id), int(user_id))
+        with self.lock:
+            self.forward_warnings[key] += 1
+            return self.forward_warnings[key]
+
+    def reset_forward_warnings(self, chat_id, user_id):
+        with self.lock:
+            self.forward_warnings.pop((int(chat_id), int(user_id)), None)
 
     def cached_bio_scan(self, chat_id, user_id, ttl_seconds):
         key = (int(chat_id), int(user_id))

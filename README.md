@@ -154,6 +154,12 @@ If your live Supabase project is still on an older schema, run `docs/supabase/mi
 | policy_text | Nội quy nhóm... | true |
 | delete_system_messages | true | true |
 | delete_forwarded_messages | true | true |
+| allow_forward_messages | true | true |
+| forward_allowed_content_types | text, photo, video, document, sticker | true |
+| forward_spam_max_messages | 3 | true |
+| forward_spam_window_seconds | 30 | true |
+| forward_violation_restrict_after | 3 | true |
+| forward_violation_ban_after | 4 | true |
 | delete_inline_keyboard_messages | true | true |
 | delete_messages_from_bots | true | true |
 | remove_unknown_bots | true | true |
@@ -166,8 +172,8 @@ If your live Supabase project is still on an older schema, run `docs/supabase/mi
 | spam_max_messages | 6 | true |
 | spam_window_seconds | 12 | true |
 | spam_action | warn | true |
-| forward_warning_reason | Không được forward video/bài vào nhóm. | true |
-| forward_warning_text | {mention} vui lòng không forward video/bài vào nhóm. ({count}/{limit}) | true |
+| forward_warning_reason | Không được forward nội dung không phù hợp vào nhóm. | true |
+| forward_warning_text | {mention} vui lòng không forward nội dung không phù hợp vào nhóm. ({count}/{limit}) | true |
 | forward_warning_delete_seconds | 180 | true |
 | warning_notice_delete_seconds | 180 | true |
 | media_spam_max_messages | 3 | true |

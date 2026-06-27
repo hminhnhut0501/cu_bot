@@ -64,7 +64,13 @@ export function buildScopeCrumbs(args: {
 
 export function buildModerationPolicySummary(settingsMap: Map<string, string>) {
   return [
-    { label: "Forward", value: settingsMap.get("delete_forwarded_messages") === "false" ? "Cho phép" : actionLabel(settingsMap.get("forward_action") || "warn") },
+    {
+      label: "Forward",
+      value: settingsMap.get("allow_forward_messages") === "false"
+        ? (settingsMap.get("delete_forwarded_messages") === "false" ? "Cho phép" : actionLabel(settingsMap.get("forward_action") || "warn"))
+        : "Cho phép + quét nội dung"
+    },
+    { label: "Loại forward", value: settingsMap.get("forward_allowed_content_types") || "Tất cả" },
     { label: "Spam", value: `${settingsMap.get("spam_max_messages") || "6"} tin / ${settingsMap.get("spam_window_seconds") || "12"} giây` },
     { label: "Nội dung lặp", value: settingsMap.get("duplicate_message_enabled") === "false" ? "Tắt" : actionLabel(settingsMap.get("duplicate_message_action") || "warn") },
     { label: "Bio có link", value: settingsMap.get("scan_bio_links") === "false" ? "Không quét" : "Quét và xử lý" },

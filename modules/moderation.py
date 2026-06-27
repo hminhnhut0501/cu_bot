@@ -66,6 +66,7 @@ class ModerationModule(BotModule):
         "moderation_enabled",
         "delete_system_messages",
         "delete_forwarded_messages",
+        "allow_forward_messages",
         "allow_automatic_forwards",
         "delete_inline_keyboard_messages",
         "delete_messages_from_bots",
@@ -76,6 +77,9 @@ class ModerationModule(BotModule):
         "spam_action",
         "spam_restrict_seconds",
         "forward_action",
+        "forward_allowed_content_types",
+        "forward_spam_max_messages",
+        "forward_spam_window_seconds",
         "inline_keyboard_action",
         "ban_after_warnings",
         "ban_seconds",
@@ -87,6 +91,8 @@ class ModerationModule(BotModule):
         "forward_warning_delete_seconds",
         "spam_notice_delete_seconds",
         "violation_delete_retry_seconds",
+        "forward_violation_restrict_after",
+        "forward_violation_ban_after",
         "duplicate_message_enabled",
         "duplicate_message_max_count",
         "duplicate_message_window_seconds",
@@ -756,35 +762,185 @@ class ModerationModule(BotModule):
         return usernames
 
     def detect_forward(self, message):
-        if not self.setting_bool(message.chat.id, "delete_forwarded_messages", True):
-            return False
-        if self.is_automatic_forward_allowed(message):
-            return False
         forwarded, forward_flags = self.forward_detection_flags(message)
         if not forwarded:
             return False
+        if self.is_automatic_forward_allowed(message):
+            return False
+        if self.setting_bool(message.chat.id, "delete_forwarded_messages", True) and not self.setting_bool(message.chat.id, "allow_forward_messages", False):
+            self.delete_violation_message(
+                message,
+                "forwarded_message",
+                reason_label="Tin nhắn được forward",
+                **self.forward_audit_details(message, forward_flags),
+            )
+            reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
+            action = (self.setting(message.chat.id, "forward_action", "warn") or "warn").strip().lower()
+            if action in {"delete", "remove"}:
+                ban_after = self.setting_int(message.chat.id, "ban_after_warnings", 3)
+                if ban_after > 0:
+                    self.warn_user(
+                        message.chat.id,
+                        message.from_user.id,
+                        reason=reason,
+                        user=message.from_user,
+                        trigger="forwarded_message",
+                        send_notice=False,
+                    )
+                return True
+            self.apply_action(message, action, reason, trigger="forwarded_message")
+            return True
+
+        if self.forward_from_bot(message):
+            self.handle_forward_violation(message, "Forward từ bot không được phép.", forward_flags)
+            return True
+
+        if not self.forward_content_allowed(message):
+            allowed = self.forward_allowed_content_types(message)
+            allowed_text = ", ".join(sorted(allowed)) if allowed else "không giới hạn"
+            self.handle_forward_violation(
+                message,
+                f"Chỉ cho phép forward: {allowed_text}.",
+                forward_flags,
+            )
+            return True
+
+        spam_limit = self.setting_int(message.chat.id, "forward_spam_max_messages", 3)
+        spam_window = self.setting_int(message.chat.id, "forward_spam_window_seconds", 30)
+        if spam_limit > 0 and spam_window > 0:
+            count = self.state.add_user_forward_message(message.chat.id, message.from_user.id, spam_window)
+            if count > spam_limit:
+                self.handle_forward_violation(
+                    message,
+                    f"Forward quá nhanh ({count}/{spam_limit} trong {spam_window} giây).",
+                    forward_flags,
+                )
+                return True
+
+        return False
+
+    def forward_from_bot(self, message):
+        origin = getattr(message, "forward_origin", None)
+        sender_user = getattr(origin, "sender_user", None) or getattr(message, "forward_from", None)
+        sender_chat = getattr(origin, "sender_chat", None) or getattr(message, "forward_from_chat", None)
+        if getattr(message, "via_bot", None):
+            return True
+        if getattr(sender_user, "is_bot", False):
+            return True
+        if getattr(sender_chat, "type", "") == "bot":
+            return True
+        return False
+
+    def forward_allowed_content_types(self, message):
+        raw = self.setting(message.chat.id, "forward_allowed_content_types", "").strip()
+        if not raw:
+            return set()
+        aliases = {
+            "anh": "photo",
+            "ảnh": "photo",
+            "image": "photo",
+            "pic": "photo",
+            "hinh": "photo",
+            "video": "video",
+            "gif": "animation",
+            "sticker": "sticker",
+            "doc": "document",
+            "document": "document",
+            "voice": "voice",
+            "audio": "audio",
+            "text": "text",
+            "tin": "text",
+            "note": "video_note",
+            "video_note": "video_note",
+        }
+        normalized = set()
+        for item in raw.split(","):
+            key = normalize_text(item).replace(" ", "_")
+            if not key:
+                continue
+            normalized.add(aliases.get(key, key))
+        return normalized
+
+    def forward_content_allowed(self, message):
+        allowed = self.forward_allowed_content_types(message)
+        if not allowed:
+            return True
+        content_type = (getattr(message, "content_type", "") or "").strip().lower()
+        if content_type == "photo" and ("photo" in allowed or "image" in allowed):
+            return True
+        if content_type == "video" and "video" in allowed:
+            return True
+        if content_type == "animation" and ("gif" in allowed or "animation" in allowed):
+            return True
+        if content_type == "sticker" and "sticker" in allowed:
+            return True
+        if content_type == "document" and "document" in allowed:
+            return True
+        if content_type == "voice" and "voice" in allowed:
+            return True
+        if content_type == "audio" and "audio" in allowed:
+            return True
+        if content_type == "text" and "text" in allowed:
+            return True
+        if content_type == "video_note" and "video_note" in allowed:
+            return True
+        return content_type in allowed
+
+    def handle_forward_violation(self, message, reason, forward_flags=None):
+        forward_flags = forward_flags or []
         self.delete_violation_message(
             message,
             "forwarded_message",
-            reason_label="Tin nhắn được forward",
+            reason_label="Tin nhắn chuyển tiếp không hợp lệ",
             **self.forward_audit_details(message, forward_flags),
         )
-        reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
-        action = (self.setting(message.chat.id, "forward_action", "warn") or "warn").strip().lower()
-        if action in {"delete", "remove"}:
-            ban_after = self.setting_int(message.chat.id, "ban_after_warnings", 3)
-            if ban_after > 0:
-                self.warn_user(
-                    message.chat.id,
-                    message.from_user.id,
+        count = self.state.add_forward_warning(message.chat.id, message.from_user.id)
+        restrict_after = self.setting_int(message.chat.id, "forward_violation_restrict_after", 3)
+        ban_after = self.setting_int(message.chat.id, "forward_violation_ban_after", 4)
+        chat_id = message.chat.id
+        user = message.from_user
+        if ban_after and count >= ban_after:
+            self.ban_user(chat_id, user.id, reason=reason, trigger="forwarded_message", actor_user_id=self.actor_for_system())
+            self.state.reset_forward_warnings(chat_id, user.id)
+            return
+        if restrict_after and count >= restrict_after:
+            self.restrict_user_for_spam(chat_id, user.id, reason=reason, trigger="forwarded_message")
+            self.notify_temporary_restrict(chat_id, user, reason)
+            self.audit(
+                chat_id,
+                "forward_restrict",
+                target_user_id=user.id,
+                actor_user_id=self.actor_for_system(),
+                details=self.audit_details(reason=reason, forward_count=count, trigger="forwarded_message"),
+            )
+            return
+
+        text = self.setting(chat_id, "forward_warning_text", "{mention} bạn đang gửi nội dung chuyển tiếp từ nguồn ngoài.\nLý do: {reason}\nCảnh báo: {count}/{limit}")
+        mention = self.user_mention(user)
+        try:
+            sent = self.bot.send_message(
+                chat_id,
+                text.format(
+                    mention=mention,
+                    user_id=user.id,
                     reason=reason,
-                    user=message.from_user,
-                    trigger="forwarded_message",
-                    send_notice=False,
-                )
-            return True
-        self.apply_action(message, action, reason, trigger="forwarded_message")
-        return True
+                    count=count,
+                    limit=restrict_after or "-",
+                ),
+            )
+            delete_after = self.setting_int(chat_id, "forward_warning_delete_seconds", 180)
+            if delete_after > 0:
+                self.delete_later(chat_id, sent.message_id, delete_after, "forward_warning")
+        except Exception as exc:
+            LOGGER.warning("Cannot send forward warning in %s: %s", chat_id, exc)
+        self.audit(
+            chat_id,
+            "forward_warn",
+            target_user_id=user.id,
+            actor_user_id=self.actor_for_system(),
+            details=self.audit_details(reason=reason, forward_count=count, trigger="forwarded_message"),
+        )
+        return
 
     def forward_detection_flags(self, message):
         flags = []
