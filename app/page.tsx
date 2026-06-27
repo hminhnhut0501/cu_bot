@@ -4439,7 +4439,7 @@ export default function HomePage() {
   }
 
   function dataListForField(field: FieldConfig) {
-    if (field.key === "bot_key") {
+    if (field.key === "bot_key" && table?.key !== "bots") {
       return "bot-options";
     }
     if (field.key === "group_id" || field.key === "chat_id") {
@@ -4455,6 +4455,9 @@ export default function HomePage() {
   }
 
   function lookupOptionsForField(field: FieldConfig) {
+    if (table?.key === "bots" && field.key === "bot_key") {
+      return [];
+    }
     if (field.key === "bot_key") {
       return lookups.bots.map((bot) => ({ value: String(bot.bot_key || ""), label: String(bot.name || bot.bot_key || "") })).filter((item) => item.value);
     }
@@ -6205,7 +6208,7 @@ export default function HomePage() {
                                 </>
                               ) : field.type === "boolean" ? (
                                 null
-                              ) : field.type === "select" || lookupOptions.length ? (
+                              ) : field.type === "select" || (lookupOptions.length && !(table?.key === "bots" && field.key === "bot_key")) ? (
                                 <TextField
                                   select
                                   fullWidth
