@@ -68,12 +68,12 @@ export default function Section({
       sx={{
         p: padding,
         bgcolor: subtle ? "background.default" : "background.paper",
-        borderColor: accent.line,
-        borderTop: `4px solid ${accent.color}`,
+        borderColor: "divider",
+        borderTop: `3px solid ${alpha(accent.color, theme.palette.mode === "dark" ? 0.72 : 0.64)}`,
         borderRadius: `${tokens.radius.md}px`,
         backgroundImage: subtle
           ? "none"
-          : `linear-gradient(135deg, ${alpha(accent.color, theme.palette.mode === "dark" ? 0.16 : 0.08)}, transparent 48%)`,
+          : `linear-gradient(135deg, ${alpha(accent.color, theme.palette.mode === "dark" ? 0.12 : 0.05)}, transparent 48%)`,
         ...sx,
       }}
     >

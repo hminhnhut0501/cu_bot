@@ -45,9 +45,9 @@ export default function PageHeader({
         px: { xs: 2, md: 3 },
         py: 2,
         borderBottom: "1px solid",
-        borderColor: accent.line,
+        borderColor: "divider",
         backgroundColor: "background.paper",
-        backgroundImage: `linear-gradient(135deg, ${accent.tint}, ${alpha(accent.color, 0.03)} 46%, transparent 72%)`,
+        backgroundImage: `linear-gradient(135deg, ${alpha(accent.color, 0.08)}, ${alpha(accent.color, 0.02)} 42%, transparent 72%)`,
       }}
     >
       <Stack spacing={1.5}>

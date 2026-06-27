@@ -7,6 +7,7 @@ import { Edit3, Send, ShieldCheck, Trash2 } from "lucide-react";
 
 import EmptyState from "@/app/components/ui/EmptyState";
 import Section from "@/app/components/ui/Section";
+import TabsBar from "@/app/components/ui/TabsBar";
 
 type Row = Record<string, unknown>;
 
@@ -44,6 +45,8 @@ type AuditCardData = {
 };
 
 export type WorkbenchListProps = {
+  sectionTitle: string;
+  sectionSubtitle?: string;
   visibleRows: Row[];
   loading: boolean;
   scanMode: "scan" | "detail";
@@ -73,6 +76,9 @@ export type WorkbenchListProps = {
   remove: (row: Row) => void;
   emptyState: { title: string; body: string; action: string };
   startCreate: () => void;
+  filterTabs?: Array<{ key: string; label: string }>;
+  activeFilter?: string;
+  onChangeFilter?: (value: string) => void;
 };
 
 export default function WorkbenchList(props: WorkbenchListProps) {
@@ -80,6 +86,8 @@ export default function WorkbenchList(props: WorkbenchListProps) {
     visibleRows,
     loading,
     scanMode,
+    sectionTitle,
+    sectionSubtitle,
     selectedIds,
     toggleSelected,
     selected,
@@ -106,6 +114,9 @@ export default function WorkbenchList(props: WorkbenchListProps) {
     remove,
     emptyState,
     startCreate,
+    filterTabs,
+    activeFilter,
+    onChangeFilter,
   } = props;
   const [expandedAuditIds, setExpandedAuditIds] = useState<Set<string>>(() => new Set());
 
@@ -124,11 +135,22 @@ export default function WorkbenchList(props: WorkbenchListProps) {
   return (
     <Section
       eyebrow={`${visibleRows.length} mục`}
-      title={scanMode === "scan" ? "Scan mode" : "Detail mode"}
-      subtitle={scanMode === "scan" ? "Chỉ hiện trạng thái chính" : "Hiện thêm ngữ cảnh"}
+      title={sectionTitle}
+      subtitle={sectionSubtitle || (scanMode === "scan" ? "Chỉ hiện trạng thái chính" : "Hiện thêm ngữ cảnh")}
       tone={table.key === "scam_reports" ? "scam" : table.key === "audit_logs" ? "analytics" : "main"}
     >
       <Stack spacing={1.25}>
+        {filterTabs?.length && activeFilter !== undefined && onChangeFilter ? (
+          <TabsBar
+            items={filterTabs.map((filter) => ({ key: filter.key, label: filter.label }))}
+            value={activeFilter}
+            onChange={onChangeFilter}
+            scrollable
+            wrapped
+            tone="filled"
+          />
+        ) : null}
+
         {visibleRows.map((row) => {
           const id = String(row.id);
           const isSelected = selected?.id === row.id;

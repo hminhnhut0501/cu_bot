@@ -27,12 +27,13 @@ import {
   Wrench,
   FlaskConical,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { UI_COPY } from "@/lib/uiCopy";
 import Section from "@/app/components/ui/Section";
 import StatCard from "@/app/components/ui/StatCard";
 import KeyValue from "@/app/components/ui/KeyValue";
 import EmptyState from "@/app/components/ui/EmptyState";
+import TabsBar from "@/app/components/ui/TabsBar";
 
 type ScheduleReadiness = {
   ready: boolean;
@@ -67,6 +68,48 @@ type ProtectionState = {
   warnings: string[];
 };
 
+function WorkspacePanel(props: {
+  title: string;
+  subtitle: string;
+  tabs: Array<{ key: string; label: string }>;
+  activeTab: string;
+  onChangeTab: (tab: string) => void;
+  statusChips?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+      <Stack spacing={1.5}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: { xs: "flex-start", md: "center" }, flexDirection: { xs: "column", md: "row" } }}>
+          <Box>
+            <Typography variant="overline" color="text.secondary">
+              Workspace
+            </Typography>
+            <Typography variant="subtitle2">{props.title}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {props.subtitle}
+            </Typography>
+          </Box>
+          {props.actions ? <Box>{props.actions}</Box> : null}
+        </Box>
+        {props.statusChips ? (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            {props.statusChips}
+          </Stack>
+        ) : null}
+        <TabsBar
+          items={props.tabs}
+          value={props.activeTab}
+          onChange={props.onChangeTab}
+          scrollable
+          wrapped
+          tone="filled"
+        />
+      </Stack>
+    </Paper>
+  );
+}
+
 export function AutomationScreen(props: {
   scheduleReadiness: ScheduleReadiness;
   scheduleIssues: string[];
@@ -79,24 +122,34 @@ export function AutomationScreen(props: {
   goToScheduleContent: (key: "messages" | "video_messages") => void;
   startScheduledMessageFlow: () => void;
   lookupsGroupsLength: number;
+  tabs: Array<{ key: string; label: string }>;
+  activeTab: string;
+  onChangeTab: (tab: string) => void;
 }) {
   const c = UI_COPY.workbench.automation;
   return (
-    <Section eyebrow={c.eyebrow} title={c.title} tone="content">
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-        <Stack spacing={1.25}>
-          <Typography variant="subtitle2">{c.schedule}</Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {props.scheduleIssues.length ? `${props.scheduleIssues.length} ${c.schedulePending}` : c.scheduleReady}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Đích: {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"} · Giờ: {props.scheduleSubject.daily_window_start || "09:00"} - {props.scheduleSubject.daily_window_end || "09:00"}
-          </Typography>
-          <MuiButton variant="contained" onClick={props.startScheduledMessageFlow} sx={{ alignSelf: "flex-start" }}>
-            {props.lookupsGroupsLength ? c.setTime : c.addGroup}
-          </MuiButton>
-        </Stack>
-      </Paper>
+    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="content">
+      <Stack spacing={2}>
+        <WorkspacePanel
+          title={c.schedule}
+          subtitle="Đi từ chọn group, pool nội dung, video đến cấu hình lịch gửi ngay trong cùng một workspace."
+          tabs={props.tabs}
+          activeTab={props.activeTab}
+          onChangeTab={props.onChangeTab}
+          actions={(
+            <MuiButton variant="contained" onClick={props.startScheduledMessageFlow}>
+              {props.lookupsGroupsLength ? c.setTime : c.addGroup}
+            </MuiButton>
+          )}
+          statusChips={(
+            <>
+              <Chip size="small" color={props.scheduleIssues.length ? "warning" : "success"} label={props.scheduleIssues.length ? `${props.scheduleIssues.length} mục cần xử lý` : c.scheduleReady} />
+              <Chip size="small" variant="outlined" label={`Đích: ${props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"}`} />
+              <Chip size="small" variant="outlined" label={`Giờ: ${props.scheduleSubject.daily_window_start || "09:00"} - ${props.scheduleSubject.daily_window_end || "09:00"}`} />
+            </>
+          )}
+        />
+      </Stack>
     </Section>
   );
 }
@@ -126,6 +179,7 @@ export function WelcomeScreen(props: {
   onChangeButtonsText: (value: string) => void;
   onSave: () => void;
   onTestRuntime: () => void;
+  tabLabel?: string;
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const c = {
@@ -137,6 +191,22 @@ export function WelcomeScreen(props: {
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
+          {props.tabLabel ? (
+            <WorkspacePanel
+              title="Welcome runtime"
+              subtitle="Giữ cấu hình, preview và test runtime trong cùng một nhịp thao tác để không bị tách block."
+              tabs={[{ key: "module_settings", label: props.tabLabel }]}
+              activeTab="module_settings"
+              onChangeTab={() => {}}
+              statusChips={(
+                <>
+                  <Chip size="small" color={props.moduleEnabled && props.welcomeEnabled ? "success" : "default"} label={props.moduleEnabled && props.welcomeEnabled ? "Đang chạy" : "Chưa chạy"} />
+                  <Chip size="small" variant="outlined" label={props.hasSavedConfig ? "Đã có cấu hình" : "Chưa lưu cấu hình"} />
+                  <Chip size="small" variant="outlined" label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Không tự xóa"} />
+                </>
+              )}
+            />
+          ) : null}
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật Welcome</Typography>
@@ -146,12 +216,6 @@ export function WelcomeScreen(props: {
             </Box>
             <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
           </Box>
-
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-            <Chip size="small" color={props.moduleEnabled && props.welcomeEnabled ? "success" : "default"} label={props.moduleEnabled && props.welcomeEnabled ? "Đang chạy" : "Chưa chạy"} />
-            <Chip size="small" variant="outlined" label={props.hasSavedConfig ? "Đã có cấu hình" : "Chưa lưu cấu hình"} />
-            <Chip size="small" variant="outlined" label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Không tự xóa"} />
-          </Stack>
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={1.5}>
@@ -288,6 +352,9 @@ export function ModerationScreen(props: {
   goToInsight: (insight: { targetLayer: string; targetTable: string }) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  tabs: Array<{ key: string; label: string }>;
+  activeWorkspaceTab: string;
+  onChangeWorkspaceTab: (tab: string) => void;
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
@@ -330,6 +397,21 @@ export function ModerationScreen(props: {
             </Stack>
           </Stack>
         </Paper>
+
+        <WorkspacePanel
+          title="Workspace kiểm duyệt"
+          subtitle="Đi giữa preset, blacklist, allowlist và cấu hình chung ngay trong cùng một block điều hướng."
+          tabs={props.tabs}
+          activeTab={props.activeWorkspaceTab}
+          onChangeTab={props.onChangeWorkspaceTab}
+          statusChips={(
+            <>
+              <Chip size="small" color={props.selectedGroupProtection.ready ? "success" : "warning"} label={props.selectedGroupProtection.ready ? "Group ready" : "Thiếu setup"} />
+              <Chip size="small" variant="outlined" label={`${props.selectedGroupProtection.enabledChecks}/${props.selectedGroupProtection.totalChecks} checks`} />
+              <Chip size="small" variant="outlined" label={`${props.selectedGroupProtection.warnings.length} cảnh báo`} />
+            </>
+          )}
+        />
       </Stack>
     </Section>
   );
@@ -1257,6 +1339,9 @@ export function GroupScreen(props: {
   openTaskData: (key: string) => void;
   selectLayer: (key: string) => void;
   startCreate: () => void;
+  tabs: Array<{ key: string; label: string }>;
+  activeTab: string;
+  onChangeTab: (tab: string) => void;
 }) {
   const c = UI_COPY.workbench.group;
   return (
@@ -1265,11 +1350,6 @@ export function GroupScreen(props: {
       title={c.title}
       subtitle="Quản lý group, phạm vi bot và các điều kiện để bot vận hành đúng chỗ."
       tone="content"
-      actions={
-        <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={props.startCreate}>
-          Thêm group
-        </MuiButton>
-      }
     >
       <Stack spacing={2}>
         <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
@@ -1314,6 +1394,25 @@ export function GroupScreen(props: {
             </Stack>
           </Paper>
         ) : null}
+
+        <WorkspacePanel
+          title="Workspace group"
+          subtitle="Đi giữa danh sách group, allowlist, admin và member role mà không tách tabs khỏi phần detail phía dưới."
+          tabs={props.tabs}
+          activeTab={props.activeTab}
+          onChangeTab={props.onChangeTab}
+          actions={(
+            <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={props.startCreate}>
+              Thêm group
+            </MuiButton>
+          )}
+          statusChips={(
+            <>
+              <Chip size="small" variant="outlined" label={props.selectedScopeRow ? props.selectedScopeRow.group_name || props.selectedScope : "Toàn hệ thống"} />
+              <Chip size="small" color={props.setupIssues.length ? "warning" : "success"} label={props.setupIssues.length ? `${props.setupIssues.length} việc còn thiếu` : "Đủ setup cơ bản"} />
+            </>
+          )}
+        />
       </Stack>
     </Section>
   );

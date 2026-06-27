@@ -61,7 +61,7 @@ import {
 
 import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
-import { AutomationScreen, AutoReplyScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, ScamScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
+import { AutomationScreen, AutoReplyScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
 import AuditConsole from "./components/screens/AuditConsole";
 import ScamInbox from "./components/screens/ScamInbox";
 import BulkPanel from "./components/screens/BulkPanel";
@@ -4497,6 +4497,7 @@ export default function HomePage() {
   const hasFocusedPanel = Boolean(Object.keys(draft).length || selected);
   const moduleWorkbenchActive = activeLayer.startsWith("module:");
   const moduleUsesDedicatedScreenOnly = activeLayer.startsWith("module:") && ["welcome"].includes(activeModuleHub.key);
+  const moduleTabsEmbedded = activeLayer.startsWith("module:") && ["automation", "welcome", "moderation"].includes(activeModuleHub.key);
   const setupWorkbench = activeLayer === "bot" || activeLayer === "group";
   const showOverview = workMode === "overview";
   const showOperations = !showOverview;
@@ -5021,7 +5022,7 @@ export default function HomePage() {
         </Paper>
         ) : null}
 
-        {activeLayer.startsWith("module:") ? (
+        {activeLayer.startsWith("module:") && !moduleTabsEmbedded ? (
           <Section
             eyebrow={activeModuleHub.key === "anti_scam" ? "Phân khu chống scam" : "Module tabs"}
             title={activeModuleHub.title}
@@ -5068,6 +5069,12 @@ export default function HomePage() {
             goToScheduleContent={goToScheduleContent}
             startScheduledMessageFlow={startScheduledMessageFlow}
             lookupsGroupsLength={lookups.groups.length}
+            tabs={activeModuleHub.tables.map((key) => ({
+              key,
+              label: TABLE_TASK_LABELS[key] || meta?.tables.find((tableItem) => tableItem.key === key)?.label || key,
+            }))}
+            activeTab={activeKey}
+            onChangeTab={(tab) => openModuleConfigure(activeModuleHub.key, tab)}
           />
         ) : null}
 
@@ -5101,6 +5108,7 @@ export default function HomePage() {
               welcome_buttons_text: welcomeDraftButtonsText
             })}
             onTestRuntime={() => void testWelcomeRuntime()}
+            tabLabel={TABLE_TASK_LABELS.module_settings || "Cài đặt module"}
           />
         ) : null}
 
@@ -5186,16 +5194,12 @@ export default function HomePage() {
                 setDraft({});
               }
             }}
-          />
-        ) : null}
-
-        {activeLayer.startsWith("module:") && activeModuleHub.key === "anti_scam" ? (
-          <ScamScreen
-            pendingScamReports={pendingScamReports}
-            scamWorkbenchRows={scamWorkbenchRows}
-            currentBotName={currentBot?.name || selectedBot || "Tất cả"}
-            selectedBot={selectedBot}
-            openTaskData={openTaskData}
+            tabs={activeModuleHub.tables.map((key) => ({
+              key,
+              label: TABLE_TASK_LABELS[key] || meta?.tables.find((tableItem) => tableItem.key === key)?.label || key,
+            }))}
+            activeWorkspaceTab={activeKey}
+            onChangeWorkspaceTab={(tab) => openModuleConfigure(activeModuleHub.key, tab)}
           />
         ) : null}
 
@@ -5212,6 +5216,12 @@ export default function HomePage() {
             openTaskData={openTaskData}
             selectLayer={selectLayer}
             startCreate={startCreate}
+            tabs={CORE_LAYERS.find((layer) => layer.key === "group")?.tables.map((key) => ({
+              key,
+              label: TABLE_TASK_LABELS[key] || meta?.tables.find((tableItem) => tableItem.key === key)?.label || key,
+            })) || []}
+            activeTab={activeKey}
+            onChangeTab={(tab) => openTaskData(tab)}
           />
         ) : null}
 
@@ -5323,17 +5333,6 @@ export default function HomePage() {
           <Alert severity="info" sx={{ mt: 2 }}>
             <strong>Luật từ khóa:</strong> nếu action = <code>delete</code> thì bot vẫn xóa tin và cộng cảnh báo nội bộ. Khi user chạm ngưỡng <code>ban_after_warnings</code>, bot sẽ tự ban để tránh spam lách luật.
           </Alert>
-        ) : null}
-
-        {table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports" ? (
-          <TabsBar
-            items={quickFilters.map((filter) => ({ key: filter.key || "all", label: filter.label }))}
-            value={quickFilter || "all"}
-            onChange={setQuickFilter}
-            scrollable
-            wrapped
-            tone="filled"
-          />
         ) : null}
 
         {bulkOpen && bulkTables.has(table.key) ? (
@@ -6028,6 +6027,8 @@ export default function HomePage() {
           }}
         >
           <WorkbenchList
+            sectionTitle={TABLE_TASK_LABELS[table.key] || table.label}
+            sectionSubtitle={scanMode === "scan" ? "Chỉ hiện trạng thái chính trong danh sách hiện tại." : "Hiện thêm ngữ cảnh, metadata và hành động liên quan."}
             visibleRows={visibleRows}
             loading={loading}
             scanMode={scanMode}
@@ -6057,6 +6058,13 @@ export default function HomePage() {
             remove={remove}
             emptyState={emptyState}
             startCreate={startCreate}
+            filterTabs={table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports"
+              ? quickFilters.map((filter) => ({ key: filter.key || "all", label: filter.label }))
+              : undefined}
+            activeFilter={table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports" ? (quickFilter || "all") : undefined}
+            onChangeFilter={table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports"
+              ? (value) => setQuickFilter(value)
+              : undefined}
           />
 
           <Dialog
