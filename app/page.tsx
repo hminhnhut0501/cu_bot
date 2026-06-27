@@ -142,6 +142,7 @@ type Lookups = {
   videos: Row[];
   moduleSettings: Row[];
   scamReports: Row[];
+  scamBroadcasts: Row[];
   auditLogs: Row[];
   channelPosts: Row[];
   giveawayEntries: Row[];
@@ -2266,7 +2267,7 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>((initialCpState.channelTab === "scheduled" || initialCpState.channelTab === "sent" || initialCpState.channelTab === "deleted" || initialCpState.channelTab === "failed") ? initialCpState.channelTab : "queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
@@ -3035,13 +3036,14 @@ export default function HomePage() {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const scopedGroupQuery = selectedScope ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedScope)}` : "";
       const auditQuery = selectedScope ? `?group_id=${encodeURIComponent(selectedScope)}` : "";
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, auditPayload, channelPostsPayload, giveawayEntriesPayload, shareUnlockCampaignsPayload, shareUnlockInvitesPayload, shareUnlockReferralsPayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, scamBroadcastsPayload, auditPayload, channelPostsPayload, giveawayEntriesPayload, shareUnlockCampaignsPayload, shareUnlockInvitesPayload, shareUnlockReferralsPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
         api(`/api/messages${scopedBotQuery}`),
         api(`/api/video_messages${scopedBotQuery}`),
         api(`/api/module_settings${scopedBotQuery}`),
         api(`/api/scam_reports${scopedBotQuery}`),
+        api(`/api/scam_broadcasts${scopedBotQuery}`),
         api(`/api/audit_logs${auditQuery}`),
         api(`/api/channel_posts${scopedBotQuery}`),
         api(`/api/giveaway_entries${scopedBotQuery}`),
@@ -3072,6 +3074,7 @@ export default function HomePage() {
         videos: videosPayload.rows || [],
         moduleSettings: modulePayload.rows || [],
         scamReports: scamReportsPayload.rows || [],
+        scamBroadcasts: scamBroadcastsPayload.rows || [],
         auditLogs: auditPayload.rows || [],
         channelPosts: channelPostsPayload.rows || [],
         giveawayEntries: giveawayEntriesPayload.rows || [],
@@ -3081,7 +3084,7 @@ export default function HomePage() {
       });
     } catch {
       setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
     }
   }
 
@@ -5279,6 +5282,7 @@ export default function HomePage() {
           <ScamInbox
             scamInboxStats={scamInboxStats}
             scamReports={lookups.scamReports}
+            scamBroadcasts={lookups.scamBroadcasts}
             onOpenAllReports={() => {
               setQuickFilter("all");
               setSelected(null);
@@ -5293,6 +5297,7 @@ export default function HomePage() {
             onReject={rejectScamReport}
             onDuplicate={duplicateScamReport}
             onNeedMoreInfo={needMoreInfoScamReport}
+            onOpenBroadcasts={() => goToInsight({ targetLayer: "module:anti_scam", targetTable: "scam_broadcasts" })}
             onEdit={(row) => startEdit(row)}
           />
         ) : null}

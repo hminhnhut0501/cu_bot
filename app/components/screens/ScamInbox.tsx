@@ -49,12 +49,14 @@ export type ScamInboxRow = Record<string, any>;
 export type ScamInboxProps = {
   scamInboxStats: ScamInboxStats;
   scamReports: ScamInboxRow[];
+  scamBroadcasts: ScamInboxRow[];
   onOpenAllReports: () => void;
   onOpenReport: (id: string | number) => void;
   onConfirm: (row: ScamInboxRow) => void;
   onReject: (row: ScamInboxRow) => void;
   onDuplicate: (row: ScamInboxRow) => void;
   onNeedMoreInfo: (row: ScamInboxRow) => void;
+  onOpenBroadcasts: () => void;
   onEdit: (row: ScamInboxRow) => void;
 };
 
@@ -94,18 +96,22 @@ function attachmentFiles(row: ScamInboxRow) {
 export default function ScamInbox({
   scamInboxStats,
   scamReports,
+  scamBroadcasts,
   onOpenAllReports,
   onOpenReport,
   onConfirm,
   onReject,
   onDuplicate,
   onNeedMoreInfo,
+  onOpenBroadcasts,
   onEdit,
 }: ScamInboxProps) {
   const [statusFilter, setStatusFilter] = useState<ScamStatusFilter>("pending");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
   const statusOptions: [ScamStatusFilter, string][] = [
     ["pending", `Pending (${scamInboxStats.pending})`],
     ["need_more_info", "Cần bổ sung"],
@@ -143,6 +149,7 @@ export default function ScamInbox({
 
   const selected = useMemo(() => filteredReports.find((row) => String(row.id) === String(selectedId)) || filteredReports[0] || null, [filteredReports, selectedId]);
   const selectedAttachments = useMemo(() => (selected ? attachmentFiles(selected) : []), [selected]);
+  const broadcastRows = useMemo(() => scamBroadcasts.slice(0, 6), [scamBroadcasts]);
 
   useEffect(() => {
     if (!selected && filteredReports.length) {
@@ -155,7 +162,18 @@ export default function ScamInbox({
 
   useEffect(() => {
     setPreviewIndex(null);
+    setPreviewOpen(false);
+    setPreviewUrl("");
   }, [selected?.id]);
+
+  useEffect(() => {
+    const file = previewIndex !== null ? selectedAttachments[previewIndex] : null;
+    if (!file) return;
+    const fileId = file.telegram_file_id || file.telegram_file_unique_id;
+    if (!fileId) return;
+    setPreviewUrl(`/api/scam_media?file_id=${encodeURIComponent(fileId)}`);
+    setPreviewOpen(true);
+  }, [previewIndex, selectedAttachments]);
 
   return (
     <Section
@@ -163,7 +181,12 @@ export default function ScamInbox({
       title="Duyệt report scam"
       subtitle="Queue-first inbox để admin xem report, đối chiếu bằng chứng và xác nhận nhanh."
       icon={<Inbox size={20} />}
-      actions={<MuiButton variant="outlined" startIcon={<ClipboardList size={16} />} onClick={onOpenAllReports}>Mở bảng report</MuiButton>}
+      actions={
+        <Stack direction="row" spacing={1}>
+          <MuiButton variant="outlined" startIcon={<ClipboardList size={16} />} onClick={onOpenAllReports}>Mở bảng report</MuiButton>
+          <MuiButton variant="outlined" startIcon={<Inbox size={16} />} onClick={onOpenBroadcasts}>Broadcast log</MuiButton>
+        </Stack>
+      }
       sx={{ mt: 2 }}
     >
       <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
@@ -370,6 +393,31 @@ export default function ScamInbox({
                           </Stack>
                         </>
                       ) : null}
+                      {broadcastRows.length ? (
+                        <>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack spacing={1}>
+                            <Typography variant="subtitle2">Broadcast log gần nhất</Typography>
+                            <Stack spacing={1}>
+                              {broadcastRows.map((row) => (
+                                <Paper key={row.id} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
+                                  <Stack spacing={0.5}>
+                                    <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                                        {row.broadcast_type || "broadcast"} · {row.status || "pending"}
+                                      </Typography>
+                                      <Chip size="small" label={row.target_chat_id || "no target"} variant="outlined" />
+                                    </Stack>
+                                    <Typography variant="caption" color="text.secondary" noWrap>
+                                      {row.error || row.sent_at || formatDate(row.created_at)}
+                                    </Typography>
+                                  </Stack>
+                                </Paper>
+                              ))}
+                            </Stack>
+                          </Stack>
+                        </>
+                      ) : null}
                     </Stack>
                   </Paper>
 
@@ -426,13 +474,17 @@ export default function ScamInbox({
         </Stack>
       </Paper>
 
-      <Dialog open={previewIndex !== null && !!selectedAttachments[previewIndex || 0]} onClose={() => setPreviewIndex(null)} maxWidth="sm" fullWidth>
+      <Dialog open={previewOpen && Boolean(previewUrl)} onClose={() => { setPreviewOpen(false); setPreviewIndex(null); setPreviewUrl(""); }} maxWidth="md" fullWidth>
         <DialogTitle>Preview attachment</DialogTitle>
         <DialogContent>
           {previewIndex !== null && selectedAttachments[previewIndex] ? (
             <Stack spacing={1.25}>
-              <Box sx={{ height: 220, borderRadius: 2, bgcolor: "rgba(15, 118, 110, 0.08)", display: "grid", placeItems: "center" }}>
-                <ImageIcon size={42} />
+              <Box sx={{ borderRadius: 2, overflow: "hidden", bgcolor: "rgba(15, 118, 110, 0.08)", minHeight: 240, display: "grid", placeItems: "center" }}>
+                {previewUrl ? (
+                  <Box component="img" src={previewUrl} alt="attachment preview" sx={{ width: "100%", maxHeight: 520, objectFit: "contain", display: "block" }} />
+                ) : (
+                  <ImageIcon size={42} />
+                )}
               </Box>
               <Typography variant="subtitle2">{selectedAttachments[previewIndex].media_type || "file"}</Typography>
               <Typography variant="body2" color="text.secondary">

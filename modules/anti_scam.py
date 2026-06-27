@@ -54,6 +54,25 @@ class AntiScamModule(BotModule):
         response.raise_for_status()
         return response.json()
 
+    def telegram_file_url(self, file_id):
+        token = os.environ.get("BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN") or ""
+        if not token or not file_id:
+            return ""
+        try:
+            response = requests.get(
+                f"https://api.telegram.org/bot{token}/getFile",
+                params={"file_id": file_id},
+                timeout=15,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            file_path = ((payload or {}).get("result") or {}).get("file_path") or ""
+            if not file_path:
+                return ""
+            return f"https://api.telegram.org/file/bot{token}/{file_path}"
+        except Exception:
+            return ""
+
     def is_enabled(self):
         return self.module_enabled("anti_scam", True)
 
@@ -182,13 +201,18 @@ class AntiScamModule(BotModule):
             tokens = [self.normalize_value(item) for item in tokens if item]
             exact = any(token == normalized for token in tokens)
             contains = any(normalized and normalized in token for token in tokens)
+            exact_count = sum(1 for token in tokens if token == normalized)
             score = int(row.get("scam_percent") or row.get("confidence_score") or 0)
             if exact:
                 score += 100
             elif contains:
                 score += 30
+            if exact_count > 1:
+                score += min(20, exact_count * 5)
             if str(row.get("status") or "").lower() == "confirmed":
                 score += 20
+            if str(row.get("result_type") or "") == "alias":
+                score += 10
             ranked.append((score, row))
         ranked.sort(key=lambda item: item[0], reverse=True)
         return [row for _, row in ranked]
@@ -210,6 +234,7 @@ class AntiScamModule(BotModule):
         reporter = message.from_user
         attachments = self.extract_attachments(message)
         duplicates = self.find_duplicate_candidates(parsed)
+        media_group_id = getattr(message, "media_group_id", None)
         payload = {
             "reporter_user_id": str(reporter.id),
             "reporter_username": getattr(reporter, "username", "") or "",
@@ -232,6 +257,7 @@ class AntiScamModule(BotModule):
                 "raw_text": text,
                 "files": attachments,
                 "duplicates": duplicates,
+                "media_group_id": media_group_id or "",
             },
             "attachment_count": len(attachments),
             "confidence_score": self.compute_report_score(parsed, text, attachments, duplicates),
@@ -292,6 +318,7 @@ class AntiScamModule(BotModule):
                         "result_type": item.get("result_type"),
                         "status": item.get("status"),
                         "score": item.get("scam_percent") or item.get("confidence_score") or 0,
+                        "matched_on": item.get("matched_on") or "",
                     })
         except Exception:
             pass
@@ -315,6 +342,12 @@ class AntiScamModule(BotModule):
             score += min(15, len(attachments) * 5)
         if duplicates:
             score += min(20, len(duplicates) * 10)
+            if any(item.get("result_type") == "entity" for item in duplicates):
+                score += 10
+        if parsed.get("bank_account") and parsed.get("uid"):
+            score += 10
+        if parsed.get("username") and parsed.get("bank_account"):
+            score += 5
         if text:
             score += min(10, len(text.split()) // 6)
         return min(score, 100)
@@ -359,6 +392,25 @@ class AntiScamModule(BotModule):
             self.bot.send_message(channel_id, body)
         except Exception:
             return
+
+    def send_follow_up(self, report_row, admin_note):
+        chat_id = report_row.get("reporter_chat_id") or report_row.get("source_chat_id")
+        if not chat_id:
+            return False
+        try:
+            body = self.text(
+                "scam_report_need_more_info_text",
+                "Báo cáo #{id} cần bổ sung:\n{note}",
+                id=report_row.get("id", "-"),
+                note=admin_note or "Vui lòng gửi thêm bill/ảnh group/UID/số tài khoản để admin duyệt.",
+            )
+            self.bot.send_message(chat_id, body)
+            return True
+        except Exception:
+            return False
+
+    def request_media_path(self, file_id):
+        return self.telegram_file_url(file_id)
 
     def append_note(self, current, addition):
         current = (current or "").strip()
