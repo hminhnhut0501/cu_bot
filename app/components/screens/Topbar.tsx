@@ -5,7 +5,6 @@ import { Check, Database, Loader2, MoonStar, MoreHorizontal, Plus, RefreshCcw, S
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 
 import PageHeader from "@/app/components/ui/PageHeader";
-import TabsBar, { type TabItem } from "@/app/components/ui/TabsBar";
 import { moduleAccents } from "@/app/theme";
 
 type TableConfigLike = { key: string; label: string };
@@ -108,11 +107,6 @@ export default function Topbar(props: TopbarProps) {
     tone,
   } = props;
 
-  const hasTopbarQuickFilter = table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports";
-  const tableFilterTabs: TabItem[] = quickFilters.map((filter) => ({
-    key: filter.key,
-    label: filter.label,
-  }));
   const isMessageLibrary = table.key === "messages" || table.key === "video_messages";
   const currentTone = tone || "main";
 
@@ -200,16 +194,6 @@ export default function Topbar(props: TopbarProps) {
         </Stack>
       }
     >
-      {hasTopbarQuickFilter && tableFilterTabs.length ? (
-        <TabsBar
-          items={tableFilterTabs}
-          value={quickFilter}
-          onChange={setQuickFilter}
-          scrollable
-          tone="tonal"
-        />
-      ) : null}
-
       <Stack
         direction={{ xs: "column", md: "row" }}
         spacing={1.5}

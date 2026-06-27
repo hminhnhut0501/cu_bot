@@ -5335,6 +5335,7 @@ export default function HomePage() {
             onChange={setQuickFilter}
             scrollable
             wrapped
+            tone="filled"
           />
         ) : null}
 
