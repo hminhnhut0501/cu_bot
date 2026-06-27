@@ -2746,13 +2746,6 @@ export default function HomePage() {
       keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds"]
     },
     {
-      key: "forward",
-      title: "Forward nâng cao",
-      desc: "Cho phép forward có kiểm soát, chặn bot, lọc loại nội dung và siết theo vi phạm.",
-      toggleKey: "allow_forward_messages",
-      keys: ["allow_forward_messages", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "forward_action", "inline_keyboard_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds", "spam_restrict_text", "warning_text", "warning_notice_delete_seconds", "spam_notice_delete_seconds"]
-    },
-    {
       key: "duplicate",
       title: "Trùng nội dung",
       desc: "Phát hiện tin/sticker lặp và cách xử lý.",
@@ -2774,6 +2767,37 @@ export default function HomePage() {
       keys: ["ban_after_warnings", "ban_seconds"]
     }
   ], []);
+  const forwardContentBlock = useMemo(() => ({
+    key: "forward-content",
+    title: "Cho phép forward & lọc loại nội dung",
+    desc: "Bật forward có kiểm soát, chỉ cho phép các loại nội dung bạn tin cậy và vẫn scan nội dung đi kèm.",
+    toggleKey: "allow_forward_messages",
+    keys: [
+      "allow_forward_messages",
+      "forward_allowed_content_types",
+      "forward_action",
+      "forward_warning_reason",
+      "forward_warning_text",
+      "forward_warning_delete_seconds",
+      "inline_keyboard_action"
+    ]
+  }), []);
+  const forwardViolationBlock = useMemo(() => ({
+    key: "forward-violation",
+    title: "Ngưỡng vi phạm forward",
+    desc: "Siết theo số lần forward quá nhanh và số lần vi phạm để restrict hoặc ban.",
+    toggleKey: "allow_forward_messages",
+    keys: [
+      "forward_spam_max_messages",
+      "forward_spam_window_seconds",
+      "forward_violation_restrict_after",
+      "forward_violation_ban_after",
+      "spam_restrict_text",
+      "warning_text",
+      "warning_notice_delete_seconds",
+      "spam_notice_delete_seconds"
+    ]
+  }), []);
   const templateConfigBlocks = useMemo(() => [
     {
       key: "general",
@@ -5726,6 +5750,85 @@ export default function HomePage() {
                                 );
                               })}
                             </Grid>
+                          </Stack>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                ) : activeLayer === "module:moderation" && activeConfigSection.title === "Forward nâng cao" ? (
+                  <Stack spacing={1.5}>
+                    {[forwardContentBlock, forwardViolationBlock].map((block) => {
+                      const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
+                      const toggleRow = moderationConfigRowMap.get(block.toggleKey);
+                      const blockOn = toggleRow ? String(toggleRow.value).toLowerCase() !== "false" : true;
+                      return (
+                        <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                          <Stack spacing={1.5}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+                              <Box>
+                                <Typography variant="subtitle1">{block.title}</Typography>
+                                <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
+                              </Box>
+                              {toggleRow ? (
+                                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                                  <Chip size="small" label={blockOn ? "Bật" : "Tắt"} color={blockOn ? "success" : "default"} />
+                                  <Switch checked={blockOn} disabled={saving} onChange={() => toggleConfigValue(toggleRow)} />
+                                </Stack>
+                              ) : null}
+                            </Stack>
+                            {blockOn ? (
+                              <Grid container spacing={1.5}>
+                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey).map((row) => {
+                                  const editing = selected?.id === row.id && Object.keys(draft).length > 0;
+                                  const booleanValue = isConfigBoolean(row);
+                                  const valueOn = String(row.value).toLowerCase() === "true";
+                                  const editorKind = configEditorKind(String(row.key || ""));
+                                  return (
+                                    <Grid key={row.id || row.key} size={{ xs: 12, lg: 6, xl: 4 }}>
+                                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", opacity: row.enabled === false ? 0.7 : 1 }}>
+                                        <Stack spacing={1.5}>
+                                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
+                                            <Box>
+                                              <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
+                                              <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue ? (
+                                                <Switch
+                                                  disabled={saving}
+                                                  onClick={() => toggleConfigValue(row)}
+                                                  title={valueOn ? "Đang bật, bấm để tắt" : "Đang tắt, bấm để bật"}
+                                                  checked={valueOn}
+                                                />
+                                              ) : null}
+                                              <MuiButton variant="outlined" size="small" disabled={saving} onClick={() => startEdit(row)} startIcon={<Edit3 size={16} />}>Sửa</MuiButton>
+                                            </Stack>
+                                          </Stack>
+                                          {editing ? (
+                                            <ConfigEditor
+                                              draft={draft as ConfigEditorDraft}
+                                              saving={saving}
+                                              editorKind={editorKind}
+                                              configSelectOptions={configSelectOptions}
+                                              configPlaceholders={configPlaceholders}
+                                              fieldUnitHint={fieldUnitHint}
+                                              setDraft={setDraft as (updater: (current: ConfigEditorDraft) => ConfigEditorDraft) => void}
+                                              closeFocusedPanel={closeFocusedPanel}
+                                              save={save}
+                                            />
+                                          ) : (
+                                            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                                              <Typography variant="caption" color="text.secondary">{configValueCaption(row)}</Typography>
+                                              <Typography variant="subtitle2">{configDisplayValue(row)}</Typography>
+                                            </Paper>
+                                          )}
+                                        </Stack>
+                                      </Paper>
+                                    </Grid>
+                                  );
+                                })}
+                              </Grid>
+                            ) : null}
                           </Stack>
                         </Paper>
                       );
