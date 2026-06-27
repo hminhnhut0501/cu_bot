@@ -3,6 +3,9 @@
 import {
   Box,
   Button as MuiButton,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
   MenuItem,
   Paper,
   Stack,
@@ -53,6 +56,40 @@ export default function ConfigEditor({
 }: ConfigEditorProps) {
   const booleanValue = String(draft.value).toLowerCase() === "true";
   const placeholders = configPlaceholders(String(draft.key || ""));
+  const forwardContentOptions = [
+    { value: "text", label: "Text" },
+    { value: "photo", label: "Ảnh" },
+    { value: "video", label: "Video" },
+    { value: "document", label: "File" },
+    { value: "sticker", label: "Sticker" },
+    { value: "audio", label: "Audio" },
+    { value: "voice", label: "Voice" },
+    { value: "animation", label: "GIF" },
+    { value: "video_note", label: "Video note" },
+  ];
+  const selectedForwardTypes = new Set(
+    String(draft.value || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  function updateForwardTypes(type: string, checked: boolean) {
+    setDraft((current) => {
+      const currentSet = new Set(
+        String(current.value || "")
+          .split(",")
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean)
+      );
+      if (checked) currentSet.add(type);
+      else currentSet.delete(type);
+      return {
+        ...current,
+        value: Array.from(currentSet).join(", "),
+      };
+    });
+  }
 
   return (
     <Box component="form" onSubmit={save}>
@@ -73,6 +110,29 @@ export default function ConfigEditor({
                   }))
                 }
               />
+            </Stack>
+          </Paper>
+        ) : editorKind === "multiselect" ? (
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Chọn loại nội dung được phép</Typography>
+              <FormGroup row sx={{ gap: 1 }}>
+                {forwardContentOptions.map((option) => (
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        checked={selectedForwardTypes.has(option.value)}
+                        onChange={(_, checked) => updateForwardTypes(option.value, checked)}
+                      />
+                    }
+                    label={option.label}
+                  />
+                ))}
+              </FormGroup>
+              <Typography variant="caption" color="text.secondary">
+                Đang chọn: {Array.from(selectedForwardTypes).join(", ") || "Chưa chọn gì"}
+              </Typography>
             </Stack>
           </Paper>
         ) : editorKind === "select" ? (

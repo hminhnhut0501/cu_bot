@@ -1058,12 +1058,15 @@ function configFieldHint(key: string) {
     return "Đây là lý do cố định, không cần placeholder.";
   }
   if (key === "forward_allowed_content_types") {
-    return "Nhập danh sách cách nhau bằng dấu phẩy, ví dụ: text, photo, video.";
+    return "Chọn các loại nội dung được phép forward.";
   }
   return "";
 }
 
 function configEditorKind(key: string) {
+  if (key === "forward_allowed_content_types") {
+    return "multiselect";
+  }
   if (CONFIG_BOOLEAN_KEYS.has(key)) {
     return "boolean";
   }
