@@ -4,6 +4,7 @@ import {
   Box,
   Button as MuiButton,
   MenuItem,
+  Paper,
   Stack,
   Switch,
   TextField,
@@ -57,76 +58,93 @@ export default function ConfigEditor({
     <Box component="form" onSubmit={save}>
       <Stack spacing={1.5}>
         {editorKind === "boolean" ? (
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-            <Switch
-              checked={booleanValue}
-              onChange={() =>
-                setDraft((current) => ({
-                  ...current,
-                  value: String(current.value).toLowerCase() === "true" ? "false" : "true",
-                }))
-              }
-            />
-          </Stack>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+              <Box>
+                <Typography variant="subtitle2">Bật / tắt giá trị</Typography>
+                <Typography variant="body2" color="text.secondary">Đổi trực tiếp trạng thái của config này.</Typography>
+              </Box>
+              <Switch
+                checked={booleanValue}
+                onChange={() =>
+                  setDraft((current) => ({
+                    ...current,
+                    value: String(current.value).toLowerCase() === "true" ? "false" : "true",
+                  }))
+                }
+              />
+            </Stack>
+          </Paper>
         ) : editorKind === "select" ? (
-          <TextField
-            select
-            label="Chọn giá trị cố định"
-            size="small"
-            value={String(draft.value ?? "")}
-            slotProps={{
-              select: {
-                MenuProps: {
-                  disablePortal: true,
-                  slotProps: {
-                    paper: {
-                      sx: { maxHeight: 320, zIndex: 2000 },
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Chọn giá trị cố định</Typography>
+              <TextField
+                select
+                size="small"
+                value={String(draft.value ?? "")}
+                slotProps={{
+                  select: {
+                    MenuProps: {
+                      disablePortal: true,
+                      slotProps: {
+                        paper: {
+                          sx: { maxHeight: 320, zIndex: 2000 },
+                        },
+                      },
                     },
                   },
-                },
-              },
-            }}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setDraft((current) => ({ ...current, value: event.target.value }))
-            }
-          >
-            {configSelectOptions(String(draft.key || "")).map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+                }}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setDraft((current) => ({ ...current, value: event.target.value }))
+                }
+              >
+                {configSelectOptions(String(draft.key || "")).map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          </Paper>
         ) : editorKind === "number" ? (
-          <TextField
-            type="number"
-            label="Nhập giá trị số"
-            size="small"
-            value={String(draft.value ?? "")}
-            onChange={(event: ChangeEvent<HTMLInputElement>) =>
-              setDraft((current) => ({ ...current, value: event.target.value }))
-            }
-            helperText={fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}
-          />
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Nhập giá trị số</Typography>
+              <TextField
+                type="number"
+                size="small"
+                value={String(draft.value ?? "")}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setDraft((current) => ({ ...current, value: event.target.value }))
+                }
+                helperText={fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}
+              />
+            </Stack>
+          </Paper>
         ) : (
-          <Stack spacing={0.5}>
-            <TextField
-              multiline
-              minRows={String(draft.value || "").length > 120 ? 6 : 3}
-              label="Nhập nội dung / giá trị"
-              value={draft.value ?? ""}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
-                setDraft((current) => ({ ...current, value: event.target.value }))
-              }
-            />
-            {placeholders.length ? (
-              <Typography variant="caption" color="text.secondary">
-                Placeholder: {placeholders.join(" · ")}
-              </Typography>
-            ) : null}
-          </Stack>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2">Nhập nội dung / giá trị</Typography>
+              <TextField
+                multiline
+                minRows={String(draft.value || "").length > 120 ? 6 : 3}
+                value={draft.value ?? ""}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
+                  setDraft((current) => ({ ...current, value: event.target.value }))
+                }
+              />
+              {placeholders.length ? (
+                <Typography variant="caption" color="text.secondary">
+                  Placeholder: {placeholders.join(" · ")}
+                </Typography>
+              ) : null}
+            </Stack>
+          </Paper>
         )}
 
-        <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end", mt: 1 }}>
+        <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
+          <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
           <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>
             Hủy
           </MuiButton>
@@ -138,7 +156,8 @@ export default function ConfigEditor({
           >
             Lưu
           </MuiButton>
-        </Stack>
+          </Stack>
+        </Paper>
       </Stack>
     </Box>
   );

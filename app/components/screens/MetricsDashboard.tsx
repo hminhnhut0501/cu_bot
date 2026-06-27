@@ -32,6 +32,7 @@ export default function MetricsDashboard({
       eyebrow="Dashboard vận hành"
       title="Số liệu & chỉ số"
       subtitle="Dữ liệu lấy từ bảng bot_metrics trong Supabase."
+      tone="analytics"
       icon={<BarChart3 size={20} />}
     >
       {summary.length ? (

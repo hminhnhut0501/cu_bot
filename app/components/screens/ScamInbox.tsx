@@ -37,6 +37,8 @@ import {
 
 import Section from "@/app/components/ui/Section";
 import StatCard from "@/app/components/ui/StatCard";
+import TabsBar from "@/app/components/ui/TabsBar";
+import EmptyState from "@/app/components/ui/EmptyState";
 
 export type ScamInboxStats = {
   pending: number;
@@ -118,11 +120,11 @@ export default function ScamInbox({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const statusOptions: [ScamStatusFilter, string][] = [
-    ["pending", `Pending (${scamInboxStats.pending})`],
+    ["pending", `Chờ duyệt (${scamInboxStats.pending})`],
     ["need_more_info", "Cần bổ sung"],
-    ["confirmed", `Confirmed (${scamInboxStats.confirmed})`],
-    ["rejected", `Rejected (${scamInboxStats.rejected})`],
-    ["duplicate", "Duplicate"],
+    ["confirmed", `Đã xác nhận (${scamInboxStats.confirmed})`],
+    ["rejected", `Từ chối (${scamInboxStats.rejected})`],
+    ["duplicate", "Trùng lặp"],
     ["all", "Tất cả"],
   ];
 
@@ -185,6 +187,7 @@ export default function ScamInbox({
       eyebrow="Phase 4 review inbox"
       title="Duyệt report scam"
       subtitle="Queue-first inbox để admin xem report, đối chiếu bằng chứng và xác nhận nhanh."
+      tone="scam"
       icon={<Inbox size={20} />}
       actions={
         <Stack direction="row" spacing={1}>
@@ -201,31 +204,43 @@ export default function ScamInbox({
         <StatCard label="Đang xem" value={filteredReports.length} tone="info" />
       </Box>
 
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          bgcolor: "background.default",
+          backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.05), transparent 42%)",
+        }}
+      >
         <Stack spacing={2}>
           <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", lg: "center" }, justifyContent: "space-between" }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flex: 1, maxWidth: 720 }}>
-              <Search size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
-              <TextField
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                size="small"
-                placeholder="Tìm theo UID, username, SĐT, số tài khoản, group..."
-                sx={{ flex: 1 }}
-              />
-            </Box>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-              {statusOptions.map(([key, label]) => (
-                <MuiButton
-                  key={key}
+            <Box sx={{ display: "grid", gap: 0.75, flex: 1, maxWidth: 720 }}>
+              <Typography variant="overline" sx={{ color: "text.secondary" }}>Filter bar</Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+                <Search size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
+                <TextField
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
                   size="small"
-                  variant={statusFilter === key ? "contained" : "outlined"}
-                  onClick={() => setStatusFilter(key)}
-                >
-                  {label}
-                </MuiButton>
-              ))}
-            </Stack>
+                  placeholder="Tìm theo UID, username, SĐT, số tài khoản, group..."
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+            </Box>
+            <TabsBar
+              tone="filled"
+              wrapped
+              scrollable
+              items={statusOptions.map(([key, label]) => ({ key, label }))}
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value as ScamStatusFilter)}
+              sx={{
+                minHeight: "unset",
+                "& .MuiTabs-flexContainer": {
+                  gap: 0.75,
+                },
+              }}
+            />
           </Stack>
 
           <Box
@@ -236,10 +251,21 @@ export default function ScamInbox({
               minHeight: 520,
             }}
           >
-            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper", overflow: "hidden" }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                bgcolor: "background.paper",
+                overflow: "hidden",
+                backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.04), transparent 24%)",
+              }}
+            >
               <Stack spacing={1}>
                 <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <Typography variant="subtitle2">Danh sách report</Typography>
+                  <Box>
+                    <Typography variant="overline" sx={{ color: "text.secondary", display: "block" }}>Queue</Typography>
+                    <Typography variant="subtitle2">Danh sách report</Typography>
+                  </Box>
                   <Chip size="small" variant="outlined" label={`${filteredReports.length} mục`} />
                 </Stack>
                 <Divider />
@@ -287,23 +313,31 @@ export default function ScamInbox({
                       </Paper>
                     );
                   }) : (
-                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-                      <Stack spacing={1} sx={{ alignItems: "center", textAlign: "center" }}>
-                        <CircleDashed size={22} />
-                        <Typography variant="subtitle2">Không có report phù hợp</Typography>
-                        <Typography variant="body2" color="text.secondary">Thử đổi bộ lọc hoặc tìm theo UID, SĐT, số tài khoản.</Typography>
-                      </Stack>
+                    <Paper variant="outlined" sx={{ bgcolor: "background.default" }}>
+                      <EmptyState
+                        title="Không có report phù hợp"
+                        body="Thử đổi bộ lọc hoặc tìm theo UID, SĐT, số tài khoản."
+                        icon={<CircleDashed size={22} />}
+                      />
                     </Paper>
                   )}
                 </Stack>
               </Stack>
             </Paper>
 
-            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                bgcolor: "background.paper",
+                backgroundImage: selected ? "linear-gradient(180deg, rgba(37, 99, 235, 0.05), transparent 26%)" : "none",
+              }}
+            >
               {selected ? (
                 <Stack spacing={1.5}>
                   <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
                     <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block" }}>Detail panel</Typography>
                       <Typography variant="h6" sx={{ fontWeight: 800 }}>
                         {selected.target_username || selected.target_uid || selected.bank_account || "Chi tiết report"}
                       </Typography>
@@ -477,11 +511,13 @@ export default function ScamInbox({
                   </Paper>
                 </Stack>
               ) : (
-                <Stack spacing={1.5} sx={{ alignItems: "center", justifyContent: "center", minHeight: 420, textAlign: "center" }}>
-                  <ShieldCheck size={28} />
-                  <Typography variant="h6">Chọn một report để xem chi tiết</Typography>
-                  <Typography variant="body2" color="text.secondary">Admin có thể lọc theo trạng thái, tìm nhanh bằng bất kỳ trường nào, rồi xác nhận ngay trong panel này.</Typography>
-                </Stack>
+                <Paper variant="outlined" sx={{ bgcolor: "background.default" }}>
+                  <EmptyState
+                    title="Chọn một report để xem chi tiết"
+                    body="Admin có thể lọc theo trạng thái, tìm nhanh bằng bất kỳ trường nào, rồi xác nhận ngay trong panel này."
+                    icon={<ShieldCheck size={28} />}
+                  />
+                </Paper>
               )}
             </Paper>
           </Box>

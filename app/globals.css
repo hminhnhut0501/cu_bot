@@ -29,11 +29,30 @@
   --cp-color-subtle: #64748b;
   --cp-color-primary: #0f766e;
   --cp-color-primary-dark: #115e59;
+  --cp-color-secondary: #4f46e5;
+  --cp-color-tertiary: #d946ef;
+  --cp-color-accent: #2563eb;
 
   --cp-radius-sm: 6px;
   --cp-radius-md: 10px;
   --cp-radius-lg: 14px;
   --cp-radius-pill: 999px;
+}
+
+html[data-theme="dark"] {
+  --cp-color-bg: #0b1020;
+  --cp-color-paper: #111827;
+  --cp-color-surface: #131b2d;
+  --cp-color-line: #263246;
+  --cp-color-line-soft: #1c2435;
+  --cp-color-text: #e5eefb;
+  --cp-color-muted: #c4d0e3;
+  --cp-color-subtle: #94a3b8;
+  --cp-color-primary: #2dd4bf;
+  --cp-color-primary-dark: #14b8a6;
+  --cp-color-secondary: #818cf8;
+  --cp-color-tertiary: #f472b6;
+  --cp-color-accent: #60a5fa;
 }
 
 *,
@@ -46,7 +65,11 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--cp-color-bg);
+  background:
+    radial-gradient(circle at top left, rgba(79, 70, 229, 0.10), transparent 30%),
+    radial-gradient(circle at top right, rgba(217, 70, 239, 0.08), transparent 26%),
+    radial-gradient(circle at 50% -10%, rgba(15, 118, 110, 0.10), transparent 32%),
+    var(--cp-color-bg);
   color: var(--cp-color-text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -54,8 +77,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(circle at top left, rgba(129, 140, 248, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(244, 114, 182, 0.12), transparent 24%),
+    radial-gradient(circle at 50% -10%, rgba(45, 212, 191, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(11, 16, 32, 1)),
+    var(--cp-color-bg);
+}
+
 body {
   min-height: 100vh;
+  background-attachment: fixed;
 }
 
 /* Slim scrollbar — WebKit */

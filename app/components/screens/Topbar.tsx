@@ -1,11 +1,12 @@
 "use client";
 
 import { Box, Button as MuiButton, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { Check, Database, Loader2, MoreHorizontal, Plus, RefreshCcw, Search, Send, Trash2, X } from "lucide-react";
+import { Check, Database, Loader2, MoonStar, MoreHorizontal, Plus, RefreshCcw, Search, Send, SunMedium, Trash2, X } from "lucide-react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 
 import PageHeader from "@/app/components/ui/PageHeader";
 import TabsBar, { type TabItem } from "@/app/components/ui/TabsBar";
+import { moduleAccents } from "@/app/theme";
 
 type TableConfigLike = { key: string; label: string };
 type BotLike = { bot_key?: string; id?: string | number; name?: string };
@@ -56,6 +57,9 @@ export type TopbarProps = {
   envStatus?: { runtimeMode?: string };
   openCommand: () => void;
   selectBot: (botKey: string) => void;
+  themeMode: "light" | "dark";
+  toggleThemeMode: () => void;
+  tone?: keyof typeof moduleAccents;
 };
 
 export default function Topbar(props: TopbarProps) {
@@ -99,14 +103,18 @@ export default function Topbar(props: TopbarProps) {
     envStatus,
     openCommand,
     selectBot,
+    themeMode,
+    toggleThemeMode,
+    tone,
   } = props;
 
-  const hasTopbarQuickFilter = table.key !== "config" && table.key !== "channel_posts";
+  const hasTopbarQuickFilter = table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports";
   const tableFilterTabs: TabItem[] = quickFilters.map((filter) => ({
     key: filter.key,
     label: filter.label,
   }));
   const isMessageLibrary = table.key === "messages" || table.key === "video_messages";
+  const currentTone = tone || "main";
 
   return (
     <PageHeader
@@ -115,6 +123,7 @@ export default function Topbar(props: TopbarProps) {
       subtitle={getTableDescription(table.key)}
       icon={<Database size={20} />}
       breadcrumbs={scopeBreadcrumb(groups, selectedScope)}
+      tone={currentTone}
       actions={
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
           {props.showTaskData && (props.moduleWorkbenchActive || props.setupWorkbench || props.activeLayer === "bot" || props.activeLayer === "group") ? (
@@ -175,11 +184,15 @@ export default function Topbar(props: TopbarProps) {
 
           <MuiButton variant="outlined" onClick={openCommand}>Command</MuiButton>
 
+          <IconButton onClick={toggleThemeMode} title={themeMode === "dark" ? "Chuyển sang light theme" : "Chuyển sang dark theme"}>
+            {themeMode === "dark" ? <SunMedium size={17} /> : <MoonStar size={17} />}
+          </IconButton>
+
           {table.key === "channel_posts" ? (
             <MuiButton variant="contained" startIcon={<Send size={16} />} onClick={openChannelComposer}>
               Đăng bài
             </MuiButton>
-          ) : !readOnlyTable && table.key !== "config" ? (
+          ) : !readOnlyTable && table.key !== "config" && table.key !== "scam_reports" ? (
             <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={startCreate}>
               {tablePrimaryAction[table.key] || "Tạo mới"}
             </MuiButton>
@@ -193,6 +206,7 @@ export default function Topbar(props: TopbarProps) {
           value={quickFilter}
           onChange={setQuickFilter}
           scrollable
+          tone="tonal"
         />
       ) : null}
 

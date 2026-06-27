@@ -1,9 +1,10 @@
 "use client";
 
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import type { ReactNode } from "react";
 
-import { tokens } from "@/app/theme";
+import { moduleAccents, tokens } from "@/app/theme";
 
 export type SectionProps = {
   /** Section title rendered as `subtitle1` */
@@ -28,6 +29,8 @@ export type SectionProps = {
   id?: string;
   /** Optional icon rendered next to the title */
   icon?: ReactNode;
+  /** Optional color tone for the section header */
+  tone?: keyof typeof moduleAccents;
 };
 
 /**
@@ -53,7 +56,10 @@ export default function Section({
   sx,
   id,
   icon,
+  tone = "main",
 }: SectionProps) {
+  const theme = useTheme();
+  const accent = moduleAccents[tone];
   return (
     <Paper
       id={id}
@@ -62,8 +68,12 @@ export default function Section({
       sx={{
         p: padding,
         bgcolor: subtle ? "background.default" : "background.paper",
-        borderColor: "divider",
+        borderColor: accent.line,
+        borderTop: `4px solid ${accent.color}`,
         borderRadius: `${tokens.radius.md}px`,
+        backgroundImage: subtle
+          ? "none"
+          : `linear-gradient(135deg, ${alpha(accent.color, theme.palette.mode === "dark" ? 0.16 : 0.08)}, transparent 48%)`,
         ...sx,
       }}
     >
@@ -87,8 +97,8 @@ export default function Section({
                     borderRadius: 1,
                     display: "grid",
                     placeItems: "center",
-                    color: "primary.main",
-                    backgroundColor: "rgba(15, 118, 110, 0.08)",
+                    color: accent.color,
+                    backgroundColor: accent.tint,
                     flexShrink: 0,
                   }}
                 >
@@ -99,8 +109,7 @@ export default function Section({
                 {eyebrow ? (
                   <Typography
                     variant="overline"
-                    color="primary"
-                    sx={{ display: "block", mb: 0.25 }}
+                    sx={{ display: "block", mb: 0.25, color: accent.color }}
                   >
                     {eyebrow}
                   </Typography>

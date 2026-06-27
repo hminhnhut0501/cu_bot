@@ -77,9 +77,13 @@ import WorkbenchList from "./components/screens/WorkbenchList";
 import ConfigEditor, { type ConfigEditorDraft } from "./components/screens/ConfigEditor";
 import LoadingScreen from "./components/ui/LoadingScreen";
 import ErrorAlert from "./components/ui/ErrorAlert";
+import Section from "./components/ui/Section";
+import StatCard from "./components/ui/StatCard";
 import TabsBar from "./components/ui/TabsBar";
 import { UI_COPY } from "@/lib/uiCopy";
 import { buildCommandInsights, buildEditorFieldGroups, buildGroupEditorTabs, buildLiveActivity, buildModerationPolicySummary, buildOperationTasks, buildScamWorkbenchRows, buildScopeCrumbs, filterVisibleRows } from "@/lib/workbench-helpers";
+import { useThemeMode } from "./theme-registry";
+import { moduleAccents } from "./theme";
 
 // Legacy smoke markers retained for compatibility:
 // Hàng đợi vận hành
@@ -1586,7 +1590,7 @@ function fieldIsAdvanced(tableKey: string, fieldKey: string) {
 }
 
 function rowMatchesQuickFilter(row: Row, filter: string) {
-  if (!filter) {
+  if (!filter || filter === "all") {
     return true;
   }
   if (filter === "active") {
@@ -2239,6 +2243,7 @@ function saveCpState(nextState: Record<string, string>) {
 }
 
 export default function HomePage() {
+  const { mode: themeMode, toggleMode: toggleThemeMode } = useThemeMode();
   const initialCpState = typeof window === "undefined" ? {} : loadCpState();
   const [meta, setMeta] = useState<Meta | null>(null);
   const [activeKey, setActiveKey] = useState(initialCpState.activeKey || "");
@@ -2868,6 +2873,8 @@ export default function HomePage() {
     () => sidebarLayers.find((layer) => layer.key === activeLayer) || allModuleLayers.find((layer) => layer.key === activeLayer) || (activeLayer === "advanced" ? advancedLayer : null) || CORE_LAYERS[0],
     [activeLayer, advancedLayer, allModuleLayers, sidebarLayers]
   );
+  const activeLayerTone = String(activeLayerHub?.tone || "main") as keyof typeof moduleAccents;
+  const activeAccent = moduleAccents[activeLayerTone] || moduleAccents.main;
   const ActiveLayerIcon = activeLayerHub.icon;
   const layerTables = useMemo(() => activeLayerHub.tables
     .map((key) => meta?.tables.find((tableItem) => tableItem.key === key))
@@ -2972,22 +2979,14 @@ export default function HomePage() {
         ...actions.map((action) => ({ key: action, label: actionBadge({ action }, table) }))
       ];
     }
-    if (table?.key === "scam_reports") {
-      return [
-        { key: "pending", label: `Chờ duyệt (${scamInboxStats.pending})` },
-        { key: "", label: "Tất cả" },
-        { key: "confirmed", label: `Đã xác nhận (${scamInboxStats.confirmed})` },
-        { key: "rejected", label: `Từ chối (${scamInboxStats.rejected})` }
-      ];
-    }
-  const base = [
-    { key: "", label: "Tất cả" },
-    { key: "active", label: "Chạy" },
-    { key: "disabled", label: "Tắt" }
-  ];
+    const base = [
+      { key: "", label: "Tất cả" },
+      { key: "active", label: "Chạy" },
+      { key: "disabled", label: "Tắt" }
+    ];
     const values = Array.from(new Set(rows.flatMap((row) => [row.action, row.match, row.status]).map((value) => String(value || "").toLowerCase()).filter(Boolean))).slice(0, 5);
     return [...base, ...values.map((value) => ({ key: value, label: value.toUpperCase() }))];
-  }, [rows, scamInboxStats.confirmed, scamInboxStats.pending, scamInboxStats.rejected, table]);
+  }, [rows, table]);
   const commandItems = useMemo(() => [
     { title: "Mở kiểm duyệt", hint: "Luật chung", action: () => goToInsight({ targetLayer: "module:moderation", targetTable: "config" }) },
     { title: "Kiểm tra quyền bot", hint: "Bot và group", action: () => goToInsight({ targetLayer: "group", targetTable: "groups" }) },
@@ -3131,7 +3130,7 @@ export default function HomePage() {
     if (table && (!meta?.passwordRequired || savedPassword)) {
       void loadRows("");
       setSearch("");
-      setQuickFilter(table.key === "scam_reports" ? "pending" : "");
+      setQuickFilter("");
       setQuickTestInput("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4774,83 +4773,74 @@ export default function HomePage() {
             envStatus={meta?.envStatus}
             openCommand={() => setCommandOpen(true)}
             selectBot={selectBot}
+            themeMode={themeMode}
+            toggleThemeMode={toggleThemeMode}
+            tone={activeLayerTone}
           />
 
           <Box component="main" sx={{ p: { xs: 1.5, md: 3 }, maxWidth: "100%", overflowX: "hidden" }}>
             <Stack spacing={2}>
-              <Paper elevation={0} variant="outlined" sx={{ p: 2.5, bgcolor: "background.paper" }}>
-                <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
-                  <Box>
-                    <Typography variant="overline" color="primary">Material operations</Typography>
-                    <Typography variant="h4">{activeLayerHub.title}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{activeLayerHub.desc}</Typography>
-                  </Box>
+              <Section
+                eyebrow="Material operations"
+                title={activeLayerHub.title}
+                subtitle={activeLayerHub.desc}
+                tone={activeLayerTone}
+                actions={
                   <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                     <Chip label={`Bot: ${currentBot?.name || activeBotKey || "Chưa chọn"}`} />
                     <Chip label={`Scope: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}`} />
                     <Chip color="success" label={`${healthSummary.enabledModules} module ON`} />
                     <Chip color="default" label={`${moduleCards.length - healthSummary.enabledModules} module OFF`} />
                   </Stack>
-                </Stack>
-              </Paper>
+                }
+                sx={{ py: 2.5 }}
+              />
 
         {showOverview ? (
-          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+          <Section eyebrow="Overview" title="Tổng quan vận hành" subtitle="Nhìn nhanh sức khỏe bot và trạng thái module trước khi đi sâu vào tác vụ." tone="main">
             <Grid container spacing={1.5}>
               {[
-                { label: "Bot online", value: healthSummary.activeBots, body: "Bot đang hoạt động và sẵn sàng xử lý." },
-                { label: "Bot lỗi", value: healthSummary.disabledBots, body: "Bot đang tắt, paused hoặc chưa sẵn sàng." },
-                { label: "Module bật", value: healthSummary.enabledModules, body: "Module đang bật trong hệ thống." },
-                { label: "Module tắt", value: healthSummary.offModules, body: "Module đang tắt trong bot hiện tại." }
+                { label: "Bot online", value: healthSummary.activeBots, body: "Bot đang hoạt động và sẵn sàng xử lý.", tone: "success" as const },
+                { label: "Bot lỗi", value: healthSummary.disabledBots, body: "Bot đang tắt, paused hoặc chưa sẵn sàng.", tone: "warning" as const },
+                { label: "Module bật", value: healthSummary.enabledModules, body: "Module đang bật trong hệ thống.", tone: "main" as const },
+                { label: "Module tắt", value: healthSummary.offModules, body: "Module đang tắt trong bot hiện tại.", tone: "neutral" as const }
               ].map((item) => (
                 <Grid key={item.label} size={{ xs: 12, sm: 6, xl: 3 }}>
-                  <Paper variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "background.default" }}>
-                    <Typography variant="overline" color="text.secondary">{item.label}</Typography>
-                    <Typography variant="h4">{item.value}</Typography>
-                    <Typography variant="body2" color="text.secondary">{item.body}</Typography>
-                  </Paper>
+                  <StatCard label={item.label} value={item.value} hint={item.body} tone={item.tone} />
                 </Grid>
               ))}
               <Grid size={{ xs: 12, sm: 6, xl: 3 }}>
-                <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "grid", gap: 1, bgcolor: "background.default" }}>
+                <Paper variant="outlined" sx={{ p: 2, height: "100%", display: "grid", gap: 1, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(15, 118, 110, 0.05), transparent 46%)" }}>
                   <Typography variant="overline" color="text.secondary">Đi nhanh</Typography>
                   <MuiButton variant="contained" onClick={() => openModuleConfigure("moderation")}>Mở kiểm duyệt</MuiButton>
                 </Paper>
               </Grid>
             </Grid>
-          </Paper>
+          </Section>
         ) : null}
 
         {showOverview ? (
-          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+          <Section eyebrow="Signals" title="Việc cần chú ý" subtitle="Các queue và lỗi tồn đọng cần ưu tiên xử lý." tone="warning">
             <Grid container spacing={1.5}>
               {[
-                { label: "Report scam chờ", value: healthSummary.pendingScamReports, body: "Báo cáo đang đợi duyệt hoặc từ chối." },
-                { label: "Channel pending", value: healthSummary.pendingChannelPosts, body: "Bài đang chờ gửi hoặc hẹn giờ." },
-                { label: "Channel lỗi", value: healthSummary.failedChannelPosts, body: "Bài gửi/xóa thất bại cần xem lại." },
-                { label: "Group thiếu pool", value: healthSummary.groupsMissingMessagePool + healthSummary.groupsMissingVideoPool, body: "Group đang bật lịch nhưng thiếu nội dung nguồn." }
+                { label: "Report scam chờ", value: healthSummary.pendingScamReports, body: "Báo cáo đang đợi duyệt hoặc từ chối.", tone: "scam" as const },
+                { label: "Channel pending", value: healthSummary.pendingChannelPosts, body: "Bài đang chờ gửi hoặc hẹn giờ.", tone: "warning" as const },
+                { label: "Channel lỗi", value: healthSummary.failedChannelPosts, body: "Bài gửi/xóa thất bại cần xem lại.", tone: "danger" as const },
+                { label: "Group thiếu pool", value: healthSummary.groupsMissingMessagePool + healthSummary.groupsMissingVideoPool, body: "Group đang bật lịch nhưng thiếu nội dung nguồn.", tone: "analytics" as const }
               ].map((item) => (
                 <Grid key={item.label} size={{ xs: 12, sm: 6, xl: 3 }}>
-                  <Paper variant="outlined" sx={{ p: 2, height: "100%", bgcolor: "background.default" }}>
-                    <Typography variant="overline" color="text.secondary">{item.label}</Typography>
-                    <Typography variant="h4">{item.value}</Typography>
-                    <Typography variant="body2" color="text.secondary">{item.body}</Typography>
-                  </Paper>
+                  <StatCard label={item.label} value={item.value} hint={item.body} tone={item.tone} />
                 </Grid>
               ))}
             </Grid>
-          </Paper>
+          </Section>
         ) : null}
 
         {showOverview ? (
-          <Paper component="section" variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
+          <Section eyebrow="Hôm nay" title="Log bot trong ngày" subtitle="Hiển thị log gần nhất của bot đang chọn trong ngày hiện tại." tone="analytics">
             <Box sx={{ display: "grid", gap: 2 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-              <div>
-                <span>Nhật ký hôm nay</span>
-                <h3>Log bot trong ngày</h3>
-                <p>Hiển thị log gần nhất của bot đang chọn trong ngày hiện tại.</p>
-              </div>
+              <Box />
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                 <Chip label={`Tổng ${todayAuditSummary.total}`} />
                 <Chip label={`Cảnh báo ${todayAuditSummary.warning}`} />
@@ -4865,7 +4855,7 @@ export default function HomePage() {
                 const titleMap = { critical: "Nghiêm trọng", warning: "Cảnh báo", info: "Thông tin" } as const;
                 return (
                   <Grid key={severity} size={{ xs: 12, lg: 4 }}>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(14, 165, 233, 0.05), transparent 36%)" }}>
                       <Stack direction="row" sx={{ justifyContent: "space-between", mb: 1 }}>
                         <strong>{titleMap[severity]}</strong>
                         <span>{group.length}</span>
@@ -4894,38 +4884,39 @@ export default function HomePage() {
               })}
             </Grid>
             </Box>
-          </Paper>
+          </Section>
         ) : null}
 
         {showOperations ? (
         <>
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-          <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start", minWidth: 0 }}>
-              <Box sx={{ color: "primary.main", pt: 0.4 }}>
-                <ActiveLayerIcon size={24} />
-              </Box>
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="overline" color="text.secondary">{activeLayer === "advanced" ? "Ngoại lệ" : "Tác vụ"}</Typography>
-                <Typography variant="h5">{activeLayerHub.title}</Typography>
-                <Typography variant="body2" color="text.secondary">{activeLayerHub.desc}</Typography>
-              </Box>
+        <Section
+          eyebrow={activeLayer === "advanced" ? "Ngoại lệ" : "Tác vụ"}
+          title={activeLayerHub.title}
+          subtitle={activeLayerHub.desc}
+          tone={activeLayerTone}
+          icon={<ActiveLayerIcon size={20} />}
+          sx={{ py: 2 }}
+          actions={activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              {layerTables.map((item) => (
+                <MuiButton
+                  key={item.key}
+                  variant={activeKey === item.key ? "contained" : "outlined"}
+                  onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
+                >
+                  {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
+                </MuiButton>
+              ))}
             </Stack>
-            {activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                {layerTables.map((item) => (
-                  <MuiButton
-                    key={item.key}
-                    variant={activeKey === item.key ? "contained" : "outlined"}
-                    onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
-                  >
-                    {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
-                  </MuiButton>
-                ))}
-              </Stack>
-            ) : null}
+          ) : null}
+        >
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <Chip label={`Bot: ${currentBot?.name || activeBotKey || "Chưa chọn"}`} />
+              <Chip label={`Scope: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}`} />
+            </Box>
           </Stack>
-        </Paper>
+        </Section>
 
         {activeTaskDefinition && activeLayer !== "advanced" ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
@@ -4971,12 +4962,22 @@ export default function HomePage() {
                 0;
               return (
                 <Grid key={module.key} size={{ xs: 12, sm: 6, lg: 4, xl: 3 }}>
-                  <Card variant="outlined" sx={{ height: "100%", borderColor: module.isOn ? "primary.main" : "divider", opacity: module.isOn ? 1 : 0.72 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      height: "100%",
+                      borderColor: module.isOn ? moduleAccents[module.tone as keyof typeof moduleAccents]?.line || activeAccent.line : "divider",
+                      opacity: module.isOn ? 1 : 0.72,
+                      backgroundImage: module.isOn
+                        ? `linear-gradient(180deg, ${moduleAccents[module.tone as keyof typeof moduleAccents]?.tint || activeAccent.tint}, transparent 70%)`
+                        : "none",
+                    }}
+                  >
                     <CardContent>
                       <Stack spacing={1.5}>
                         <Stack direction="row" spacing={1.25} sx={{ alignItems: "flex-start", justifyContent: "space-between" }}>
                           <Stack direction="row" spacing={1.25} sx={{ minWidth: 0 }}>
-                            <Box sx={{ color: module.isOn ? "primary.main" : "text.secondary", pt: 0.25 }}>
+                            <Box sx={{ color: module.isOn ? (moduleAccents[module.tone as keyof typeof moduleAccents]?.color || activeAccent.color) : "text.secondary", pt: 0.25 }}>
                               <ModuleIcon size={20} />
                             </Box>
                             <Box sx={{ minWidth: 0 }}>
@@ -5024,44 +5025,37 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer.startsWith("module:") ? (
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 1.5,
-              bgcolor: "background.paper",
-              borderColor: "divider",
-              boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
-            }}
+          <Section
+            eyebrow={activeModuleHub.key === "anti_scam" ? "Phân khu chống scam" : "Module tabs"}
+            title={activeModuleHub.title}
+            subtitle={!moduleEnabled ? "Module đang tắt. Bật module để sidebar cho phép vận hành." : "Chọn đúng phân khu để quản lý queue, hồ sơ và thiết lập của module."}
+            tone={activeLayerTone}
+            padding={1.5}
           >
-            <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
-              <Box>
-                <Typography variant="overline" color="primary">Module tabs</Typography>
-                <Typography variant="h6">{activeModuleHub.title}</Typography>
-                {!moduleEnabled ? <Typography variant="body2" color="warning.main">Module đang tắt. Bật module để sidebar cho phép vận hành.</Typography> : null}
-              </Box>
+            <Stack spacing={1.25}>
               <TabsBar
-                tone="pill"
-                wrapped={false}
+                tone={activeModuleHub.key === "anti_scam" ? "outlined" : "filled"}
+                wrapped
                 scrollable
                 value={activeKey}
                 onChange={(key) => openModuleConfigure(activeModuleHub.key, key)}
                 items={activeModuleHub.tables.map((key) => {
                   const item = meta?.tables.find((tableItem) => tableItem.key === key);
-                  if (!item) return { key, label: key };
+                  const label = TABLE_TASK_LABELS[key] || item?.label || key;
                   return {
                     key,
-                    label: TABLE_TASK_LABELS[key] || item.label,
+                    label,
                   };
                 })}
                 sx={{
                   minHeight: "unset",
                   "& .MuiTabs-flexContainer": {
-                    gap: 1,
+                    gap: activeModuleHub.key === "anti_scam" ? 0.5 : 1,
                   },
                 }}
               />
             </Stack>
-          </Paper>
+          </Section>
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "automation" ? (
@@ -5205,7 +5199,6 @@ export default function HomePage() {
             currentBotName={currentBot?.name || selectedBot || "Tất cả"}
             selectedBot={selectedBot}
             openTaskData={openTaskData}
-            setQuickFilter={setQuickFilter}
           />
         ) : null}
 
@@ -5335,7 +5328,7 @@ export default function HomePage() {
           </Alert>
         ) : null}
 
-        {table.key !== "config" && table.key !== "channel_posts" ? (
+        {table.key !== "config" && table.key !== "channel_posts" && table.key !== "scam_reports" ? (
           <TabsBar
             items={quickFilters.map((filter) => ({ key: filter.key || "all", label: filter.label }))}
             value={quickFilter || "all"}
@@ -5512,26 +5505,26 @@ export default function HomePage() {
         ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={2}>
-            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }} aria-label="Cây nhóm cài đặt">
-              {configTabs.map((section) => {
-                const TabIcon = section.icon;
-                const active = activeConfigSection?.title === section.title;
-                return (
-                  <MuiButton
-                    key={section.title}
-                    variant={active ? "contained" : "outlined"}
-                    onClick={() => {
-                      setActiveConfigTab(active ? "" : section.title);
-                      setDraft({});
-                      setSelected(null);
-                    }}
-                  >
-                    <TabIcon size={17} />
-                    {section.title} ({section.rows.length})
-                  </MuiButton>
-                );
-              })}
-            </Stack>
+              <TabsBar
+                tone="outlined"
+                wrapped={false}
+                scrollable
+                value={activeConfigTab || configTabs[0]?.title || ""}
+                onChange={(tab) => {
+                  setActiveConfigTab(tab);
+                  setDraft({});
+                  setSelected(null);
+                }}
+                items={configTabs.map((section) => ({
+                  key: section.title,
+                  label: `${section.title} (${section.rows.length})`,
+                }))}
+                sx={{
+                  "& .MuiTabs-flexContainer": {
+                    gap: 1,
+                  },
+                }}
+              />
 
             {activeConfigSection ? (
               <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
@@ -6125,26 +6118,28 @@ export default function HomePage() {
                   ) : null}
                   {table.key === "groups" ? (
                     <>
-                      <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }} aria-label="Nhóm cấu hình group">
-                        {groupEditorTabs.map((tab) => (
-                          <MuiButton
-                            key={tab.label}
-                            variant={activeGroupTab === tab.label ? "contained" : "outlined"}
-                            size="small"
-                            onClick={() => {
-                              setActiveGroupTab(tab.label);
-                              if (tab.label === "Kỹ thuật") {
-                                setShowAdvancedFields(true);
-                              }
-                            }}
-                          >
-                            {tab.label}
-                            <Box component="span" sx={{ ml: 1, fontWeight: 800 }}>
-                              {tab.count}
-                            </Box>
-                          </MuiButton>
-                        ))}
-                      </Box>
+                      <TabsBar
+                        tone="outlined"
+                        wrapped={false}
+                        scrollable
+                        value={activeGroupTab}
+                        onChange={(tab) => {
+                          setActiveGroupTab(tab);
+                          if (tab === "Kỹ thuật") {
+                            setShowAdvancedFields(true);
+                          }
+                        }}
+                        items={groupEditorTabs.map((tab) => ({
+                          key: tab.label,
+                          label: `${tab.label} (${tab.count})`,
+                        }))}
+                        sx={{
+                          mb: 2,
+                          "& .MuiTabs-flexContainer": {
+                            gap: 1,
+                          },
+                        }}
+                      />
                       <Alert severity="info" sx={{ mb: 2 }}>
                         <strong>Đây là setup cho group đang chọn.</strong> Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.
                       </Alert>
@@ -6157,7 +6152,15 @@ export default function HomePage() {
                   ) : null}
                   <Box sx={{ display: "grid", gap: 2 }}>
                     {editorFieldGroups.map(([section, fields]) => (
-                      <Paper key={section} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                      <Paper
+                        key={section}
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          bgcolor: "background.default",
+                          backgroundImage: "linear-gradient(180deg, rgba(79, 70, 229, 0.04), transparent 34%)",
+                        }}
+                      >
                         <Typography variant="subtitle2" sx={{ mb: 1.5, color: "text.secondary", textTransform: "uppercase", letterSpacing: 1.2 }}>
                           {section}
                         </Typography>
@@ -6317,7 +6320,7 @@ export default function HomePage() {
                   {readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả."}
                 </Typography>
                 {table.key === "scam_reports" ? (
-                  <Paper variant="outlined" sx={{ p: 2 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.05), transparent 36%)" }}>
                     <Box sx={{ display: "grid", gap: 2 }}>
                       {scamReportFacts(selected).map((item) => (
                         <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
@@ -6334,7 +6337,17 @@ export default function HomePage() {
                 ) : null}
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                   {cockpitMetrics(selected, table).map((metric) => (
-                    <Paper key={metric.label} variant="outlined" sx={{ px: 1.5, py: 1 }}>
+                    <Paper
+                      key={metric.label}
+                      variant="outlined"
+                      sx={{
+                        px: 1.5,
+                        py: 1,
+                        bgcolor: "background.default",
+                        minWidth: 120,
+                        backgroundImage: "linear-gradient(180deg, rgba(15, 118, 110, 0.04), transparent 60%)",
+                      }}
+                    >
                       <Typography variant="body2" color="text.secondary">{metric.label}</Typography>
                       <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{metric.value}</Typography>
                     </Paper>

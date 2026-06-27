@@ -10,6 +10,22 @@ import Section from "@/app/components/ui/Section";
 
 type Row = Record<string, unknown>;
 
+const LIST_CARD_SX = {
+  p: 1.5,
+  bgcolor: "background.default",
+  backgroundImage: "linear-gradient(180deg, rgba(15, 118, 110, 0.04), transparent 42%)",
+} as const;
+
+const META_PILL_SX = {
+  px: 1,
+  py: 0.25,
+  border: "1px solid",
+  borderColor: "divider",
+  borderRadius: 1,
+  fontSize: 12,
+  bgcolor: "background.paper",
+} as const;
+
 export type HealthInfo = { label: string; className: string };
 
 type AuditCardData = {
@@ -110,6 +126,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
       eyebrow={`${visibleRows.length} mục`}
       title={scanMode === "scan" ? "Scan mode" : "Detail mode"}
       subtitle={scanMode === "scan" ? "Chỉ hiện trạng thái chính" : "Hiện thêm ngữ cảnh"}
+      tone={table.key === "scam_reports" ? "scam" : table.key === "audit_logs" ? "analytics" : "main"}
     >
       <Stack spacing={1.25}>
         {visibleRows.map((row) => {
@@ -126,8 +143,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
               variant="outlined"
               onClick={() => inspectRow(row)}
               sx={{
-                p: 1.5,
-                bgcolor: "background.default",
+                ...LIST_CARD_SX,
                 cursor: "pointer",
                 borderColor: isSelected ? "primary.main" : "divider",
                 opacity: row.enabled === false ? 0.7 : 1,
@@ -240,14 +256,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                           {scamReportFacts(row).map((item) => (
                             <Box
                               key={item.label}
-                              sx={{
-                                px: 1,
-                                py: 0.25,
-                                border: "1px solid",
-                                borderColor: "divider",
-                                borderRadius: 1,
-                                fontSize: 12,
-                              }}
+                              sx={META_PILL_SX}
                             >
                               <strong>{item.label}</strong> {item.value}
                             </Box>
@@ -288,14 +297,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                             return (
                               <Box
                                 key={key}
-                                sx={{
-                                  px: 1,
-                                  py: 0.25,
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  borderRadius: 1,
-                                  fontSize: 12,
-                                }}
+                                sx={META_PILL_SX}
                               >
                                 <strong>{field?.label || key}</strong> {displayValue(row[key])}
                               </Box>

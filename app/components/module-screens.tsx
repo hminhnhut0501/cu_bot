@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import {
   Check,
-  ClipboardList,
   Plus,
   ShieldCheck,
   Sparkles,
@@ -83,7 +82,7 @@ export function AutomationScreen(props: {
 }) {
   const c = UI_COPY.workbench.automation;
   return (
-    <Section eyebrow={c.eyebrow} title={c.title}>
+    <Section eyebrow={c.eyebrow} title={c.title} tone="content">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={1.25}>
           <Typography variant="subtitle2">{c.schedule}</Typography>
@@ -135,7 +134,7 @@ export function WelcomeScreen(props: {
     body: "Chào thành viên mới khi họ vừa join group. Bật module để gửi tin chào theo mẫu."
   };
   return (
-    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body}>
+    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
@@ -292,7 +291,47 @@ export function ModerationScreen(props: {
 }) {
   const c = UI_COPY.workbench.moderation;
   return (
-    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} />
+    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="security">
+      <Stack spacing={2}>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Trạng thái bảo vệ</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {props.selectedGroupProtection.ready ? "Đủ điều kiện bảo vệ group đang chọn." : "Còn thiếu một số thiết lập trước khi bảo vệ đầy đủ."}
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <Chip size="small" color={props.selectedGroupProtection.ready ? "success" : "warning"} label={props.selectedGroupProtection.ready ? "Ready" : "Thiếu setup"} />
+              <Chip size="small" variant="outlined" label={`${props.selectedGroupProtection.enabledChecks}/${props.selectedGroupProtection.totalChecks} checks`} />
+              <Chip size="small" variant="outlined" label={`${props.selectedGroupProtection.warnings.length} cảnh báo`} />
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
+          {props.moderationPolicySummary.map((item) => (
+            <StatCard key={item.label} compact label={item.label} value={item.value} tone="primary" />
+          ))}
+        </Box>
+
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+            <Box>
+              <Typography variant="subtitle2">Lối đi nhanh</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Mở thẳng cấu hình, preset từ khóa hoặc flow bảo vệ group đang chọn.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <MuiButton variant="contained" onClick={props.startGroupProtectionFlow}>Mở bảo vệ group</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.goToInsight({ targetLayer: "module:moderation", targetTable: "config" })}>Thiết lập dùng chung</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.openTaskData("keywords")}>Preset từ khóa</MuiButton>
+            </Stack>
+          </Stack>
+        </Paper>
+      </Stack>
+    </Section>
   );
 }
 
@@ -338,7 +377,7 @@ export function GiveawayScreen(props: {
   };
   const getEntryCount = (campaignId: string) => props.giveawayEntries.filter((row) => String(row.giveaway_id || "") === String(campaignId)).length;
   return (
-    <Section eyebrow="MODULE" title="Giveaway" subtitle="Tạo campaign giveaway, mẫu tin tham gia và công bố người thắng.">
+    <Section eyebrow="MODULE" title="Giveaway" subtitle="Tạo campaign giveaway, mẫu tin tham gia và công bố người thắng." tone="fun">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
@@ -567,7 +606,7 @@ export function ShareUnlockScreen(props: {
   } as const;
 
   return (
-    <Section eyebrow="MODULE" title="Mở khóa bằng chia sẻ" subtitle="Mời đủ số người qua link riêng của từng user, bot mới mở khóa link thưởng.">
+    <Section eyebrow="MODULE" title="Mở khóa bằng chia sẻ" subtitle="Mời đủ số người qua link riêng của từng user, bot mới mở khóa link thưởng." tone="fun">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
@@ -835,7 +874,7 @@ export function AutoReplyScreen(props: {
   }, [props.createDraft, props.createOpen]);
 
   return (
-    <Section eyebrow="MODULE" title="Auto reply" subtitle="Tạo câu trả lời tự động theo trigger, sau đó chỉnh popup riêng cho rõ ràng.">
+    <Section eyebrow="MODULE" title="Auto reply" subtitle="Tạo câu trả lời tự động theo trigger, sau đó chỉnh popup riêng cho rõ ràng." tone="content">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
@@ -1065,13 +1104,14 @@ export function ScamScreen(props: {
   currentBotName: string;
   selectedBot: string;
   openTaskData: (key: string) => void;
-  setQuickFilter: (value: string) => void;
 }) {
   const c = UI_COPY.workbench.scam;
   return (
     <Section
       eyebrow={c.eyebrow}
       title={c.title}
+      subtitle="Điểm vào nhanh để nhìn queue scam, rồi mở đúng inbox duyệt."
+      tone="scam"
       actions={
         <Paper variant="outlined" sx={{ px: 2, py: 1, bgcolor: "background.default" }}>
           <Typography variant="h5" sx={{ fontWeight: 800 }}>{props.pendingScamReports}</Typography>
@@ -1079,94 +1119,91 @@ export function ScamScreen(props: {
         </Paper>
       }
     >
-      <Box
-        sx={{
-          display: "grid",
-          gap: 1.25,
-          gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" },
-        }}
-      >
-        <StatCard
-          compact
-          label={c.waiting}
-          value={props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}
-        />
-        <StatCard
-          compact
-          label={c.confirmed}
-          value={props.scamWorkbenchRows.filter((row) => row.status === "confirmed").length}
-        />
-        <StatCard
-          compact
-          label={c.rejected}
-          value={props.scamWorkbenchRows.filter((row) => row.status === "rejected").length}
-        />
-        <StatCard
-          compact
-          label={c.bot}
-          value={props.currentBotName || props.selectedBot || "Tất cả"}
-        />
-      </Box>
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-        <Stack spacing={1.5}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Stack spacing={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gap: 1.25,
+            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" },
+          }}
+        >
+          <StatCard
+            compact
+            label={c.waiting}
+            value={props.scamWorkbenchRows.filter((row) => String(row.status || "pending") === "pending").length}
+          />
+          <StatCard
+            compact
+            label={c.confirmed}
+            value={props.scamWorkbenchRows.filter((row) => row.status === "confirmed").length}
+          />
+          <StatCard
+            compact
+            label={c.rejected}
+            value={props.scamWorkbenchRows.filter((row) => row.status === "rejected").length}
+          />
+          <StatCard
+            compact
+            label={c.bot}
+            value={props.currentBotName || props.selectedBot || "Tất cả"}
+          />
+        </Box>
+
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
             <Box>
-              <Typography variant="h6">{c.queue}</Typography>
+              <Typography variant="subtitle2">{c.queue}</Typography>
               <Typography variant="body2" color="text.secondary">{c.priority}</Typography>
             </Box>
-            <MuiButton
-              variant="contained"
-              onClick={() => {
-                props.openTaskData("scam_reports");
-                props.setQuickFilter("pending");
-              }}
-            >
-              {c.open}
-            </MuiButton>
-          </Box>
-          <Stack spacing={1}>
-            {props.scamWorkbenchRows
-              .filter((row) => String(row.status || "pending") === "pending")
-              .slice(0, 4)
-              .map((row) => (
-                <Paper
-                  key={row.id || `${row.target_uid}-${row.target_username}`}
-                  variant="outlined"
-                  sx={{ p: 1.5, bgcolor: "background.paper" }}
-                >
-                  <Typography variant="subtitle2">
-                    {row.target_username || row.target_uid || row.bank_account || c.targetUnknown}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {row.evidence ? c.hasEvidence : c.noEvidence}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {c.report}: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}
-                  </Typography>
-                </Paper>
-              ))}
-            {!props.scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ display: "flex", alignItems: "center", gap: 1 }}
-              >
-                <Check size={20} />
-                {c.noPending}
-              </Typography>
-            ) : null}
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <MuiButton variant="contained" onClick={() => props.openTaskData("scam_reports")}>
+                {c.open}
+              </MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.openTaskData("scam_entities")}>
+                Hồ sơ scam
+              </MuiButton>
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
-      <Box>
-        <MuiButton
-          variant="outlined"
-          onClick={() => props.openTaskData("scam_reports")}
-          startIcon={<ClipboardList size={17} />}
-        >
-          {c.review}
-        </MuiButton>
-      </Box>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack spacing={1}>
+            <Typography variant="subtitle2">Bản tin chờ duyệt gần nhất</Typography>
+            <Stack spacing={1}>
+              {props.scamWorkbenchRows
+                .filter((row) => String(row.status || "pending") === "pending")
+                .slice(0, 4)
+                .map((row) => (
+                  <Paper
+                    key={row.id || `${row.target_uid}-${row.target_username}`}
+                    variant="outlined"
+                    sx={{ p: 1.5, bgcolor: "background.paper" }}
+                  >
+                    <Typography variant="subtitle2">
+                      {row.target_username || row.target_uid || row.bank_account || c.targetUnknown}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {row.evidence ? c.hasEvidence : c.noEvidence}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {c.report}: {row.reporter_username || row.reporter_user_id || "Chưa rõ"}
+                    </Typography>
+                  </Paper>
+                ))}
+              {!props.scamWorkbenchRows.some((row) => String(row.status || "pending") === "pending") ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <Check size={20} />
+                  {c.noPending}
+                </Typography>
+              ) : null}
+            </Stack>
+          </Stack>
+        </Paper>
+      </Stack>
     </Section>
   );
 }
@@ -1178,13 +1215,36 @@ export function BotScreen(props: {
 }) {
   const c = UI_COPY.workbench.bot;
   return (
-    <Section eyebrow={c.eyebrow} title={c.title}>
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-        <Typography variant="h5" sx={{ fontWeight: 800 }}>
-          {props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">trạng thái sẵn sàng</Typography>
-      </Paper>
+    <Section eyebrow={c.eyebrow} title={c.title} subtitle="Điểm khởi đầu để kiểm tra bot, scope và các điều kiện vận hành." tone="main">
+      <Stack spacing={2}>
+        <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
+          {props.setupChecklist.map((item) => (
+            <StatCard
+              key={item.label}
+              compact
+              label={item.label}
+              value={item.done ? "OK" : "Thiếu"}
+              tone={item.done ? "success" : "warning"}
+            />
+          ))}
+        </Box>
+
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+            <Box>
+              <Typography variant="subtitle2">Lối đi nhanh</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Đi thẳng tới danh sách bot, cấu hình module hoặc nhật ký vận hành.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <MuiButton variant="contained" onClick={() => props.openTaskData("bots")}>Mở bot</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.openTaskData("module_settings")}>Cài đặt module</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.selectLayer("logs")}>Mở logs</MuiButton>
+            </Stack>
+          </Stack>
+        </Paper>
+      </Stack>
     </Section>
   );
 }
@@ -1203,22 +1263,58 @@ export function GroupScreen(props: {
     <Section
       eyebrow={c.eyebrow}
       title={c.title}
+      subtitle="Quản lý group, phạm vi bot và các điều kiện để bot vận hành đúng chỗ."
+      tone="content"
       actions={
         <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={props.startCreate}>
           Thêm group
         </MuiButton>
       }
     >
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-        <Typography variant="h6">
-          {props.selectedScopeRow
-            ? props.selectedScopeRow.group_name || props.selectedScope
-            : "Toàn hệ thống"}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length} sẵn sàng
-        </Typography>
-      </Paper>
+      <Stack spacing={2}>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                {props.selectedScopeRow ? props.selectedScopeRow.group_name || props.selectedScope : "Toàn hệ thống"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {props.setupChecklist.filter((item) => item.done).length}/{props.setupChecklist.length} mục sẵn sàng
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <MuiButton variant="contained" onClick={props.startCreate}>Tạo group</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.openTaskData("groups")}>Mở danh sách</MuiButton>
+              <MuiButton variant="outlined" onClick={() => props.selectLayer("logs")}>Xem logs</MuiButton>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
+          {props.setupChecklist.map((item) => (
+            <StatCard
+              key={item.label}
+              compact
+              label={item.label}
+              value={item.done ? "OK" : "Thiếu"}
+              tone={item.done ? "success" : "warning"}
+            />
+          ))}
+        </Box>
+
+        {props.setupIssues.length ? (
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+            <Stack spacing={0.75}>
+              <Typography variant="subtitle2">Việc còn thiếu</Typography>
+              {props.setupIssues.map((issue) => (
+                <Typography key={issue} variant="body2" color="text.secondary">
+                  • {issue}
+                </Typography>
+              ))}
+            </Stack>
+          </Paper>
+        ) : null}
+      </Stack>
     </Section>
   );
 }

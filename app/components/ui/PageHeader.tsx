@@ -1,7 +1,10 @@
 "use client";
 
+import { alpha } from "@mui/material/styles";
 import { Box, Stack, Typography } from "@mui/material";
 import type { ReactNode } from "react";
+
+import { moduleAccents } from "@/app/theme";
 
 export type PageHeaderProps = {
   title: ReactNode;
@@ -15,6 +18,8 @@ export type PageHeaderProps = {
   icon?: ReactNode;
   /** Sub-content rendered below the title row (e.g. tab bars, filter rows) */
   children?: ReactNode;
+  /** Optional color tone for module-specific hero/header styling */
+  tone?: keyof typeof moduleAccents;
 };
 
 /**
@@ -30,7 +35,9 @@ export default function PageHeader({
   breadcrumbs,
   icon,
   children,
+  tone = "main",
 }: PageHeaderProps) {
+  const accent = moduleAccents[tone];
   return (
     <Box
       component="header"
@@ -38,8 +45,9 @@ export default function PageHeader({
         px: { xs: 2, md: 3 },
         py: 2,
         borderBottom: "1px solid",
-        borderColor: "divider",
+        borderColor: accent.line,
         backgroundColor: "background.paper",
+        backgroundImage: `linear-gradient(135deg, ${accent.tint}, ${alpha(accent.color, 0.03)} 46%, transparent 72%)`,
       }}
     >
       <Stack spacing={1.5}>
@@ -61,8 +69,9 @@ export default function PageHeader({
                 borderRadius: 1,
                 display: "grid",
                 placeItems: "center",
-                backgroundColor: "rgba(15, 118, 110, 0.08)",
-                color: "primary.main",
+                backgroundColor: accent.tint,
+                color: accent.color,
+                border: `1px solid ${accent.line}`,
                 flexShrink: 0,
               }}
             >
@@ -78,8 +87,7 @@ export default function PageHeader({
             {eyebrow ? (
               <Typography
                 variant="overline"
-                color="primary"
-                sx={{ display: "block", lineHeight: 1.2 }}
+                sx={{ color: accent.color, display: "block", lineHeight: 1.2 }}
               >
                 {eyebrow}
               </Typography>

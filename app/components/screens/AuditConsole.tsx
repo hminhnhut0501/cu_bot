@@ -19,6 +19,7 @@ export default function AuditConsole({ auditStats }: { auditStats: AuditStats })
       eyebrow="Operational audit"
       title="Nhật ký"
       subtitle="Xem log mới nhất."
+      tone="analytics"
       icon={<Activity size={20} />}
     >
       <Box

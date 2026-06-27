@@ -1,5 +1,6 @@
 "use client";
 
+import { alpha, useTheme } from "@mui/material/styles";
 import { Box, Tab, Tabs } from "@mui/material";
 import type { ReactNode } from "react";
 
@@ -22,7 +23,7 @@ export type TabsBarProps = {
   /** Add a small wrapper Box (e.g. border-bottom) */
   wrapped?: boolean;
   /** Visual style */
-  tone?: "standard" | "pill";
+  tone?: "standard" | "pill" | "filled" | "tonal" | "outlined";
   sx?: object;
 };
 
@@ -45,9 +46,16 @@ export default function TabsBar({
   orientation = "horizontal",
   scrollable = false,
   wrapped = true,
-  tone = "standard",
+  tone = "outlined",
   sx,
 }: TabsBarProps) {
+  const theme = useTheme();
+  const visual = tone === "standard" ? "outlined" : tone === "pill" ? "filled" : tone;
+  const isFilled = visual === "filled";
+  const isTonal = visual === "tonal";
+  const isOutlined = visual === "outlined";
+  const tonalSelectedBg = alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.22 : 0.12);
+  const tonalSelectedHoverBg = alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.3 : 0.18);
   const currentIndex = Math.max(
     0,
     items.findIndex((item) => item.key === value),
@@ -64,8 +72,8 @@ export default function TabsBar({
       variant={scrollable ? "scrollable" : "standard"}
       scrollButtons={scrollable ? "auto" : false}
       sx={{
-        minHeight: tone === "pill" ? 0 : undefined,
-        ...(tone === "pill"
+        minHeight: isFilled || isTonal ? 0 : undefined,
+        ...(isFilled || isTonal
           ? {
               "& .MuiTabs-indicator": {
                 display: "none",
@@ -77,7 +85,7 @@ export default function TabsBar({
                 borderRadius: 999,
                 border: "1px solid",
                 borderColor: "divider",
-                bgcolor: "background.paper",
+                bgcolor: isTonal ? "background.default" : "background.paper",
                 color: "text.secondary",
                 fontWeight: 700,
                 textTransform: "none",
@@ -86,16 +94,16 @@ export default function TabsBar({
                 transition: "all 160ms ease",
               },
               "& .MuiTab-root.Mui-selected": {
-                bgcolor: "primary.main",
-                color: "primary.contrastText",
+                bgcolor: isTonal ? tonalSelectedBg : "primary.main",
+                color: isTonal ? "primary.main" : "primary.contrastText",
                 borderColor: "primary.main",
-                boxShadow: "0 8px 20px rgba(15, 118, 110, 0.18)",
+                boxShadow: isTonal ? "none" : "0 8px 20px rgba(15, 118, 110, 0.18)",
               },
               "& .MuiTab-root:hover": {
                 bgcolor: "background.default",
               },
               "& .MuiTab-root.Mui-selected:hover": {
-                bgcolor: "primary.dark",
+                bgcolor: isTonal ? tonalSelectedHoverBg : "primary.dark",
               },
             }
           : {}),
@@ -123,16 +131,16 @@ export default function TabsBar({
   return (
     <Box
       sx={{
-        borderBottom: orientation === "horizontal" && tone === "standard" ? "1px solid" : "none",
+        borderBottom: orientation === "horizontal" && isOutlined ? "1px solid" : "none",
         borderRight: orientation === "vertical" ? "1px solid" : "none",
         borderColor: "divider",
-        ...(tone === "pill"
+        ...(isFilled || isTonal
           ? {
               p: 1,
               border: "1px solid",
               borderColor: "divider",
               borderRadius: 999,
-              bgcolor: "rgba(255,255,255,0.72)",
+              bgcolor: isTonal ? "background.default" : "background.paper",
               boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
             }
           : {}),

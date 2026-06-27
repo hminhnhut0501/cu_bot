@@ -68,6 +68,7 @@ export default function MenuPolicyConsole(props: MenuPolicyConsoleProps) {
       eyebrow="Menu & nội quy"
       title="Điều khiển những gì user thấy khi gõ `/` hoặc `/start`"
       subtitle="Tắt menu lệnh Telegram sẽ xóa danh sách /start, /help, /policy khỏi khung gợi ý của Telegram sau khi bot sync."
+      tone="content"
     >
       <Box
         sx={{

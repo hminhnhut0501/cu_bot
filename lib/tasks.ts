@@ -137,7 +137,7 @@ export const TABLE_PRIMARY_ACTIONS: Record<string, string> = {
   video_messages: "Thêm video",
   auto_replies: "Tạo auto reply",
   scam_entities: "Thêm hồ sơ scam",
-  scam_reports: "Tạo báo cáo",
+  scam_reports: "Duyệt báo cáo",
   giveaway_campaigns: "Tạo giveaway",
   entertainment_events: "Tạo sự kiện",
   reputation_rules: "Thêm luật điểm"

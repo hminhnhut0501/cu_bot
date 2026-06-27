@@ -1,7 +1,10 @@
 "use client";
 
 import { Box, Paper, Stack, Typography } from "@mui/material";
+import { alpha, useTheme } from "@mui/material/styles";
 import type { ReactNode } from "react";
+
+import { moduleAccents } from "@/app/theme";
 
 export type StatCardProps = {
   /** Top label, e.g. "Bot hoạt động" */
@@ -13,7 +16,7 @@ export type StatCardProps = {
   /** Optional icon rendered top-right or top-left */
   icon?: ReactNode;
   /** Color of the icon container */
-  tone?: "primary" | "neutral" | "success" | "warning" | "danger" | "info";
+  tone?: "primary" | "neutral" | "success" | "warning" | "danger" | "info" | "secondary" | "tertiary" | "main" | "content" | "security" | "scam" | "fun" | "analytics";
   /** Trend line ("+12 hôm nay", "-3 lỗi") */
   trend?: ReactNode;
   /** Compact mode reduces padding */
@@ -29,6 +32,14 @@ const TONE_BG: Record<NonNullable<StatCardProps["tone"]>, string> = {
   warning: "rgba(217, 119, 6, 0.10)",
   danger: "rgba(220, 38, 38, 0.10)",
   info: "rgba(37, 99, 235, 0.10)",
+  secondary: moduleAccents.content.tint,
+  tertiary: moduleAccents.fun.tint,
+  main: moduleAccents.main.tint,
+  content: moduleAccents.content.tint,
+  security: moduleAccents.security.tint,
+  scam: moduleAccents.scam.tint,
+  fun: moduleAccents.fun.tint,
+  analytics: moduleAccents.analytics.tint,
 };
 
 const TONE_COLOR: Record<NonNullable<StatCardProps["tone"]>, string> = {
@@ -38,6 +49,14 @@ const TONE_COLOR: Record<NonNullable<StatCardProps["tone"]>, string> = {
   warning: "#d97706",
   danger: "#dc2626",
   info: "#2563eb",
+  secondary: moduleAccents.content.color,
+  tertiary: moduleAccents.fun.color,
+  main: moduleAccents.main.color,
+  content: moduleAccents.content.color,
+  security: moduleAccents.security.color,
+  scam: moduleAccents.scam.color,
+  fun: moduleAccents.fun.color,
+  analytics: moduleAccents.analytics.color,
 };
 
 /**
@@ -56,6 +75,9 @@ export default function StatCard({
   compact = false,
   onClick,
 }: StatCardProps) {
+  const theme = useTheme();
+  const toneBg = TONE_BG[tone];
+  const toneColor = TONE_COLOR[tone];
   return (
     <Paper
       variant="outlined"
@@ -64,11 +86,11 @@ export default function StatCard({
       tabIndex={onClick ? 0 : undefined}
       sx={{
         p: compact ? 1.5 : 2,
-        bgcolor: "background.paper",
-        borderColor: "divider",
+        bgcolor: alpha(toneColor, theme.palette.mode === "dark" ? 0.12 : 0.05),
+        borderColor: alpha(toneColor, theme.palette.mode === "dark" ? 0.35 : 0.16),
         cursor: onClick ? "pointer" : "default",
-        transition: "border-color 120ms ease, box-shadow 120ms ease",
-        "&:hover": onClick ? { borderColor: "primary.main", boxShadow: 1 } : undefined,
+        transition: "border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease",
+        "&:hover": onClick ? { borderColor: toneColor, boxShadow: 1, transform: "translateY(-1px)" } : undefined,
       }}
     >
       <Stack spacing={compact ? 0.5 : 1}>
@@ -88,8 +110,8 @@ export default function StatCard({
                 borderRadius: 1,
                 display: "grid",
                 placeItems: "center",
-                color: TONE_COLOR[tone],
-                backgroundColor: TONE_BG[tone],
+                color: toneColor,
+                backgroundColor: theme.palette.mode === "dark" ? alpha(toneColor, 0.22) : toneBg,
                 flexShrink: 0,
               }}
             >
@@ -109,7 +131,7 @@ export default function StatCard({
           </Typography>
         ) : null}
         {trend ? (
-          <Typography variant="caption" sx={{ color: TONE_COLOR[tone], fontWeight: 600 }}>
+          <Typography variant="caption" sx={{ color: toneColor, fontWeight: 600 }}>
             {trend}
           </Typography>
         ) : null}

@@ -155,6 +155,16 @@ export function filterVisibleRows(args: {
   rowMatchesQuickFilter: (row: Row, filter: string) => boolean;
 }) {
   return args.rows.filter((row) => {
+    if (args.tableKey === "scam_reports") {
+      if (args.selectedBot && row.bot_key && row.bot_key !== args.selectedBot) {
+        return false;
+      }
+      if (args.selectedGroup) {
+        const rowGroup = String(row.group_id || row.chat_id || row.source_chat_id || row.invitee_chat_id || "");
+        if (rowGroup && rowGroup !== args.selectedGroup) return false;
+      }
+      return true;
+    }
     if (args.tableKey === "bots" && args.selectedBot && row.bot_key !== args.selectedBot) {
       return false;
     }
