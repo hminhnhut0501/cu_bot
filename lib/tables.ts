@@ -166,6 +166,27 @@ export const TABLES: TableConfig[] = [
     ]
   },
   {
+    key: "scam_broadcasts",
+    label: "Broadcast scam",
+    description: "Lịch sử broadcast scam đã gửi vào group/channel, dùng để theo dõi trạng thái và xử lý lỗi.",
+    titleField: "headline",
+    summaryFields: ["bot_key", "status", "broadcast_chat_id", "sent_at"],
+    fields: [
+      botKey,
+      { key: "report_id", label: "Report ID", type: "text", section: "Nguồn" },
+      { key: "entity_id", label: "Entity ID", type: "text", section: "Nguồn" },
+      { key: "broadcast_chat_id", label: "Group/Channel đích", type: "text", required: true, section: "Đích broadcast", helper: "ID hoặc @username của group/channel nhận broadcast." },
+      { key: "headline", label: "Tiêu đề", type: "text", required: true, section: "Nội dung" },
+      { key: "message_text", label: "Nội dung", type: "textarea", required: true, section: "Nội dung" },
+      { key: "attachment_url", label: "Ảnh/đính kèm", type: "text", section: "Nội dung", helper: "URL file hoặc Telegram file URL nếu có." },
+      { key: "status", label: "Trạng thái", type: "select", options: ["queued", "sending", "sent", "failed", "skipped"], section: "Trạng thái" },
+      { key: "sent_message_id", label: "Message ID gửi", type: "text", section: "Trạng thái" },
+      { key: "sent_at", label: "Đã gửi lúc", type: "text", section: "Trạng thái" },
+      { key: "error_message", label: "Lỗi", type: "textarea", section: "Trạng thái" },
+      notes
+    ]
+  },
+  {
     key: "keywords",
     label: "Từ khóa cấm",
     description: "Xóa tin vi phạm, cộng cảnh báo nội bộ và tự ban khi chạm ngưỡng.",

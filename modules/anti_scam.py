@@ -15,6 +15,7 @@ class AntiScamModule(BotModule):
         self.bot.message_handler(commands=["check", "kiemtra", "tra"])(self.active(self.handle_check))
         self.bot.message_handler(commands=["report", "baocao"])(self.active(self.handle_report))
         self.bot.message_handler(commands=["addscam", "themscam"])(self.active(self.handle_add_scam))
+        self.bot.message_handler(commands=["scamconfirm", "scamreject", "scamdup", "scamneed"])(self.active(self.handle_review_command))
         self.bot.message_handler(content_types=["photo", "document", "video"])(self.active(self.handle_media_report))
 
     def api_base_url(self):
@@ -53,6 +54,9 @@ class AntiScamModule(BotModule):
         response = requests.patch(f"{base}{path}", headers=self.api_headers(), json=payload, timeout=15)
         response.raise_for_status()
         return response.json()
+
+    def review_group_id(self):
+        return self.store.value("scam_review_group_id", "") or self.store.value("scam_review_channel_id", "")
 
     def telegram_file_url(self, file_id):
         token = os.environ.get("BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN") or ""
@@ -134,6 +138,30 @@ class AntiScamModule(BotModule):
         self.reply(message, self.text("report_received_text", "Đã ghi nhận báo cáo #{id}. Admin sẽ kiểm tra và xác nhận.", id=row.get("id", "-")))
         self.notify_review_channel(row, text)
 
+    def handle_review_command(self, message):
+        if getattr(message.chat, "type", "") == "private":
+            return
+        if not self.is_admin(message.chat.id, message.from_user.id):
+            return
+        command = (message.text or "").split(maxsplit=1)[0].lstrip("/").lower()
+        report = self.resolve_report_from_message(message)
+        if not report:
+            self.reply(message, self.text("admin_only_text", "Không tìm thấy report để xử lý."))
+            return
+        if command == "scamconfirm":
+            self.confirm_report(report, message.from_user.id)
+            self.reply(message, f"Đã xác nhận report #{report.get('id', '-')}.")
+        elif command == "scamreject":
+            self.reject_report(report, message.from_user.id, "")
+            self.reply(message, f"Đã từ chối report #{report.get('id', '-')}.")
+        elif command == "scamdup":
+            self.duplicate_report(report, message.from_user.id, "")
+            self.reply(message, f"Đã đánh dấu trùng report #{report.get('id', '-')}.")
+        elif command == "scamneed":
+            note = self.command_text(message) or "Vui lòng bổ sung thêm thông tin/bằng chứng."
+            self.need_more_info_report(report, message.from_user.id, note)
+            self.reply(message, f"Đã chuyển report #{report.get('id', '-')} sang cần bổ sung.")
+
     def handle_add_scam(self, message):
         if not self.is_admin(message.chat.id, message.from_user.id):
             self.reply(message, self.text("admin_only_text", "Lệnh này chỉ dành cho admin."))
@@ -154,6 +182,26 @@ class AntiScamModule(BotModule):
             "enabled": True,
         })
         self.reply(message, self.text("addscam_success_text", "Đã thêm dữ liệu scam #{id}.", id=row.get("id", "-")))
+
+    def resolve_report_from_message(self, message):
+        text = message.text or ""
+        match = re.search(r"#?(\d+)", text)
+        report_id = match.group(1) if match else ""
+        replied = getattr(message, "reply_to_message", None)
+        if not report_id and replied:
+            reply_text = getattr(replied, "text", "") or getattr(replied, "caption", "") or ""
+            reply_match = re.search(r"Report\s*#(\d+)", reply_text, re.IGNORECASE)
+            report_id = reply_match.group(1) if reply_match else ""
+        if not report_id:
+            return None
+        try:
+            payload = self.api_get("/api/scam_reports", params={"search": report_id, "limit": 20})
+            for row in (payload or {}).get("rows", []):
+                if str(row.get("id") or "") == str(report_id):
+                    return row
+        except Exception:
+            pass
+        return None
 
     def lookup_scam(self, query):
         try:
@@ -266,7 +314,9 @@ class AntiScamModule(BotModule):
         }
         if duplicates:
             payload["notes"] = self.append_note(payload.get("notes", ""), f"Phát hiện {len(duplicates)} candidate trùng.")
-        return self.create_report(payload)
+        row = self.create_report(payload)
+        self.send_report_to_review_group(row)
+        return row
 
     def extract_attachments(self, message):
         attachments = []
@@ -373,7 +423,7 @@ class AntiScamModule(BotModule):
         }
 
     def notify_review_channel(self, row, text):
-        channel_id = self.store.value("scam_review_channel_id", "")
+        channel_id = self.review_group_id()
         if not channel_id:
             return
         try:
@@ -390,8 +440,86 @@ class AntiScamModule(BotModule):
             if attachment_lines:
                 body = f"{body}\n\nBằng chứng:\n" + "\n".join(attachment_lines)
             self.bot.send_message(channel_id, body)
+            for item in attachments[:3]:
+                file_id = item.get("telegram_file_id") or ""
+                media_type = item.get("media_type") or "photo"
+                if not file_id:
+                    continue
+                try:
+                    if media_type == "photo":
+                        self.bot.send_photo(channel_id, file_id, caption=item.get("caption") or "", **self.link_preview_kwargs(True))
+                    elif media_type == "document":
+                        self.bot.send_document(channel_id, file_id, caption=item.get("caption") or "", **self.link_preview_kwargs(True))
+                    elif media_type == "video":
+                        self.bot.send_video(channel_id, file_id, caption=item.get("caption") or "", **self.link_preview_kwargs(True))
+                except Exception:
+                    continue
         except Exception:
             return
+
+    def send_report_to_review_group(self, row):
+        group_id = self.review_group_id()
+        if not group_id:
+            return
+        attachments = []
+        evidence = row.get("evidence_payload", {})
+        if isinstance(evidence, dict):
+            attachments = evidence.get("files", []) or []
+        header = self.text(
+            "scam_review_channel_text",
+            "Báo cáo scam mới #{id}:\n{text}",
+            id=row.get("id", "-"),
+            text=row.get("evidence_text") or row.get("reason") or "",
+        )
+        footer = f"\n\nLệnh: /scamconfirm #{row.get('id', '-')}\n/scamreject #{row.get('id', '-')}\n/scamdup #{row.get('id', '-')}\n/scamneed #{row.get('id', '-')}"
+        try:
+            self.bot.send_message(group_id, header + footer)
+            for item in attachments[:10]:
+                file_id = item.get("telegram_file_id") or ""
+                if not file_id:
+                    continue
+                caption = item.get("caption") or f"Report #{row.get('id', '-')}"
+                try:
+                    if item.get("media_type") == "document":
+                        self.bot.send_document(group_id, file_id, caption=caption, **self.link_preview_kwargs(True))
+                    elif item.get("media_type") == "video":
+                        self.bot.send_video(group_id, file_id, caption=caption, **self.link_preview_kwargs(True))
+                    else:
+                        self.bot.send_photo(group_id, file_id, caption=caption, **self.link_preview_kwargs(True))
+                except Exception:
+                    continue
+        except Exception:
+            return
+
+    def confirm_report(self, report, reviewer_id):
+        payload = {
+            "reviewed_by": str(reviewer_id),
+            "reason": report.get("admin_note") or report.get("reason") or "Xác nhận từ báo cáo thành viên",
+            "scam_percent": report.get("scam_percent") or report.get("confidence_score") or 100,
+            "confidence_score": report.get("confidence_score") or report.get("scam_percent") or 100,
+        }
+        try:
+            self.api_post(f"/api/scam_reports/{report.get('id')}/confirm", payload)
+        except Exception:
+            pass
+
+    def reject_report(self, report, reviewer_id, note):
+        try:
+            self.api_post(f"/api/scam_reports/{report.get('id')}/reject", {"reviewed_by": str(reviewer_id), "admin_note": note or ""})
+        except Exception:
+            pass
+
+    def duplicate_report(self, report, reviewer_id, note):
+        try:
+            self.api_post(f"/api/scam_reports/{report.get('id')}/duplicate", {"reviewed_by": str(reviewer_id), "admin_note": note or "", "duplicate_of": report.get("duplicate_of") or ""})
+        except Exception:
+            pass
+
+    def need_more_info_report(self, report, reviewer_id, note):
+        try:
+            self.api_post(f"/api/scam_reports/{report.get('id')}/need-more-info", {"reviewed_by": str(reviewer_id), "admin_note": note or ""})
+        except Exception:
+            pass
 
     def send_follow_up(self, report_row, admin_note):
         chat_id = report_row.get("reporter_chat_id") or report_row.get("source_chat_id")

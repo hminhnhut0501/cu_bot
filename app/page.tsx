@@ -438,6 +438,7 @@ const CONFIG_LABELS: Record<string, string> = {
   moderation_enabled: "Bật kiểm duyệt",
   policy_text: "Nội quy nhóm",
   scam_review_channel_id: "Channel duyệt báo cáo scam",
+  scam_review_group_id: "Group review scam",
   delete_system_messages: "Xóa tin hệ thống",
   delete_forwarded_messages: "Chặn tin forward",
   scan_hidden_links: "Quét link ẩn",
@@ -498,7 +499,7 @@ const CONFIG_LABELS: Record<string, string> = {
   report_received_text: "Tin xác nhận nhận report",
   addscam_usage_text: "Hướng dẫn lệnh /addscam",
   addscam_success_text: "Tin thêm scam thành công",
-  scam_review_channel_text: "Mẫu tin gửi channel duyệt scam",
+  scam_review_channel_text: "Mẫu tin gửi channel/group duyệt scam",
   giveaway_created_text: "Tin tạo giveaway",
   giveaway_empty_text: "Tin khi không có giveaway",
   giveaway_list_title: "Tiêu đề danh sách giveaway",
@@ -562,7 +563,7 @@ const CONFIG_SECTIONS = [
     desc: "Channel duyệt báo cáo và nội dung phản hồi khi tra cứu scam.",
     icon: Activity,
     tone: "fun",
-    keys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+    keys: ["scam_review_channel_id", "scam_review_group_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
   },
   {
     title: "Gửi tin tự động",
@@ -655,7 +656,7 @@ const MODULE_HUBS = [
     icon: Archive,
     tone: "scam",
     tables: ["scam_entities", "scam_reports", "config"],
-    configKeys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+    configKeys: ["scam_review_channel_id", "scam_review_group_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
   },
   {
     key: "entertainment",
@@ -793,6 +794,7 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   captcha_message_delete_seconds: "Sau bao lâu tự xóa tin captcha.",
   verify_success_delete_seconds: "Sau bao lâu tự xóa tin xác minh thành công.",
   scam_review_channel_id: "Channel/group nơi admin nhận báo cáo scam chờ duyệt.",
+  scam_review_group_id: "Group review scam nội bộ, nơi admin có thể duyệt bằng lệnh và lưu ảnh/text report.",
   admin_only_text: "Bot gửi câu này khi người không phải admin dùng lệnh quản trị.",
   check_usage_text: "Hướng dẫn user tra cứu scam bằng UID, username, số tài khoản hoặc số điện thoại.",
   check_not_found_text: "Tin trả về khi /check không tìm thấy dữ liệu scam.",
@@ -801,7 +803,7 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   report_received_text: "Tin xác nhận bot đã nhận report và lưu vào database.",
   addscam_usage_text: "Hướng dẫn admin thêm dữ liệu scam bằng /addscam.",
   addscam_success_text: "Tin xác nhận đã thêm một đối tượng scam vào database.",
-  scam_review_channel_text: "Mẫu nội dung bot gửi sang channel duyệt scam để admin kiểm tra.",
+  scam_review_channel_text: "Mẫu nội dung bot gửi sang channel/group duyệt scam để admin kiểm tra.",
   scam_report_pending_text: "Tin nhắn báo đã nhận report và chờ duyệt.",
   scam_report_confirmed_text: "Tin nhắn khi report đã được xác nhận.",
   scam_check_safe_text: "Kết quả trả về khi không tìm thấy dữ liệu scam.",
@@ -2789,7 +2791,7 @@ export default function HomePage() {
       key: "scam",
       title: "Scam & báo cáo",
       desc: "Channel duyệt scam và mẫu phản hồi tra cứu.",
-      keys: ["scam_review_channel_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
+    keys: ["scam_review_channel_id", "scam_review_group_id", "admin_only_text", "check_usage_text", "check_not_found_text", "check_result_title", "report_usage_text", "report_received_text", "addscam_usage_text", "addscam_success_text", "scam_review_channel_text", "scam_report_pending_text", "scam_report_confirmed_text", "scam_check_safe_text", "scam_check_found_text"]
     }
   ], []);
   const metricGroups = useMemo(() => {
@@ -3109,7 +3111,7 @@ export default function HomePage() {
   }
 
   function lookupRefreshNeeded(tableKey: string) {
-    return ["bots", "groups", "messages", "video_messages", "module_settings", "scam_reports"].includes(tableKey);
+    return ["bots", "groups", "messages", "video_messages", "module_settings", "scam_reports", "scam_broadcasts"].includes(tableKey);
   }
 
   async function refreshAfterMutation(tableKey: string, options: { reloadRows?: boolean; reloadLookups?: boolean } = {}) {

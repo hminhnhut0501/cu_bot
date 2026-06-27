@@ -490,7 +490,8 @@ insert into groups (bot_key, group_id, group_name, warning_text, policy_text, no
 
 insert into config (bot_key, key, value, enabled, notes) values
   ('main', 'policy_text', 'Quy định nhóm:\n1. Tôn trọng thành viên.\n2. Không spam hoặc quảng cáo.\n3. Không forward bài/video vào nhóm.', true, 'Nội quy mặc định.'),
-  ('main', 'scam_review_channel_id', '', true, 'Channel nhận báo cáo scam đã duyệt hoặc báo cáo mới.'),
+  ('main', 'scam_review_channel_id', '', true, 'Channel/group nhận báo cáo scam đã duyệt hoặc báo cáo mới.'),
+  ('main', 'scam_review_group_id', '', true, 'Group review nội bộ để admin duyệt report bằng lệnh.'),
   ('main', 'delete_system_messages', 'true', true, 'Xóa tin join/leave/pin/đổi title.'),
   ('main', 'delete_forwarded_messages', 'true', true, 'Chặn tin forward.'),
   ('main', 'delete_inline_keyboard_messages', 'true', true, 'Chặn bài có nút bấm.'),
@@ -529,7 +530,7 @@ insert into config (bot_key, key, value, enabled, notes) values
   ('main', 'report_received_text', 'Đã ghi nhận báo cáo #{id}. Admin sẽ kiểm tra và xác nhận.', true, 'Tin xác nhận report.'),
   ('main', 'addscam_usage_text', 'Gửi: /addscam uid | username | số tài khoản | lý do', true, 'Hướng dẫn dùng /addscam.'),
   ('main', 'addscam_success_text', 'Đã thêm dữ liệu scam #{id}.', true, 'Tin xác nhận thêm scam.'),
-  ('main', 'scam_review_channel_text', 'Báo cáo scam mới #{id}:\n{text}', true, 'Nội dung gửi channel review scam.'),
+  ('main', 'scam_review_channel_text', 'Báo cáo scam mới #{id}:\n{text}', true, 'Nội dung gửi channel/group review scam.'),
   ('main', 'giveaway_created_text', 'Đã tạo giveaway #{id}.\nTên: {title}\nPhần thưởng: {prize}\nTham gia bằng: /join {id}', true, 'Tin tạo giveaway.'),
   ('main', 'giveaway_empty_text', 'Hiện chưa có giveaway đang mở.', true, 'Không có giveaway.'),
   ('main', 'giveaway_list_title', 'Giveaway đang mở:', true, 'Tiêu đề danh sách giveaway.'),
