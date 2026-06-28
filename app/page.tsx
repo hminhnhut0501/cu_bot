@@ -2817,6 +2817,17 @@ export default function HomePage() {
       "spam_notice_delete_seconds"
     ]
   }), []);
+  const forwardMode = useMemo<"block" | "controlled" | "allow">(() => {
+    const moderationRow = moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "moderation");
+    const settings = readSettingsObject(moderationRow?.settings);
+    if (String(settings.delete_forwarded_messages).toLowerCase() === "true") {
+      return "block";
+    }
+    if (String(settings.allow_forward_messages).toLowerCase() === "true") {
+      return "controlled";
+    }
+    return "allow";
+  }, [moduleRows]);
   const templateConfigBlocks = useMemo(() => [
     {
       key: "general",
@@ -4423,6 +4434,22 @@ export default function HomePage() {
     await saveRowValues(row, updates);
   }
 
+  async function setForwardMode(mode: "block" | "controlled" | "allow") {
+    const allowRow = moderationConfigRowMap.get("allow_forward_messages");
+    if (!allowRow) {
+      return;
+    }
+    const nextAllow = mode === "controlled";
+    const nextDelete = mode === "block";
+    await saveRowValues(allowRow, {
+      ...allowRow,
+      value: String(nextAllow),
+      __configUpdates: {
+        delete_forwarded_messages: String(nextDelete),
+      },
+    } as Row);
+  }
+
   async function remove(row: Row) {
     if (!table || !window.confirm(`Xóa "${titleFor(row, table)}"?`)) {
       return;
@@ -5795,10 +5822,79 @@ export default function HomePage() {
                   </Stack>
                 ) : activeLayer === "module:moderation" && activeConfigSection.title === "Forward nâng cao" ? (
                   <Stack spacing={1.5}>
-                    {[forwardContentBlock, forwardViolationBlock].map((block) => {
+                    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                      <Stack spacing={1.5}>
+                        <Box>
+                          <Typography variant="subtitle1">Chế độ forward</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Chọn một trong 3 cách xử lý để bot không còn hiểu nhầm giữa cho phép, cho phép có kiểm soát và chặn hẳn.
+                          </Typography>
+                        </Box>
+                        <Grid container spacing={1.5}>
+                          {[
+                            {
+                              value: "block",
+                              title: "Không cho phép forward",
+                              desc: "Xóa toàn bộ tin forward vào group.",
+                              chipLabel: "Chặn",
+                              chipColor: "error",
+                            },
+                            {
+                              value: "controlled",
+                              title: "Cho phép forward có kiểm soát",
+                              desc: "Cho forward đi qua nhưng vẫn lọc nguồn và loại nội dung.",
+                              chipLabel: "Kiểm soát",
+                              chipColor: "warning",
+                            },
+                            {
+                              value: "allow",
+                              title: "Cho phép forward",
+                              desc: "Cho forward đi qua hoàn toàn, không áp dụng lọc nguồn / loại nội dung.",
+                              chipLabel: "Mở",
+                              chipColor: "success",
+                            },
+                          ].map((option) => {
+                            const active = forwardMode === option.value;
+                            return (
+                              <Grid key={option.value} size={{ xs: 12, md: 4 }}>
+                                <Paper
+                                  variant="outlined"
+                                  onClick={() => setForwardMode(option.value as "block" | "controlled" | "allow")}
+                                  sx={{
+                                    p: 1.5,
+                                    cursor: "pointer",
+                                    borderColor: active ? "primary.main" : "divider",
+                                    bgcolor: active ? "action.hover" : "background.paper",
+                                    transition: "all 0.15s ease",
+                                  }}
+                                >
+                                  <Stack spacing={0.5}>
+                                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                                      <Typography variant="subtitle2">{option.title}</Typography>
+                                      <Chip size="small" color={active ? option.chipColor as any : "default"} label={active ? option.chipLabel : "Chọn"} />
+                                    </Stack>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {option.desc}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {option.value === "block"
+                                        ? "Bot sẽ dừng xử lý forward và xóa tin forward vào group."
+                                        : option.value === "controlled"
+                                          ? "Bot cho forward đi qua nhưng vẫn lọc theo nguồn, loại nội dung và ngưỡng vi phạm."
+                                          : "Bot cho forward đi qua như một tin bình thường, không chặn theo nguồn hay loại nội dung."}
+                                    </Typography>
+                                  </Stack>
+                                </Paper>
+                              </Grid>
+                            );
+                          })}
+                        </Grid>
+                      </Stack>
+                    </Paper>
+                    {forwardMode !== "block" ? [forwardContentBlock, forwardViolationBlock].map((block, index) => {
                       const blockRows = activeConfigSection.rows.filter((row) => block.keys.includes(String(row.key || "")));
                       const toggleRow = moderationConfigRowMap.get(block.toggleKey);
-                      const blockOn = toggleRow ? String(toggleRow.value).toLowerCase() !== "false" : true;
+                      const blockOn = index === 0 ? String(forwardMode) !== "block" : true;
                       return (
                         <Paper key={block.key} variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
                           <Stack spacing={1.5}>
@@ -5807,7 +5903,7 @@ export default function HomePage() {
                                 <Typography variant="subtitle1">{block.title}</Typography>
                                 <Typography variant="body2" color="text.secondary">{block.desc}</Typography>
                               </Box>
-                              {toggleRow ? (
+                              {block.key !== "forward-content" && toggleRow ? (
                                 <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
                                   <Chip size="small" label={blockOn ? "Bật" : "Tắt"} color={blockOn ? "success" : "default"} />
                                   <Switch checked={blockOn} disabled={saving} onChange={() => toggleConfigValue(toggleRow)} />
@@ -5816,7 +5912,7 @@ export default function HomePage() {
                             </Stack>
                             {blockOn ? (
                               <Grid container spacing={1.5}>
-                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey).map((row) => {
+                                {blockRows.filter((row) => String(row.key || "") !== block.toggleKey && String(row.key || "") !== "allow_forward_messages").map((row) => {
                                   const editing = selected?.id === row.id && Object.keys(draft).length > 0;
                                   const booleanValue = isConfigBoolean(row);
                                   const valueOn = String(row.value).toLowerCase() === "true";
@@ -5828,10 +5924,10 @@ export default function HomePage() {
                                           <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
                                             <Box>
                                               <Typography variant="subtitle1">{configLabel(String(row.key || ""))}</Typography>
-                                              <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
-                                            </Box>
-                                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                                              {booleanValue ? (
+                                            <Typography variant="body2" color="text.secondary">{configDescription(row)}</Typography>
+                                          </Box>
+                                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                                              {booleanValue && block.key !== "forward-content" ? (
                                                 <Switch
                                                   disabled={saving}
                                                   onClick={() => toggleConfigValue(row)}
@@ -5870,7 +5966,13 @@ export default function HomePage() {
                           </Stack>
                         </Paper>
                       );
-                    })}
+                    }) : (
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Forward đang bị chặn hoàn toàn nên các card con đã được ẩn. Chuyển sang "Cho phép forward có kiểm soát" hoặc "Cho phép forward" nếu cần mở lại.
+                        </Typography>
+                      </Paper>
+                    )}
                   </Stack>
                 ) : activeLayer === "module:moderation" && activeConfigSection.title === "Bio, link & cảnh báo" ? (
                   <Stack spacing={1.5}>
