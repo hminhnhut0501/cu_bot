@@ -77,6 +77,7 @@ class ModerationModule(BotModule):
         "spam_action",
         "spam_restrict_seconds",
         "forward_action",
+        "forward_allowed_sources",
         "forward_allowed_content_types",
         "forward_spam_max_messages",
         "forward_spam_window_seconds",
@@ -795,6 +796,16 @@ class ModerationModule(BotModule):
             self.handle_forward_violation(message, "Forward từ bot không được phép.", forward_flags)
             return True
 
+        if not self.forward_source_allowed(message):
+            allowed = self.forward_allowed_sources(message)
+            allowed_text = ", ".join(sorted(allowed)) if allowed else "không giới hạn"
+            self.handle_forward_violation(
+                message,
+                f"Chỉ cho phép forward từ: {allowed_text}.",
+                forward_flags,
+            )
+            return True
+
         if not self.forward_content_allowed(message):
             allowed = self.forward_allowed_content_types(message)
             allowed_text = ", ".join(sorted(allowed)) if allowed else "không giới hạn"
@@ -830,6 +841,41 @@ class ModerationModule(BotModule):
         if getattr(sender_chat, "type", "") == "bot":
             return True
         return False
+
+    def forward_source(self, message):
+        origin = getattr(message, "forward_origin", None)
+        sender_user = getattr(origin, "sender_user", None) or getattr(message, "forward_from", None)
+        sender_chat = getattr(origin, "sender_chat", None) or getattr(message, "forward_from_chat", None)
+        if getattr(message, "via_bot", None) or getattr(sender_user, "is_bot", False) or getattr(sender_chat, "type", "") == "bot":
+            return "bot"
+        chat_type = str(getattr(sender_chat, "type", "") or "").lower()
+        if chat_type == "channel":
+            return "channel"
+        if chat_type in {"group", "supergroup"}:
+            return "group"
+        if getattr(sender_user, "id", None):
+            return "user"
+        return "unknown"
+
+    def forward_allowed_sources(self, message):
+        raw = self.setting(message.chat.id, "forward_allowed_sources", "").strip()
+        if not raw:
+            return set()
+        aliases = {
+            "channel": "channel",
+            "group": "group",
+            "user": "user",
+            "bot": "bot",
+            "kênh": "channel",
+            "nguoi_dung": "user",
+        }
+        normalized = set()
+        for item in raw.split(","):
+            key = normalize_text(item).replace(" ", "_")
+            if not key:
+                continue
+            normalized.add(aliases.get(key, key))
+        return normalized
 
     def forward_allowed_content_types(self, message):
         raw = self.setting(message.chat.id, "forward_allowed_content_types", "").strip()
@@ -885,6 +931,13 @@ class ModerationModule(BotModule):
         if content_type == "video_note" and "video_note" in allowed:
             return True
         return content_type in allowed
+
+    def forward_source_allowed(self, message):
+        allowed = self.forward_allowed_sources(message)
+        if not allowed:
+            return True
+        source = self.forward_source(message)
+        return source in allowed
 
     def handle_forward_violation(self, message, reason, forward_flags=None):
         forward_flags = forward_flags or []

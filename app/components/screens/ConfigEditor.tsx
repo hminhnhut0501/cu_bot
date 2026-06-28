@@ -67,6 +67,12 @@ export default function ConfigEditor({
     { value: "animation", label: "GIF" },
     { value: "video_note", label: "Video note" },
   ];
+  const forwardSourceOptions = [
+    { value: "channel", label: "Channel riêng" },
+    { value: "group", label: "Group riêng" },
+    { value: "user", label: "User" },
+    { value: "bot", label: "Bot" },
+  ];
   const selectedForwardTypes = new Set(
     String(draft.value || "")
       .split(",")
@@ -75,6 +81,28 @@ export default function ConfigEditor({
   );
 
   function updateForwardTypes(type: string, checked: boolean) {
+    setDraft((current) => {
+      const currentSet = new Set(
+        String(current.value || "")
+          .split(",")
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean)
+      );
+      if (checked) currentSet.add(type);
+      else currentSet.delete(type);
+      return {
+        ...current,
+        value: Array.from(currentSet).join(", "),
+      };
+    });
+  }
+  const selectedForwardSources = new Set(
+    String(draft.value || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  function updateForwardSources(type: string, checked: boolean) {
     setDraft((current) => {
       const currentSet = new Set(
         String(current.value || "")
@@ -132,6 +160,29 @@ export default function ConfigEditor({
               </FormGroup>
               <Typography variant="caption" color="text.secondary">
                 Đang chọn: {Array.from(selectedForwardTypes).join(", ") || "Chưa chọn gì"}
+              </Typography>
+            </Stack>
+          </Paper>
+        ) : editorKind === "multiselect_sources" ? (
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+            <Stack spacing={1}>
+              <Typography variant="subtitle2">Chọn nguồn forward được phép</Typography>
+              <FormGroup row sx={{ gap: 1 }}>
+                {forwardSourceOptions.map((option) => (
+                  <FormControlLabel
+                    key={option.value}
+                    control={
+                      <Checkbox
+                        checked={selectedForwardSources.has(option.value)}
+                        onChange={(_, checked) => updateForwardSources(option.value, checked)}
+                      />
+                    }
+                    label={option.label}
+                  />
+                ))}
+              </FormGroup>
+              <Typography variant="caption" color="text.secondary">
+                Đang chọn: {Array.from(selectedForwardSources).join(", ") || "Chưa chọn gì"}
               </Typography>
             </Stack>
           </Paper>

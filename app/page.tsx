@@ -198,6 +198,7 @@ const CONFIG_BOOLEAN_KEYS = new Set([
   "delete_system_messages",
   "delete_forwarded_messages",
   "allow_forward_messages",
+  "forward_allowed_sources",
   "scan_hidden_links",
   "scan_text_link",
   "scan_text_mention",
@@ -246,6 +247,7 @@ const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   delete_forwarded_messages: "true",
   allow_forward_messages: "true",
   allow_automatic_forwards: "true",
+  forward_allowed_sources: "channel, group, user",
   delete_inline_keyboard_messages: "true",
   delete_messages_from_bots: "true",
   remove_unknown_bots: "true",
@@ -448,6 +450,7 @@ const CONFIG_LABELS: Record<string, string> = {
   delete_system_messages: "Xóa tin hệ thống",
   delete_forwarded_messages: "Chặn tin forward",
   allow_forward_messages: "Cho phép forward",
+  forward_allowed_sources: "Nguồn forward được phép",
   scan_hidden_links: "Quét link ẩn",
   scan_text_link: "Chặn text link",
   scan_text_mention: "Chặn text mention",
@@ -540,14 +543,14 @@ const CONFIG_SECTIONS = [
     desc: "Các công tắc chặn nội dung thường gặp trong group.",
     icon: ShieldCheck,
     tone: "security",
-    keys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
+    keys: ["moderation_enabled", "delete_system_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins"]
   },
   {
     title: "Forward nâng cao",
-    desc: "Cho phép forward có kiểm soát, lọc theo loại nội dung và ngưỡng vi phạm riêng.",
+    desc: "Cho phép forward có kiểm soát, lọc theo nguồn, loại nội dung và ngưỡng vi phạm riêng.",
     icon: Send,
     tone: "security",
-    keys: ["allow_forward_messages", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "forward_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds"]
+    keys: ["allow_forward_messages", "forward_allowed_sources", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "forward_action", "forward_warning_reason", "forward_warning_text", "forward_warning_delete_seconds"]
   },
   {
     title: "Spam, cảnh báo & ban",
@@ -608,7 +611,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["moderation_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds", "scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
+    configKeys: ["moderation_enabled", "delete_system_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "allow_forward_messages", "forward_allowed_sources", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds", "scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
   },
   {
     key: "menu_policy",
@@ -1060,12 +1063,18 @@ function configFieldHint(key: string) {
   if (key === "forward_allowed_content_types") {
     return "Chọn các loại nội dung được phép forward.";
   }
+  if (key === "forward_allowed_sources") {
+    return "Chọn nguồn forward được phép như channel, group hoặc user.";
+  }
   return "";
 }
 
 function configEditorKind(key: string) {
   if (key === "forward_allowed_content_types") {
     return "multiselect";
+  }
+  if (key === "forward_allowed_sources") {
+    return "multiselect_sources";
   }
   if (CONFIG_BOOLEAN_KEYS.has(key)) {
     return "boolean";
@@ -1167,6 +1176,12 @@ function fieldUnitHint(field: FieldConfig) {
   }
   if (key === "allow_forward_messages") {
     return "Bật để cho forward đi qua nhưng vẫn scan nội dung.";
+  }
+  if (key === "delete_forwarded_messages") {
+    return "Bật để chặn forward hoàn toàn. Không nên bật cùng lúc với cho phép forward.";
+  }
+  if (key === "forward_allowed_sources") {
+    return "Chọn nguồn forward được phép như channel, group, user hoặc bot.";
   }
   if (key === "forward_allowed_content_types") {
     return "Ví dụ: text, photo, video. Để trống để cho phép mọi loại.";
@@ -2777,6 +2792,7 @@ export default function HomePage() {
     toggleKey: "allow_forward_messages",
     keys: [
       "allow_forward_messages",
+      "forward_allowed_sources",
       "forward_allowed_content_types",
       "forward_action",
       "forward_warning_reason",
@@ -3592,6 +3608,14 @@ export default function HomePage() {
           ...readSettingsObject(moderationRow?.settings),
           [key]: values.value
         };
+        const configUpdates = (values as Record<string, unknown>).__configUpdates as Record<string, unknown> | undefined;
+        if (configUpdates) {
+          for (const [configKey, configValue] of Object.entries(configUpdates)) {
+            if (configKey && configKey !== key) {
+              nextSettings[configKey] = configValue;
+            }
+          }
+        }
         if (moderationRow?.id) {
           await api("/api/module_settings", {
             method: "PATCH",
@@ -4385,7 +4409,18 @@ export default function HomePage() {
 
   async function toggleConfigValue(row: Row) {
     const nextValue = String(row.value ?? "").trim().toLowerCase() === "true" ? "false" : "true";
-    await saveRowValues(row, { ...row, value: nextValue });
+    const updates: Record<string, unknown> = { ...row, value: nextValue };
+    const configUpdates: Record<string, unknown> = {};
+    if (row.key === "allow_forward_messages" && nextValue === "true") {
+      configUpdates.delete_forwarded_messages = "false";
+    }
+    if (row.key === "delete_forwarded_messages" && nextValue === "true") {
+      configUpdates.allow_forward_messages = "false";
+    }
+    if (Object.keys(configUpdates).length) {
+      updates.__configUpdates = configUpdates;
+    }
+    await saveRowValues(row, updates);
   }
 
   async function remove(row: Row) {
