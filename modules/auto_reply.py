@@ -52,7 +52,8 @@ class AutoReplyModule(BotModule):
         user_cooldown = self.setting_int("auto_reply_user_cooldown_seconds", 45)
         trigger_cooldown = self.setting_int("auto_reply_trigger_cooldown_seconds", 8)
         min_trigger_length = max(1, self.setting_int("auto_reply_min_trigger_length", 2))
-        normalized = normalize_text(text)
+        source_raw = self.prepare_text(text, ignore_diacritics=False)
+        source_folded = self.prepare_text(text, ignore_diacritics=True)
         scored_candidates = []
         for row in self.scoped_auto_replies():
             if not self.in_scope(message, row):
@@ -62,12 +63,23 @@ class AutoReplyModule(BotModule):
             if not trigger_variants:
                 continue
             match_mode = (row.get("match") or "smart").lower()
+            ignore_diacritics = str(row.get("ignore_diacritics", False)).lower() in {"1", "true", "yes", "on"}
             best_match = None
             for variant in trigger_variants:
-                trigger_norm = normalize_text(variant)
+                trigger_norm = self.prepare_text(variant, ignore_diacritics=False)
+                trigger_folded = self.prepare_text(variant, ignore_diacritics=True)
                 if len(trigger_norm) < min_trigger_length:
                     continue
-                matched, score = self.match_rule(variant, trigger_norm, text, normalized, match_mode)
+                matched, score = self.match_rule(
+                    variant,
+                    trigger_norm,
+                    trigger_folded,
+                    text,
+                    source_raw,
+                    source_folded,
+                    match_mode,
+                    ignore_diacritics,
+                )
                 if matched and (best_match is None or score > best_match[0]):
                     best_match = (score, trigger_norm)
             if best_match:
@@ -97,8 +109,12 @@ class AutoReplyModule(BotModule):
             return False
         return True
 
+    def prepare_text(self, text, ignore_diacritics=False):
+        value = str(text or "").lower().strip()
+        return normalize_text(value) if ignore_diacritics else value
+
     def tokenize(self, text):
-        return re.findall(r"[a-z0-9_]+", normalize_text(text or ""))
+        return re.findall(r"\w+", self.prepare_text(text, ignore_diacritics=False), flags=re.UNICODE)
 
     def expand_trigger_variants(self, trigger_raw):
         text = str(trigger_raw or "").strip()
@@ -117,7 +133,7 @@ class AutoReplyModule(BotModule):
         seen = set()
         deduped = []
         for item in variants:
-            key = normalize_text(item)
+            key = self.prepare_text(item, ignore_diacritics=False)
             if not key or key in seen:
                 continue
             seen.add(key)
@@ -127,36 +143,42 @@ class AutoReplyModule(BotModule):
     def contains_whole_word(self, source_normalized, trigger_normalized):
         if " " in trigger_normalized:
             return trigger_normalized in source_normalized
-        pattern = rf"(^|[^a-z0-9_]){re.escape(trigger_normalized)}([^a-z0-9_]|$)"
-        return bool(re.search(pattern, source_normalized))
+        pattern = rf"(?<!\w){re.escape(trigger_normalized)}(?!\w)"
+        return bool(re.search(pattern, source_normalized, re.UNICODE))
 
-    def match_rule(self, trigger_raw, trigger_normalized, source_raw, source_normalized, mode):
-        if not trigger_normalized:
+    def match_rule(self, trigger_raw, trigger_normalized, trigger_folded, source_raw, source_normalized, source_folded, mode, ignore_diacritics):
+        trigger_compare = trigger_folded if ignore_diacritics else trigger_normalized
+        source_compare = source_folded if ignore_diacritics else source_normalized
+        if not trigger_compare:
             return False, 0
         if mode == "regex":
             try:
-                matched = bool(re.search(trigger_raw, source_raw, re.IGNORECASE))
+                matched = bool(re.search(trigger_raw, source_compare, re.IGNORECASE))
             except re.error:
                 matched = False
-            return matched, 300 + len(trigger_normalized)
+            return matched, 300 + len(trigger_compare)
         if mode == "exact":
-            matched = source_normalized.strip() == trigger_normalized.strip()
-            return matched, 260 + len(trigger_normalized)
+            matched = source_compare.strip() == trigger_compare.strip()
+            return matched, 260 + len(trigger_compare)
         if mode == "contains":
-            matched = self.contains_whole_word(source_normalized, trigger_normalized)
-            return matched, 180 + len(trigger_normalized)
+            matched = self.contains_whole_word(source_compare, trigger_compare)
+            return matched, 180 + len(trigger_compare)
 
-        trigger_tokens = self.tokenize(trigger_normalized)
-        source_tokens = self.tokenize(source_normalized)
+        trigger_tokens = self.tokenize(trigger_compare)
+        source_tokens = self.tokenize(source_compare)
         if not trigger_tokens or not source_tokens:
             return False, 0
         if len(trigger_tokens) == 1:
             matched = trigger_tokens[0] in source_tokens
             return matched, 220 + len(trigger_tokens[0])
-        phrase_hit = trigger_normalized in source_normalized
+        phrase_hit = trigger_compare in source_compare
         token_hit = all(token in source_tokens for token in trigger_tokens)
         matched = phrase_hit or token_hit
-        return matched, (240 if phrase_hit else 200) + len(trigger_normalized)
+        if matched:
+            exact_phrase_hit = trigger_normalized in source_normalized
+            if exact_phrase_hit:
+                return True, 260 + len(trigger_normalized)
+        return matched, (240 if phrase_hit else 200) + len(trigger_compare)
 
     def pick_reply_variant(self, raw_reply):
         text = str(raw_reply or "").strip()

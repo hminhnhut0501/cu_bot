@@ -924,7 +924,7 @@ export function AutoReplyScreen(props: {
   stats: { total: number; enabled: number; smart: number; risky: number };
   rows: Array<Record<string, any>>;
   createOpen: boolean;
-  createDraft: { trigger: string; match: string; reply: string; notes: string; enabled: boolean };
+  createDraft: { trigger: string; match: string; ignore_diacritics?: boolean; reply: string; notes: string; enabled: boolean };
   editingRuleId: string | null;
   onOpenCreate: () => void;
   onEditAutoReply: (row: Record<string, any>) => void;
@@ -934,6 +934,7 @@ export function AutoReplyScreen(props: {
     bot_key: string;
     trigger: string;
     match: string;
+    ignore_diacritics: boolean;
     reply: string;
     enabled: boolean;
     notes: string;
@@ -942,6 +943,7 @@ export function AutoReplyScreen(props: {
 }) {
   const [trigger, setTrigger] = useState(props.createDraft.trigger);
   const [match, setMatch] = useState(props.createDraft.match);
+  const [ignoreDiacritics, setIgnoreDiacritics] = useState(false);
   const [reply, setReply] = useState(props.createDraft.reply);
   const [notes, setNotes] = useState(props.createDraft.notes);
   const [enabled, setEnabled] = useState(props.createDraft.enabled);
@@ -950,6 +952,7 @@ export function AutoReplyScreen(props: {
     if (!props.createOpen) return;
     setTrigger(props.createDraft.trigger);
     setMatch(props.createDraft.match);
+    setIgnoreDiacritics(Boolean((props.createDraft as Record<string, any>).ignore_diacritics));
     setReply(props.createDraft.reply);
     setNotes(props.createDraft.notes);
     setEnabled(props.createDraft.enabled);
@@ -1008,6 +1011,9 @@ export function AutoReplyScreen(props: {
                             <Typography variant="body2" color="text.secondary">
                               Match: {String(row.match || "smart")} · Bot: {String(row.bot_key || props.selectedBotName || "-")}
                             </Typography>
+                            {row.ignore_diacritics ? (
+                              <Chip size="small" color="warning" variant="outlined" label="Bỏ dấu khi khớp" sx={{ mt: 0.75 }} />
+                            ) : null}
                           </Box>
                           <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
                             <Chip size="small" color={statusOn ? "success" : "default"} label={statusOn ? "Đang chạy" : "Đang tắt"} />
@@ -1077,6 +1083,7 @@ export function AutoReplyScreen(props: {
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                   <Chip size="small" color={enabled ? "success" : "default"} label={enabled ? "Đang bật" : "Đang tắt"} />
                   <Chip size="small" variant="outlined" label={`Match: ${match || "smart"}`} />
+                  <Chip size="small" color={ignoreDiacritics ? "warning" : "default"} label={ignoreDiacritics ? "Bỏ dấu" : "Giữ dấu"} />
                   <Chip size="small" variant="outlined" label={`Rule ${props.editingRuleId ? "đang sửa" : "mới"}`} />
                 </Stack>
 
@@ -1106,7 +1113,7 @@ export function AutoReplyScreen(props: {
                   <Box>
                     <Typography variant="subtitle2">Thiết lập rule</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Chỉnh trigger, kiểu khớp và nội dung trả lời cho rule này.
+                      Chỉnh trigger, kiểu khớp, bỏ dấu khi khớp và nội dung trả lời cho rule này.
                     </Typography>
                   </Box>
                   <Paper variant="outlined" sx={{ px: 1.5, py: 1, bgcolor: "background.default" }}>
@@ -1130,6 +1137,17 @@ export function AutoReplyScreen(props: {
                   <MenuItem value="contains">Có chứa cụm từ</MenuItem>
                   <MenuItem value="regex">Regex</MenuItem>
                 </TextField>
+                <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.default" }}>
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography variant="subtitle2">Bỏ dấu khi khớp</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Bật nếu trigger cần khớp cả khi người dùng gõ khác dấu.
+                      </Typography>
+                    </Box>
+                    <Switch checked={ignoreDiacritics} onChange={(event) => setIgnoreDiacritics(event.target.checked)} />
+                  </Stack>
+                </Paper>
                 <TextField
                   multiline
                   minRows={6}
@@ -1164,6 +1182,7 @@ export function AutoReplyScreen(props: {
                   bot_key: props.selectedBotKey || "main",
                   trigger,
                   match,
+                  ignore_diacritics: ignoreDiacritics,
                   reply,
                   enabled,
                   notes,

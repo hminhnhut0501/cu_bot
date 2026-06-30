@@ -2337,6 +2337,7 @@ export default function HomePage() {
   const [autoReplyDraft, setAutoReplyDraft] = useState({
     trigger: "hello",
     match: "smart",
+    ignore_diacritics: false,
     reply: "Chào {user}, mình có thể giúp gì cho bạn?",
     notes: "",
     enabled: true,
@@ -3991,6 +3992,7 @@ export default function HomePage() {
     bot_key: string;
     trigger: string;
     match: string;
+    ignore_diacritics: boolean;
     reply: string;
     enabled: boolean;
     notes: string;
@@ -4006,6 +4008,7 @@ export default function HomePage() {
         bot_key: nextValues.bot_key || selectedBot || activeBotKey || "main",
         trigger: nextValues.trigger,
         match: nextValues.match || "smart",
+        ignore_diacritics: Boolean(nextValues.ignore_diacritics),
         reply: nextValues.reply,
         enabled: Boolean(nextValues.enabled),
         notes: nextValues.notes,
@@ -4030,7 +4033,7 @@ export default function HomePage() {
       setActiveModule("auto_reply");
       setActiveKey("auto_replies");
       setAutoReplyEditingId(null);
-      setAutoReplyDraft({ trigger: "hello", match: "smart", reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
+      setAutoReplyDraft({ trigger: "hello", match: "smart", ignore_diacritics: false, reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Không thể tạo auto reply.";
       setError(message);
@@ -5250,6 +5253,7 @@ export default function HomePage() {
               setAutoReplyDraft({
                 trigger: String(row.trigger || "hello"),
                 match: String(row.match || "smart"),
+                ignore_diacritics: Boolean(row.ignore_diacritics),
                 reply: String(row.reply || ""),
                 notes: String(row.notes || ""),
                 enabled: row.enabled !== false,
@@ -5259,7 +5263,7 @@ export default function HomePage() {
             onCloseCreate={() => {
               setAutoReplyCreateOpen(false);
               setAutoReplyEditingId(null);
-              setAutoReplyDraft({ trigger: "hello", match: "smart", reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
+              setAutoReplyDraft({ trigger: "hello", match: "smart", ignore_diacritics: false, reply: "Chào {user}, mình có thể giúp gì cho bạn?", notes: "", enabled: true });
             }}
             onToggleModule={() => void toggleModule("auto_reply")}
             onCreateAutoReply={createAutoReply}
