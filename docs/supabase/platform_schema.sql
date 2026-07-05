@@ -496,6 +496,7 @@ insert into config (bot_key, key, value, enabled, notes) values
   ('main', 'delete_system_messages', 'true', true, 'Xóa tin join/leave/pin/đổi title.'),
   ('main', 'delete_forwarded_messages', 'true', true, 'Chặn tin forward.'),
   ('main', 'allow_forward_messages', 'true', true, 'Cho phép forward có kiểm soát và quét nội dung forward.'),
+  ('main', 'forward_allowed_sources', 'channel_private, channel_public, group_private, group_public, user', true, 'Các nguồn forward được phép.'),
   ('main', 'forward_allowed_content_types', 'text, photo, video, document, sticker', true, 'Các loại nội dung forward được phép.'),
   ('main', 'forward_spam_max_messages', '3', true, 'Số forward tối đa trong khung thời gian.'),
   ('main', 'forward_spam_window_seconds', '30', true, 'Khung thời gian đếm forward spam.'),

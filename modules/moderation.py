@@ -850,9 +850,9 @@ class ModerationModule(BotModule):
             return "bot"
         chat_type = str(getattr(sender_chat, "type", "") or "").lower()
         if chat_type == "channel":
-            return "channel"
+            return "channel_public" if getattr(sender_chat, "username", None) else "channel_private"
         if chat_type in {"group", "supergroup"}:
-            return "group"
+            return "group_public" if getattr(sender_chat, "username", None) else "group_private"
         if getattr(sender_user, "id", None):
             return "user"
         return "unknown"
@@ -862,11 +862,19 @@ class ModerationModule(BotModule):
         if not raw:
             return set()
         aliases = {
-            "channel": "channel",
-            "group": "group",
+            "channel": "channel_private",
+            "channel_private": "channel_private",
+            "channel_public": "channel_public",
+            "group": "group_private",
+            "group_private": "group_private",
+            "group_public": "group_public",
             "user": "user",
             "bot": "bot",
-            "kênh": "channel",
+            "kênh": "channel_private",
+            "kênh riêng": "channel_private",
+            "kênh công khai": "channel_public",
+            "group riêng": "group_private",
+            "group công khai": "group_public",
             "nguoi_dung": "user",
         }
         normalized = set()

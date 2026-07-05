@@ -68,8 +68,10 @@ export default function ConfigEditor({
     { value: "video_note", label: "Video note" },
   ];
   const forwardSourceOptions = [
-    { value: "channel", label: "Channel riêng" },
-    { value: "group", label: "Group riêng" },
+    { value: "channel_private", label: "Channel riêng tư" },
+    { value: "channel_public", label: "Channel công khai" },
+    { value: "group_private", label: "Group riêng tư" },
+    { value: "group_public", label: "Group công khai" },
     { value: "user", label: "User" },
     { value: "bot", label: "Bot" },
   ];

@@ -247,7 +247,7 @@ const CONFIG_DEFAULT_VALUES: Record<string, string> = {
   delete_forwarded_messages: "true",
   allow_forward_messages: "true",
   allow_automatic_forwards: "true",
-  forward_allowed_sources: "channel, group, user",
+  forward_allowed_sources: "channel_private, channel_public, group_private, group_public, user",
   delete_inline_keyboard_messages: "true",
   delete_messages_from_bots: "true",
   remove_unknown_bots: "true",
@@ -1064,7 +1064,7 @@ function configFieldHint(key: string) {
     return "Chọn các loại nội dung được phép forward.";
   }
   if (key === "forward_allowed_sources") {
-    return "Chọn nguồn forward được phép như channel, group hoặc user.";
+    return "Chọn nguồn forward được phép như channel_private, channel_public, group_private, group_public, user hoặc bot.";
   }
   return "";
 }
@@ -1181,7 +1181,7 @@ function fieldUnitHint(field: FieldConfig) {
     return "Bật để chặn forward hoàn toàn. Không nên bật cùng lúc với cho phép forward.";
   }
   if (key === "forward_allowed_sources") {
-    return "Chọn nguồn forward được phép như channel, group, user hoặc bot.";
+    return "Chọn riêng nguồn forward theo channel/group công khai hay riêng tư.";
   }
   if (key === "forward_allowed_content_types") {
     return "Ví dụ: text, photo, video. Để trống để cho phép mọi loại.";
