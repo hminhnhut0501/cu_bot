@@ -4740,7 +4740,7 @@ export default function HomePage() {
   const welcomeEnabled = welcomeDraftEnabled;
   const welcomeText = String(groupWelcomeContext?.welcome_text || "");
   const welcomeDeleteSeconds = Number(groupWelcomeContext?.welcome_delete_seconds ?? 30) || 30;
-  const welcomeButtonsText = String(welcomeSettings.welcome_buttons_text || "");
+  const welcomeButtonsText = String(groupWelcomeContext?.welcome_buttons_text || "");
   const welcomeRuntimeLastEventAt = formatDateTime(welcomeSettings.welcome_runtime_last_event_at);
   const welcomeRuntimeLastSuccessAt = formatDateTime(welcomeSettings.welcome_runtime_last_success_at);
   const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
