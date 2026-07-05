@@ -3756,19 +3756,37 @@ export default function HomePage() {
     setSaving(true);
     setError("");
     setNotice("");
+    const previousLookups = lookups;
     try {
       if (!selectedScopeRow?.id && !selectedScope) {
         throw new Error("Hãy chọn group trước khi lưu Welcome.");
       }
+      const nextWelcomeEnabled = nextValues.welcome_enabled ?? selectedScopeRow?.welcome_enabled ?? true;
       const groupPayload = {
         bot_key: selectedBot || "main",
         group_id: String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || ""),
         group_name: String(selectedScopeRow?.group_name || selectedScope || ""),
-        welcome_enabled: nextValues.welcome_enabled ?? selectedScopeRow?.welcome_enabled ?? true,
+        welcome_enabled: nextWelcomeEnabled,
         welcome_text: nextValues.welcome_text ?? selectedScopeRow?.welcome_text ?? "",
         welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30,
         welcome_buttons_text: nextValues.welcome_buttons_text ?? selectedScopeRow?.welcome_buttons_text ?? ""
       };
+      if (selectedScopeRow?.id || selectedScope) {
+        const targetGroupId = String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || "");
+        setLookups((current) => ({
+          ...current,
+          groups: current.groups.map((group) => {
+            const currentGroupId = String(group.group_id || group.chat_id || "");
+            if (String(group.id || "") === String(selectedScopeRow?.id || "") || currentGroupId === targetGroupId) {
+              return {
+                ...group,
+                ...groupPayload,
+              };
+            }
+            return group;
+          })
+        }));
+      }
       if (selectedScopeRow?.id) {
         await api("/api/groups", {
           method: "PATCH",
@@ -3787,6 +3805,7 @@ export default function HomePage() {
       flashToast("Đã lưu cấu hình Welcome theo group.");
       await refreshAfterMutation("groups", { reloadRows: table?.key === "groups", reloadLookups: true });
     } catch (err) {
+      setLookups(previousLookups);
       const message = friendlySaveError(err);
       setError(message);
       flashToast(message, "error");
@@ -5224,7 +5243,7 @@ export default function HomePage() {
             runtimeLastTestAt={welcomeSettings.welcome_runtime_last_test_at ? welcomeRuntimeLastTestAt : ""}
             runtimeLastEventSource={welcomeRuntimeLastEventSource}
             runtimeDeleteStatus={welcomeDeleteStatus}
-            onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}
+            onToggleWelcome={(nextEnabled) => void saveWelcomeSettings({ welcome_enabled: nextEnabled ? "true" : "false" })}
             onChangeText={setWelcomeDraftText}
             onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
             onChangeButtonsText={setWelcomeDraftButtonsText}

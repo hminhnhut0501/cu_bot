@@ -172,7 +172,7 @@ export function WelcomeScreen(props: {
   runtimeLastTestAt: string;
   runtimeLastEventSource: string;
   runtimeDeleteStatus: string;
-  onToggleWelcome: () => void;
+  onToggleWelcome: (nextEnabled: boolean) => void;
   onChangeText: (value: string) => void;
   onChangeDeleteSeconds: (value: string) => void;
   onChangeButtonsText: (value: string) => void;
@@ -214,7 +214,11 @@ export function WelcomeScreen(props: {
                 Công tắc này điều khiển trạng thái Welcome của group đang xem. Nội dung sửa trong popup bên dưới.
               </Typography>
             </Box>
-            <Switch checked={props.welcomeEnabled} onChange={props.onToggleWelcome} disabled={props.saving} />
+            <Switch
+              checked={props.welcomeEnabled}
+              onChange={(_, checked) => props.onToggleWelcome(checked)}
+              disabled={props.saving}
+            />
           </Box>
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
@@ -226,7 +230,7 @@ export function WelcomeScreen(props: {
                     Mẫu tin, nút inline và thời gian tự xóa sẽ chỉnh trong popup.
                   </Typography>
                 </Box>
-                <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={props.saving}>
+                  <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={props.saving}>
                   {props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}
                 </MuiButton>
               </Box>
@@ -332,8 +336,8 @@ export function WelcomeScreen(props: {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <MuiButton variant="outlined" onClick={() => setCreateOpen(false)}>Hủy</MuiButton>
-          <MuiButton variant="contained" onClick={props.onSave} disabled={props.saving || !props.moduleEnabled}>Lưu</MuiButton>
+              <MuiButton variant="outlined" onClick={() => setCreateOpen(false)}>Hủy</MuiButton>
+          <MuiButton variant="contained" onClick={props.onSave} disabled={props.saving}>Lưu</MuiButton>
         </DialogActions>
       </Dialog>
     </Section>
