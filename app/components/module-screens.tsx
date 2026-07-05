@@ -172,7 +172,6 @@ export function WelcomeScreen(props: {
   runtimeLastTestAt: string;
   runtimeLastEventSource: string;
   runtimeDeleteStatus: string;
-  onToggleModule: () => void;
   onToggleWelcome: () => void;
   onChangeText: (value: string) => void;
   onChangeDeleteSeconds: (value: string) => void;
@@ -185,7 +184,7 @@ export function WelcomeScreen(props: {
   const c = {
     eyebrow: "MODULE",
     title: "Welcome",
-    body: "Chào thành viên mới khi họ vừa join group. Bật module để gửi tin chào theo mẫu."
+    body: "Chào thành viên mới khi họ vừa join group. Một công tắc ở ngoài để bật/tắt, nội dung chỉnh trong popup."
   };
   return (
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
@@ -210,12 +209,12 @@ export function WelcomeScreen(props: {
           ) : null}
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật Welcome</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật chào thành viên mới</Typography>
               <Typography variant="body2" color="text.secondary">
-                Chỉ gửi khi bot có quyền trong group và message sẽ tự xóa nếu đặt thời gian.
+                Công tắc này điều khiển trạng thái Welcome của group đang xem. Nội dung sửa trong popup bên dưới.
               </Typography>
             </Box>
-            <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
+            <Switch checked={props.welcomeEnabled} onChange={props.onToggleWelcome} disabled={props.saving || !props.moduleEnabled} />
           </Box>
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
@@ -261,7 +260,7 @@ export function WelcomeScreen(props: {
                   variant="contained"
                   startIcon={<FlaskConical size={16} />}
                   onClick={props.onTestRuntime}
-                  disabled={props.testing || props.saving || !props.moduleEnabled || !props.welcomeEnabled || !props.selectedGroupId}
+                  disabled={props.testing || props.saving || !props.moduleEnabled || !props.selectedGroupId}
                 >
                   {props.testing ? "Đang gửi test..." : "Gửi test Welcome"}
                 </MuiButton>
@@ -293,10 +292,6 @@ export function WelcomeScreen(props: {
         <DialogTitle>{props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={1.5} sx={{ pt: 1 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
-              <Typography variant="subtitle2">Bật chào thành viên mới</Typography>
-              <Switch checked={props.welcomeEnabled} onChange={props.onToggleWelcome} disabled={props.saving || !props.moduleEnabled} />
-            </Box>
             <TextField
               multiline
               minRows={5}

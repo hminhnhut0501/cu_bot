@@ -5224,7 +5224,6 @@ export default function HomePage() {
             runtimeLastTestAt={welcomeSettings.welcome_runtime_last_test_at ? welcomeRuntimeLastTestAt : ""}
             runtimeLastEventSource={welcomeRuntimeLastEventSource}
             runtimeDeleteStatus={welcomeDeleteStatus}
-            onToggleModule={() => void toggleModule("welcome")}
             onToggleWelcome={() => void saveWelcomeSettings({ welcome_enabled: welcomeEnabled ? "false" : "true" })}
             onChangeText={setWelcomeDraftText}
             onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
