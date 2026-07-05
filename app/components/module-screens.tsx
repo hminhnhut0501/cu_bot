@@ -303,15 +303,15 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Mẫu tin chào"
               value={props.welcomeText}
-              disabled={props.saving || !props.moduleEnabled || !props.welcomeEnabled}
+              disabled={props.saving || !props.moduleEnabled}
               onChange={(event) => props.onChangeText(event.target.value)}
               helperText="Placeholder: {user}, {group}, {group_id}, {user_id}"
             />
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {user}`.trim())}>
+              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {user}`.trim())} disabled={props.saving || !props.moduleEnabled}>
                 Chèn {'{user}'}
               </MuiButton>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {group}`.trim())}>
+              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {group}`.trim())} disabled={props.saving || !props.moduleEnabled}>
                 Chèn {'{group}'}
               </MuiButton>
             </Box>
@@ -321,7 +321,7 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Nút inline"
               value={props.welcomeButtonsText}
-              disabled={props.saving || !props.moduleEnabled || !props.welcomeEnabled}
+              disabled={props.saving || !props.moduleEnabled}
               onChange={(event) => props.onChangeButtonsText(event.target.value)}
               helperText="Mỗi dòng: Tên nút | https://link"
             />
@@ -330,7 +330,7 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Tự xóa sau (giây)"
               value={props.welcomeDeleteSeconds}
-              disabled={props.saving || !props.moduleEnabled || !props.welcomeEnabled}
+              disabled={props.saving || !props.moduleEnabled}
               onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
               helperText="0 = không tự xóa"
             />

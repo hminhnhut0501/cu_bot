@@ -126,9 +126,6 @@ export async function POST(request: NextRequest) {
 
     if (!groupRow?.id) return badRequest("Group này chưa có cấu hình Welcome riêng.");
     if (groupRow.enabled === false) return badRequest("Group này đang tắt.");
-    if (String(groupRow.welcome_enabled ?? "false") === "false") {
-      return badRequest("Tin chào đang tắt cho group này.");
-    }
     const welcomeTextTemplate = String(groupRow.welcome_text || "").trim();
     if (!welcomeTextTemplate) return badRequest("Group này chưa có mẫu tin Welcome riêng.");
 
