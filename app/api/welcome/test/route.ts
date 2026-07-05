@@ -26,20 +26,6 @@ function readSettingsObject(settings: unknown) {
   return typeof settings === "object" ? settings as Record<string, unknown> : {};
 }
 
-function parseButtons(rawText: string) {
-  const inline_keyboard = String(rawText || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [label, url] = line.split("|", 2).map((part) => part?.trim());
-      if (!label || !url) return null;
-      return [{ text: label, url }];
-    })
-    .filter(Boolean);
-  return inline_keyboard.length ? { inline_keyboard } : undefined;
-}
-
 function renderWelcomeText(template: string, groupName: string, chatId: string) {
   const previewUser = "<b>Người dùng mới</b>";
   return String(template || "Chào mừng {user} đến với {group}.")
@@ -117,9 +103,9 @@ export async function POST(request: NextRequest) {
 
     const { data: groupRow, error: groupError } = await supabaseAdmin
       .from("groups")
-      .select("id,group_id,group_name,welcome_enabled,welcome_text,welcome_delete_seconds,welcome_buttons_text,enabled")
+      .select("id,group_id,group_name,welcome_enabled,welcome_text,welcome_delete_seconds,enabled")
       .eq("bot_key", botKey)
-      .or(`group_id.eq.${chatId},chat_id.eq.${chatId}`)
+      .eq("group_id", chatId)
       .limit(1)
       .maybeSingle();
     if (groupError) throw new Error(groupError.message);
@@ -134,8 +120,6 @@ export async function POST(request: NextRequest) {
       groupName || chatId,
       chatId,
     );
-    const replyMarkup = parseButtons(String(groupRow.welcome_buttons_text || ""));
-
     const telegramResponse = await fetch(`https://api.telegram.org/bot${botRow.bot_token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -144,7 +128,6 @@ export async function POST(request: NextRequest) {
         text,
         parse_mode: "HTML",
         disable_web_page_preview: true,
-        reply_markup: replyMarkup,
       }),
     });
     const telegramPayload = await telegramResponse.json();

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -2330,7 +2330,6 @@ export default function HomePage() {
   const [channelButtons, setChannelButtons] = useState<ChannelButtonDraft[]>([{ label: "", url: "", row: 0 }]);
   const [welcomeDraftText, setWelcomeDraftText] = useState("");
   const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
-  const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
   const [welcomeDraftEnabled, setWelcomeDraftEnabled] = useState(false);
   const [welcomeTesting, setWelcomeTesting] = useState(false);
   const [autoReplyCreateOpen, setAutoReplyCreateOpen] = useState(false);
@@ -2490,7 +2489,7 @@ export default function HomePage() {
     if (!selectedScope) {
       return null;
     }
-    return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope) || null;
+    return lookups.groups.find((group) => String(group.group_id || "") === selectedScope) || null;
   }, [lookups.groups, selectedScope]);
   const groupWelcomeContext = useMemo(() => {
     if (table?.key !== "groups") {
@@ -2498,11 +2497,12 @@ export default function HomePage() {
     }
     return Object.keys(draft).length ? draft : selectedScopeRow;
   }, [draft, selectedScopeRow, table?.key]);
+  const welcomeSyncGroupKey = String(selectedScopeRow?.id || selectedScopeRow?.group_id || selectedScope || "");
   const welcomeGroupEnabled = groupWelcomeContext ? String(groupWelcomeContext.welcome_enabled ?? "false") !== "false" : false;
   const groupNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of lookups.groups) {
-      const groupId = String(group.group_id || group.chat_id || "").trim();
+      const groupId = String(group.group_id || "").trim();
       if (!groupId) continue;
       map.set(groupId, String(group.group_name || group.title || groupId));
     }
@@ -3458,7 +3458,7 @@ export default function HomePage() {
       return;
     }
     const groupRow = selectedScope
-      ? lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope)
+      ? lookups.groups.find((group) => String(group.group_id || "") === selectedScope)
       : table?.key === "groups"
         ? visibleRows[0]
         : null;
@@ -3754,7 +3754,7 @@ export default function HomePage() {
     }
   }
 
-  async function saveWelcomeSettings(nextValues: { welcome_text?: string; welcome_delete_seconds?: string | number; welcome_enabled?: string; welcome_buttons_text?: string }) {
+  async function saveWelcomeSettings(nextValues: { welcome_text?: string; welcome_delete_seconds?: string | number; welcome_enabled?: string }) {
     setSaving(true);
     setError("");
     setNotice("");
@@ -3767,19 +3767,18 @@ export default function HomePage() {
       const nextWelcomeEnabled = nextValues.welcome_enabled ?? selectedScopeRow?.welcome_enabled ?? true;
       const groupPayload = {
         bot_key: selectedBot || "main",
-        group_id: String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || ""),
+        group_id: String(selectedScopeRow?.group_id || selectedScope || ""),
         group_name: String(selectedScopeRow?.group_name || selectedScope || ""),
         welcome_enabled: nextWelcomeEnabled,
         welcome_text: nextValues.welcome_text ?? selectedScopeRow?.welcome_text ?? "",
-        welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30,
-        welcome_buttons_text: nextValues.welcome_buttons_text ?? selectedScopeRow?.welcome_buttons_text ?? ""
+        welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30
       };
       if (selectedScopeRow?.id || selectedScope) {
-        const targetGroupId = String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || "");
+        const targetGroupId = String(selectedScopeRow?.group_id || selectedScope || "");
         setLookups((current) => ({
           ...current,
           groups: current.groups.map((group) => {
-            const currentGroupId = String(group.group_id || group.chat_id || "");
+            const currentGroupId = String(group.group_id || "");
             if (String(group.id || "") === String(selectedScopeRow?.id || "") || currentGroupId === targetGroupId) {
               return {
                 ...group,
@@ -3831,7 +3830,7 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify({
           bot_key: selectedBot || "main",
-          chat_id: selectedScopeRow.group_id || selectedScopeRow.chat_id || selectedScope || "",
+          chat_id: selectedScopeRow.group_id || selectedScope || "",
           group_name: selectedScopeRow.group_name || selectedScope || "",
         }),
       });
@@ -4617,7 +4616,7 @@ export default function HomePage() {
       return lookups.groups
         .filter((group) => !selectedBot || !group.bot_key || group.bot_key === selectedBot)
         .map((group) => {
-          const value = String(group.group_id || group.chat_id || "");
+          const value = String(group.group_id || "");
           return { value, label: String(group.group_name || value) };
         })
         .filter((item) => item.value);
@@ -4739,7 +4738,6 @@ export default function HomePage() {
   const welcomeEnabled = welcomeDraftEnabled;
   const welcomeText = String(groupWelcomeContext?.welcome_text || "");
   const welcomeDeleteSeconds = Number(groupWelcomeContext?.welcome_delete_seconds ?? 30) || 30;
-  const welcomeButtonsText = String(groupWelcomeContext?.welcome_buttons_text || "");
   const welcomeRuntimeLastEventAt = formatDateTime(welcomeSettings.welcome_runtime_last_event_at);
   const welcomeRuntimeLastSuccessAt = formatDateTime(welcomeSettings.welcome_runtime_last_success_at);
   const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
@@ -4767,12 +4765,16 @@ export default function HomePage() {
     : lastWelcomeDeleteSuccess
       ? `Xóa gần nhất OK: ${formatDateTime(lastWelcomeDeleteSuccess.created_at || lastWelcomeDeleteSuccess.updated_at)}`
       : "";
+  const welcomeLastSyncedGroupKey = useRef("");
   useEffect(() => {
+    if (!welcomeSyncGroupKey || welcomeLastSyncedGroupKey.current === welcomeSyncGroupKey) {
+      return;
+    }
+    welcomeLastSyncedGroupKey.current = welcomeSyncGroupKey;
     setWelcomeDraftEnabled(welcomeGroupEnabled);
     setWelcomeDraftText(welcomeText);
     setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
-    setWelcomeDraftButtonsText(welcomeButtonsText);
-  }, [welcomeButtonsText, welcomeDeleteSeconds, welcomeGroupEnabled, welcomeText, welcomeModuleRow?.id]);
+  }, [welcomeDeleteSeconds, welcomeGroupEnabled, welcomeSyncGroupKey, welcomeText]);
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -5235,12 +5237,11 @@ export default function HomePage() {
             welcomeEnabled={welcomeEnabled}
             welcomeText={welcomeDraftText}
             welcomeDeleteSeconds={welcomeDraftDeleteSeconds}
-            welcomeButtonsText={welcomeDraftButtonsText}
             hasSavedConfig={Boolean(selectedScopeRow?.id)}
             saving={saving}
             testing={welcomeTesting}
             selectedGroupName={selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : ""}
-            selectedGroupId={selectedScopeRow ? String(selectedScopeRow.group_id || selectedScopeRow.chat_id || selectedScope) : ""}
+            selectedGroupId={selectedScopeRow ? String(selectedScopeRow.group_id || selectedScope) : ""}
             runtimeLastEventAt={welcomeSettings.welcome_runtime_last_event_at ? welcomeRuntimeLastEventAt : ""}
             runtimeLastSuccessAt={welcomeSettings.welcome_runtime_last_success_at ? welcomeRuntimeLastSuccessAt : ""}
             runtimeLastErrorAt={welcomeSettings.welcome_runtime_last_error_at ? welcomeRuntimeLastErrorAt : ""}
@@ -5254,11 +5255,9 @@ export default function HomePage() {
             }}
             onChangeText={setWelcomeDraftText}
             onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
-            onChangeButtonsText={setWelcomeDraftButtonsText}
             onSave={() => void saveWelcomeSettings({
               welcome_text: welcomeDraftText,
-              welcome_delete_seconds: welcomeDraftDeleteSeconds,
-              welcome_buttons_text: welcomeDraftButtonsText
+              welcome_delete_seconds: welcomeDraftDeleteSeconds
             })}
             onTestRuntime={() => void testWelcomeRuntime()}
             tabLabel={TABLE_TASK_LABELS.groups || "Cài đặt group"}
@@ -6479,7 +6478,6 @@ export default function HomePage() {
                             <Chip size="small" variant="outlined" label={`Group: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Chưa chọn"}`} />
                             <Chip size="small" color={welcomeEnabled ? "success" : "default"} label={welcomeEnabled ? "Welcome ON" : "Welcome OFF"} />
                             <Chip size="small" variant="outlined" label={welcomeText ? "Đã có mẫu tin riêng" : "Chưa có mẫu tin riêng"} />
-                            <Chip size="small" variant="outlined" label={welcomeButtonsText ? "Có nút inline riêng" : "Chưa có nút inline"} />
                             <Chip size="small" variant="outlined" label={selectedScopeRow ? `Tự xóa sau ${welcomeDeleteSeconds}s` : "Chưa lưu Welcome cho group này"} />
                           </Stack>
                           {!selectedScopeRow ? (
@@ -6615,7 +6613,7 @@ export default function HomePage() {
                   </datalist>
                   <datalist id="group-options">
                     {lookups.groups.map((group) => {
-                      const groupId = group.group_id || group.chat_id || "";
+                      const groupId = group.group_id || "";
                       return (
                         <option key={groupId || group.id} value={groupId}>
                           {group.group_name || groupId}

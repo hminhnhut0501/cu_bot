@@ -159,7 +159,6 @@ export function WelcomeScreen(props: {
   welcomeEnabled: boolean;
   welcomeText: string;
   welcomeDeleteSeconds: number;
-  welcomeButtonsText: string;
   hasSavedConfig: boolean;
   saving: boolean;
   testing: boolean;
@@ -175,7 +174,6 @@ export function WelcomeScreen(props: {
   onToggleWelcome: (nextEnabled: boolean) => void;
   onChangeText: (value: string) => void;
   onChangeDeleteSeconds: (value: string) => void;
-  onChangeButtonsText: (value: string) => void;
   onSave: () => void;
   onTestRuntime: () => void;
   tabLabel?: string;
@@ -239,9 +237,6 @@ export function WelcomeScreen(props: {
                   <Typography variant="caption" color="text.secondary">Preview nhanh</Typography>
                   <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                     {props.welcomeText || "Chưa có mẫu tin chào."}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {props.welcomeButtonsText ? `Có ${props.welcomeButtonsText.split("\n").filter(Boolean).length} nút inline` : "Chưa có nút inline"}
                   </Typography>
                 </Stack>
               </Paper>
@@ -314,16 +309,6 @@ export function WelcomeScreen(props: {
                 Chèn {'{group}'}
               </MuiButton>
             </Box>
-            <TextField
-              multiline
-              minRows={3}
-              fullWidth
-              label="Nút inline"
-              value={props.welcomeButtonsText}
-              disabled={props.saving}
-              onChange={(event) => props.onChangeButtonsText(event.target.value)}
-              helperText="Mỗi dòng: Tên nút | https://link"
-            />
             <TextField
               type="number"
               fullWidth
