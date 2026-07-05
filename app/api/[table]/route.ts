@@ -76,6 +76,19 @@ function scopedField(config: ReturnType<typeof tableConfig>, candidates: string[
   return candidates.find((candidate) => config?.fields.some((field) => field.key === candidate));
 }
 
+function parseBooleanValue(value: unknown) {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "on", "enabled"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "off", "disabled"].includes(normalized)) {
+      return false;
+    }
+  }
+  return Boolean(value);
+}
+
 function applyScopeFilters(query: DynamicTable, config: ReturnType<typeof tableConfig>, request: NextRequest) {
   const botKey = request.nextUrl.searchParams.get("bot_key")?.trim();
   const groupId = request.nextUrl.searchParams.get("group_id")?.trim();
@@ -120,7 +133,7 @@ function cleanPayload(table: string, payload: Record<string, unknown>) {
       continue;
     }
     if (field.type === "boolean") {
-      cleaned[key] = Boolean(value);
+      cleaned[key] = parseBooleanValue(value);
       continue;
     }
     cleaned[key] = value;
