@@ -214,7 +214,7 @@ export function WelcomeScreen(props: {
                 Công tắc này điều khiển trạng thái Welcome của group đang xem. Nội dung sửa trong popup bên dưới.
               </Typography>
             </Box>
-            <Switch checked={props.welcomeEnabled} onChange={props.onToggleWelcome} disabled={props.saving || !props.moduleEnabled} />
+            <Switch checked={props.welcomeEnabled} onChange={props.onToggleWelcome} disabled={props.saving} />
           </Box>
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
@@ -226,7 +226,7 @@ export function WelcomeScreen(props: {
                     Mẫu tin, nút inline và thời gian tự xóa sẽ chỉnh trong popup.
                   </Typography>
                 </Box>
-                <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={!props.moduleEnabled}>
+                <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={props.saving}>
                   {props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}
                 </MuiButton>
               </Box>
@@ -260,7 +260,7 @@ export function WelcomeScreen(props: {
                   variant="contained"
                   startIcon={<FlaskConical size={16} />}
                   onClick={props.onTestRuntime}
-                  disabled={props.testing || props.saving || !props.moduleEnabled || !props.selectedGroupId}
+                  disabled={props.testing || props.saving || !props.selectedGroupId}
                 >
                   {props.testing ? "Đang gửi test..." : "Gửi test Welcome"}
                 </MuiButton>
@@ -298,15 +298,15 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Mẫu tin chào"
               value={props.welcomeText}
-              disabled={props.saving || !props.moduleEnabled}
+              disabled={props.saving}
               onChange={(event) => props.onChangeText(event.target.value)}
               helperText="Placeholder: {user}, {group}, {group_id}, {user_id}"
             />
             <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {user}`.trim())} disabled={props.saving || !props.moduleEnabled}>
+              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {user}`.trim())} disabled={props.saving}>
                 Chèn {'{user}'}
               </MuiButton>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {group}`.trim())} disabled={props.saving || !props.moduleEnabled}>
+              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {group}`.trim())} disabled={props.saving}>
                 Chèn {'{group}'}
               </MuiButton>
             </Box>
@@ -316,7 +316,7 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Nút inline"
               value={props.welcomeButtonsText}
-              disabled={props.saving || !props.moduleEnabled}
+              disabled={props.saving}
               onChange={(event) => props.onChangeButtonsText(event.target.value)}
               helperText="Mỗi dòng: Tên nút | https://link"
             />
@@ -325,7 +325,7 @@ export function WelcomeScreen(props: {
               fullWidth
               label="Tự xóa sau (giây)"
               value={props.welcomeDeleteSeconds}
-              disabled={props.saving || !props.moduleEnabled}
+              disabled={props.saving}
               onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
               helperText="0 = không tự xóa"
             />
