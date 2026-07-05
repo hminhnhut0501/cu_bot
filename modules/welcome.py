@@ -81,6 +81,8 @@ class WelcomeModule(BotModule):
 
     def buttons_setting(self, chat_id):
         module_row = self.module_row(fresh=True)
+        if not module_row:
+            return ""
         settings = module_row.get("settings") or {}
         if isinstance(settings, str):
             try:
@@ -305,7 +307,7 @@ class WelcomeModule(BotModule):
             LOGGER.info("Rendered welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
             return False
         try:
-        markup = self.parse_buttons(self.buttons_setting(chat_id))
+            markup = self.parse_buttons(self.buttons_setting(chat_id))
             sent = self.bot.send_message(
                 chat_id,
                 text,
