@@ -80,7 +80,19 @@ class WelcomeModule(BotModule):
         return default
 
     def buttons_setting(self, chat_id):
-        value = self.setting(chat_id, "welcome_buttons_text", "")
+        module_row = self.module_row(fresh=True)
+        settings = module_row.get("settings") or {}
+        if isinstance(settings, str):
+            try:
+                import json
+
+                settings = json.loads(settings)
+            except Exception:
+                settings = {}
+        if isinstance(settings, dict):
+            value = settings.get("welcome_buttons_text", "")
+        else:
+            value = ""
         return str(value or "")
 
     def parse_buttons(self, raw_text):
@@ -293,7 +305,7 @@ class WelcomeModule(BotModule):
             LOGGER.info("Rendered welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
             return False
         try:
-            markup = self.parse_buttons(str(group_row.get("welcome_buttons_text") or ""))
+        markup = self.parse_buttons(self.buttons_setting(chat_id))
             sent = self.bot.send_message(
                 chat_id,
                 text,

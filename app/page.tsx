@@ -2330,6 +2330,7 @@ export default function HomePage() {
   const [channelButtons, setChannelButtons] = useState<ChannelButtonDraft[]>([{ label: "", url: "", row: 0 }]);
   const [welcomeDraftText, setWelcomeDraftText] = useState("");
   const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
+  const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
   const [welcomeDraftEnabled, setWelcomeDraftEnabled] = useState(false);
   const [welcomeTesting, setWelcomeTesting] = useState(false);
   const [autoReplyCreateOpen, setAutoReplyCreateOpen] = useState(false);
@@ -3773,6 +3774,20 @@ export default function HomePage() {
         welcome_text: nextValues.welcome_text ?? selectedScopeRow?.welcome_text ?? "",
         welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30
       };
+      if (welcomeModuleRow?.id) {
+        await api("/api/module_settings", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: welcomeModuleRow.id,
+            values: {
+              settings: {
+                ...welcomeSettings,
+                welcome_buttons_text: welcomeDraftButtonsText
+              }
+            }
+          })
+        });
+      }
       if (selectedScopeRow?.id || selectedScope) {
         const targetGroupId = String(selectedScopeRow?.group_id || selectedScope || "");
         setLookups((current) => ({
@@ -4738,6 +4753,7 @@ export default function HomePage() {
   const welcomeEnabled = welcomeDraftEnabled;
   const welcomeText = String(groupWelcomeContext?.welcome_text || "");
   const welcomeDeleteSeconds = Number(groupWelcomeContext?.welcome_delete_seconds ?? 30) || 30;
+  const welcomeButtonsText = String(welcomeSettings.welcome_buttons_text || "");
   const welcomeRuntimeLastEventAt = formatDateTime(welcomeSettings.welcome_runtime_last_event_at);
   const welcomeRuntimeLastSuccessAt = formatDateTime(welcomeSettings.welcome_runtime_last_success_at);
   const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
@@ -4774,7 +4790,8 @@ export default function HomePage() {
     setWelcomeDraftEnabled(welcomeGroupEnabled);
     setWelcomeDraftText(welcomeText);
     setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
-  }, [welcomeDeleteSeconds, welcomeGroupEnabled, welcomeSyncGroupKey, welcomeText]);
+    setWelcomeDraftButtonsText(welcomeButtonsText);
+  }, [welcomeButtonsText, welcomeDeleteSeconds, welcomeGroupEnabled, welcomeSyncGroupKey, welcomeText]);
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -5237,6 +5254,7 @@ export default function HomePage() {
             welcomeEnabled={welcomeEnabled}
             welcomeText={welcomeDraftText}
             welcomeDeleteSeconds={welcomeDraftDeleteSeconds}
+            welcomeButtonsText={welcomeDraftButtonsText}
             hasSavedConfig={Boolean(selectedScopeRow?.id)}
             saving={saving}
             testing={welcomeTesting}
@@ -5255,6 +5273,7 @@ export default function HomePage() {
             }}
             onChangeText={setWelcomeDraftText}
             onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
+            onChangeButtonsText={setWelcomeDraftButtonsText}
             onSave={() => void saveWelcomeSettings({
               welcome_text: welcomeDraftText,
               welcome_delete_seconds: welcomeDraftDeleteSeconds

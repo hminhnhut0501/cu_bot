@@ -159,6 +159,7 @@ export function WelcomeScreen(props: {
   welcomeEnabled: boolean;
   welcomeText: string;
   welcomeDeleteSeconds: number;
+  welcomeButtonsText: string;
   hasSavedConfig: boolean;
   saving: boolean;
   testing: boolean;
@@ -174,6 +175,7 @@ export function WelcomeScreen(props: {
   onToggleWelcome: (nextEnabled: boolean) => void;
   onChangeText: (value: string) => void;
   onChangeDeleteSeconds: (value: string) => void;
+  onChangeButtonsText: (value: string) => void;
   onSave: () => void;
   onTestRuntime: () => void;
   tabLabel?: string;
@@ -317,6 +319,16 @@ export function WelcomeScreen(props: {
               disabled={props.saving}
               onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
               helperText="0 = không tự xóa"
+            />
+            <TextField
+              multiline
+              minRows={3}
+              fullWidth
+              label="Nút inline"
+              value={props.welcomeButtonsText}
+              disabled={props.saving}
+              onChange={(event) => props.onChangeButtonsText(event.target.value)}
+              helperText="Mỗi dòng: Tên nút | https://link"
             />
           </Stack>
         </DialogContent>
