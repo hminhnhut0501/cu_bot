@@ -91,19 +91,9 @@ export async function POST(request: NextRequest) {
     if (botError) throw new Error(botError.message);
     if (!botRow?.bot_token) return badRequest("Bot chưa có token hoặc đang tắt.");
 
-    const { data: welcomeRow, error: welcomeError } = await supabaseAdmin
-      .from("module_settings")
-      .select("id,enabled,settings")
-      .eq("bot_key", botKey)
-      .eq("module_key", "welcome")
-      .limit(1)
-      .maybeSingle();
-    if (welcomeError) throw new Error(welcomeError.message);
-    if (welcomeRow?.enabled === false) return badRequest("Module Welcome đang tắt.");
-
     const { data: groupRow, error: groupError } = await supabaseAdmin
       .from("groups")
-      .select("id,group_id,group_name,welcome_enabled,welcome_text,welcome_delete_seconds,enabled")
+      .select("id,group_id,group_name,welcome_enabled,welcome_text,welcome_buttons_text,welcome_delete_seconds,enabled")
       .eq("bot_key", botKey)
       .eq("group_id", chatId)
       .limit(1)
@@ -120,6 +110,18 @@ export async function POST(request: NextRequest) {
       groupName || chatId,
       chatId,
     );
+    const rawButtons = String(groupRow.welcome_buttons_text || "");
+    const replyMarkup = rawButtons ? {
+      inline_keyboard: rawButtons
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [label, url] = line.split("|", 2).map((part) => part?.trim());
+          return label && url ? [{ text: label, url }] : null;
+        })
+        .filter(Boolean)
+    } : undefined;
     const telegramResponse = await fetch(`https://api.telegram.org/bot${botRow.bot_token}/sendMessage`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
         text,
         parse_mode: "HTML",
         disable_web_page_preview: true,
+        reply_markup: replyMarkup,
       }),
     });
     const telegramPayload = await telegramResponse.json();
@@ -141,8 +144,8 @@ export async function POST(request: NextRequest) {
         action: "welcome_test_failed",
         details: `source=cp_direct_api,error=${errorMessage}`,
       });
-      if (welcomeRow?.id) {
-        await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
+      if (groupRow?.id) {
+        await persistRuntimeStatus(groupRow as { id: number; settings?: unknown }, {
           welcome_runtime_last_error_at: nowIso,
           welcome_runtime_last_error_message: errorMessage,
           welcome_runtime_last_chat_id: chatId,
@@ -159,8 +162,8 @@ export async function POST(request: NextRequest) {
       action: "welcome_test_sent",
       details: `source=cp_direct_api,message_id=${String(telegramPayload?.result?.message_id || "")}`,
     });
-    if (welcomeRow?.id) {
-      await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
+    if (groupRow?.id) {
+      await persistRuntimeStatus(groupRow as { id: number; settings?: unknown }, {
         welcome_runtime_last_success_at: nowIso,
         welcome_runtime_last_chat_id: chatId,
         welcome_runtime_last_test_at: nowIso,

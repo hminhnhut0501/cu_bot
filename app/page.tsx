@@ -3772,22 +3772,9 @@ export default function HomePage() {
         group_name: String(selectedScopeRow?.group_name || selectedScope || ""),
         welcome_enabled: nextWelcomeEnabled,
         welcome_text: nextValues.welcome_text ?? selectedScopeRow?.welcome_text ?? "",
+        welcome_buttons_text: welcomeDraftButtonsText,
         welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30
       };
-      if (welcomeModuleRow?.id) {
-        await api("/api/module_settings", {
-          method: "PATCH",
-          body: JSON.stringify({
-            id: welcomeModuleRow.id,
-            values: {
-              settings: {
-                ...welcomeSettings,
-                welcome_buttons_text: welcomeDraftButtonsText
-              }
-            }
-          })
-        });
-      }
       if (selectedScopeRow?.id || selectedScope) {
         const targetGroupId = String(selectedScopeRow?.group_id || selectedScope || "");
         setLookups((current) => ({

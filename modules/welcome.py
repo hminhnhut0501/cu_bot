@@ -80,22 +80,7 @@ class WelcomeModule(BotModule):
         return default
 
     def buttons_setting(self, chat_id):
-        module_row = self.module_row(fresh=True)
-        if not module_row:
-            return ""
-        settings = module_row.get("settings") or {}
-        if isinstance(settings, str):
-            try:
-                import json
-
-                settings = json.loads(settings)
-            except Exception:
-                settings = {}
-        if isinstance(settings, dict):
-            value = settings.get("welcome_buttons_text", "")
-        else:
-            value = ""
-        return str(value or "")
+        return str(self.setting(chat_id, "welcome_buttons_text", "") or "")
 
     def parse_buttons(self, raw_text):
         rows = []
