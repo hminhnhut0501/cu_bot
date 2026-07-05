@@ -2331,6 +2331,7 @@ export default function HomePage() {
   const [welcomeDraftText, setWelcomeDraftText] = useState("");
   const [welcomeDraftDeleteSeconds, setWelcomeDraftDeleteSeconds] = useState(30);
   const [welcomeDraftButtonsText, setWelcomeDraftButtonsText] = useState("");
+  const [welcomeDraftEnabled, setWelcomeDraftEnabled] = useState(false);
   const [welcomeTesting, setWelcomeTesting] = useState(false);
   const [autoReplyCreateOpen, setAutoReplyCreateOpen] = useState(false);
   const [autoReplyEditingId, setAutoReplyEditingId] = useState<string | null>(null);
@@ -2497,6 +2498,7 @@ export default function HomePage() {
     }
     return Object.keys(draft).length ? draft : selectedScopeRow;
   }, [draft, selectedScopeRow, table?.key]);
+  const welcomeGroupEnabled = groupWelcomeContext ? String(groupWelcomeContext.welcome_enabled ?? "false") !== "false" : false;
   const groupNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of lookups.groups) {
@@ -3757,6 +3759,7 @@ export default function HomePage() {
     setError("");
     setNotice("");
     const previousLookups = lookups;
+    const previousWelcomeDraftEnabled = welcomeDraftEnabled;
     try {
       if (!selectedScopeRow?.id && !selectedScope) {
         throw new Error("Hãy chọn group trước khi lưu Welcome.");
@@ -3806,6 +3809,7 @@ export default function HomePage() {
       await refreshAfterMutation("groups", { reloadRows: table?.key === "groups", reloadLookups: true });
     } catch (err) {
       setLookups(previousLookups);
+      setWelcomeDraftEnabled(previousWelcomeDraftEnabled);
       const message = friendlySaveError(err);
       setError(message);
       flashToast(message, "error");
@@ -4732,7 +4736,7 @@ export default function HomePage() {
   const welcomeModuleRow = useMemo(() => moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "welcome") || null, [moduleRows]);
   const welcomeSettings = useMemo(() => readSettingsObject(welcomeModuleRow?.settings), [welcomeModuleRow?.settings]);
   const welcomeModuleEnabled = welcomeModuleRow ? welcomeModuleRow.enabled !== false : false;
-  const welcomeEnabled = groupWelcomeContext ? String(groupWelcomeContext.welcome_enabled ?? "false") !== "false" : false;
+  const welcomeEnabled = welcomeDraftEnabled;
   const welcomeText = String(groupWelcomeContext?.welcome_text || "");
   const welcomeDeleteSeconds = Number(groupWelcomeContext?.welcome_delete_seconds ?? 30) || 30;
   const welcomeButtonsText = String(groupWelcomeContext?.welcome_buttons_text || "");
@@ -4764,10 +4768,11 @@ export default function HomePage() {
       ? `Xóa gần nhất OK: ${formatDateTime(lastWelcomeDeleteSuccess.created_at || lastWelcomeDeleteSuccess.updated_at)}`
       : "";
   useEffect(() => {
+    setWelcomeDraftEnabled(welcomeGroupEnabled);
     setWelcomeDraftText(welcomeText);
     setWelcomeDraftDeleteSeconds(welcomeDeleteSeconds);
     setWelcomeDraftButtonsText(welcomeButtonsText);
-  }, [welcomeText, welcomeDeleteSeconds, welcomeButtonsText, welcomeModuleRow?.id]);
+  }, [welcomeButtonsText, welcomeDeleteSeconds, welcomeGroupEnabled, welcomeText, welcomeModuleRow?.id]);
   const autoReplyStats = useMemo(() => {
     const source = table?.key === "auto_replies" ? rows : [];
     return {
@@ -5243,7 +5248,10 @@ export default function HomePage() {
             runtimeLastTestAt={welcomeSettings.welcome_runtime_last_test_at ? welcomeRuntimeLastTestAt : ""}
             runtimeLastEventSource={welcomeRuntimeLastEventSource}
             runtimeDeleteStatus={welcomeDeleteStatus}
-            onToggleWelcome={(nextEnabled) => void saveWelcomeSettings({ welcome_enabled: nextEnabled ? "true" : "false" })}
+            onToggleWelcome={(nextEnabled) => {
+              setWelcomeDraftEnabled(nextEnabled);
+              void saveWelcomeSettings({ welcome_enabled: nextEnabled ? "true" : "false" });
+            }}
             onChangeText={setWelcomeDraftText}
             onChangeDeleteSeconds={(value) => setWelcomeDraftDeleteSeconds(Number(value) || 0)}
             onChangeButtonsText={setWelcomeDraftButtonsText}
