@@ -194,7 +194,7 @@ export function WelcomeScreen(props: {
           {props.tabLabel ? (
             <WorkspacePanel
               title="Welcome runtime"
-              subtitle="Giữ cấu hình, preview và test runtime trong cùng một nhịp thao tác để không bị tách block."
+              subtitle={`Giữ cấu hình, preview và test runtime cho group đang xem: ${props.selectedGroupName || props.selectedGroupId || "chưa chọn group"}.`}
               tabs={[{ key: "module_settings", label: props.tabLabel }]}
               activeTab="module_settings"
               onChangeTab={() => {}}
@@ -203,6 +203,7 @@ export function WelcomeScreen(props: {
                   <Chip size="small" color={props.moduleEnabled && props.welcomeEnabled ? "success" : "default"} label={props.moduleEnabled && props.welcomeEnabled ? "Đang chạy" : "Chưa chạy"} />
                   <Chip size="small" variant="outlined" label={props.hasSavedConfig ? "Đã có cấu hình" : "Chưa lưu cấu hình"} />
                   <Chip size="small" variant="outlined" label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Không tự xóa"} />
+                  <Chip size="small" variant="outlined" label={`Group: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn"}`} />
                 </>
               )}
             />
@@ -250,7 +251,7 @@ export function WelcomeScreen(props: {
                 <Box>
                   <Typography variant="subtitle2">Kiểm tra runtime Welcome</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Gửi thử đúng mẫu Welcome vào group đang chọn để kiểm tra quyền bot và runtime.
+                    Gửi thử đúng mẫu Welcome vào group đang xem để kiểm tra quyền bot và runtime.
                   </Typography>
                   <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.5 }}>
                     Nút test này gửi trực tiếp từ Control Panel qua Telegram API, không đi qua Render runtime.
@@ -267,7 +268,7 @@ export function WelcomeScreen(props: {
               </Box>
 
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                <Chip size="small" variant="outlined" label={`Group test: ${props.selectedGroupName || "Chưa chọn group"}`} />
+                <Chip size="small" variant="outlined" label={`Đang xem: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn group"}`} />
                 <Chip size="small" color={props.runtimeLastEventAt ? "info" : "default"} label={props.runtimeLastEventAt ? `Đã nhận event: ${props.runtimeLastEventAt}` : "Chưa nhận event"} />
                 <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi thành công: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
                 <Chip size="small" color={props.runtimeLastErrorAt ? "warning" : "default"} label={props.runtimeLastErrorAt ? `Lỗi gần nhất: ${props.runtimeLastErrorAt}` : "Chưa có lỗi runtime"} />

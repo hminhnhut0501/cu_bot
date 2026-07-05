@@ -88,6 +88,10 @@ export const TABLES: TableConfig[] = [
       { key: "show_policy_button", label: "Hiện nút Quy định", type: "boolean", section: "Menu bot" },
       { key: "policy_button_text", label: "Text nút Quy định", type: "text", section: "Menu bot" },
       { key: "help_menu_commands", label: "Lệnh hiện trong /help", type: "textarea", section: "Menu bot", helper: "Ví dụ: start,policy,reload,warn,ban. Để trống sẽ dùng cài đặt chung." },
+      { key: "welcome_enabled", label: "Bật Welcome", type: "boolean", section: "Welcome" },
+      { key: "welcome_text", label: "Tin welcome", type: "textarea", section: "Welcome" },
+      { key: "welcome_buttons_text", label: "Nút welcome", type: "textarea", section: "Welcome" },
+      { key: "welcome_delete_seconds", label: "Xóa welcome sau", type: "number", section: "Welcome" },
       { key: "policy_text", label: "Nội quy riêng", type: "textarea", section: "Nội dung" },
       notes
     ]

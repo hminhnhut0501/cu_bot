@@ -113,20 +113,31 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (welcomeError) throw new Error(welcomeError.message);
-    if (!welcomeRow?.id) return badRequest("Welcome chưa có cấu hình.");
-    if (welcomeRow.enabled === false) return badRequest("Module Welcome đang tắt.");
+    if (welcomeRow?.enabled === false) return badRequest("Module Welcome đang tắt.");
 
-    const settings = readSettingsObject(welcomeRow.settings);
-    if (String(settings.welcome_enabled ?? "true") === "false") {
-      return badRequest("Tin chào đang tắt trong cấu hình Welcome.");
+    const { data: groupRow, error: groupError } = await supabaseAdmin
+      .from("groups")
+      .select("id,group_id,group_name,welcome_enabled,welcome_text,welcome_delete_seconds,welcome_buttons_text,enabled")
+      .eq("bot_key", botKey)
+      .or(`group_id.eq.${chatId},chat_id.eq.${chatId}`)
+      .limit(1)
+      .maybeSingle();
+    if (groupError) throw new Error(groupError.message);
+
+    if (!groupRow?.id) return badRequest("Group này chưa có cấu hình Welcome riêng.");
+    if (groupRow.enabled === false) return badRequest("Group này đang tắt.");
+    if (String(groupRow.welcome_enabled ?? "false") === "false") {
+      return badRequest("Tin chào đang tắt cho group này.");
     }
+    const welcomeTextTemplate = String(groupRow.welcome_text || "").trim();
+    if (!welcomeTextTemplate) return badRequest("Group này chưa có mẫu tin Welcome riêng.");
 
     const text = renderWelcomeText(
-      String(settings.welcome_text || "Chào mừng {user} đến với {group}."),
+      welcomeTextTemplate,
       groupName || chatId,
       chatId,
     );
-    const replyMarkup = parseButtons(String(settings.welcome_buttons_text || ""));
+    const replyMarkup = parseButtons(String(groupRow.welcome_buttons_text || ""));
 
     const telegramResponse = await fetch(`https://api.telegram.org/bot${botRow.bot_token}/sendMessage`, {
       method: "POST",
@@ -150,13 +161,15 @@ export async function POST(request: NextRequest) {
         action: "welcome_test_failed",
         details: `source=cp_direct_api,error=${errorMessage}`,
       });
-      await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
-        welcome_runtime_last_error_at: nowIso,
-        welcome_runtime_last_error_message: errorMessage,
-        welcome_runtime_last_chat_id: chatId,
-        welcome_runtime_last_test_at: nowIso,
-        welcome_runtime_last_test_source: "cp_direct_api",
-      });
+      if (welcomeRow?.id) {
+        await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
+          welcome_runtime_last_error_at: nowIso,
+          welcome_runtime_last_error_message: errorMessage,
+          welcome_runtime_last_chat_id: chatId,
+          welcome_runtime_last_test_at: nowIso,
+          welcome_runtime_last_test_source: "cp_direct_api",
+        });
+      }
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
@@ -166,13 +179,15 @@ export async function POST(request: NextRequest) {
       action: "welcome_test_sent",
       details: `source=cp_direct_api,message_id=${String(telegramPayload?.result?.message_id || "")}`,
     });
-    await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
-      welcome_runtime_last_success_at: nowIso,
-      welcome_runtime_last_chat_id: chatId,
-      welcome_runtime_last_test_at: nowIso,
-      welcome_runtime_last_test_message_id: String(telegramPayload?.result?.message_id || ""),
-      welcome_runtime_last_test_source: "cp_direct_api",
-    });
+    if (welcomeRow?.id) {
+      await persistRuntimeStatus(welcomeRow as { id: number; settings?: unknown }, {
+        welcome_runtime_last_success_at: nowIso,
+        welcome_runtime_last_chat_id: chatId,
+        welcome_runtime_last_test_at: nowIso,
+        welcome_runtime_last_test_message_id: String(telegramPayload?.result?.message_id || ""),
+        welcome_runtime_last_test_source: "cp_direct_api",
+      });
+    }
 
     return NextResponse.json({
       ok: true,

@@ -76,6 +76,7 @@ create table groups (
   spam_notice_delete_seconds integer default 30,
   welcome_enabled boolean default false,
   welcome_text text,
+  welcome_buttons_text text,
   welcome_delete_seconds integer default 30,
   scan_bio_links boolean default true,
   bio_link_delete_message boolean default true,

@@ -2491,6 +2491,12 @@ export default function HomePage() {
     }
     return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope) || null;
   }, [lookups.groups, selectedScope]);
+  const groupWelcomeContext = useMemo(() => {
+    if (table?.key !== "groups") {
+      return selectedScopeRow;
+    }
+    return Object.keys(draft).length ? draft : selectedScopeRow;
+  }, [draft, selectedScopeRow, table?.key]);
   const groupNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const group of lookups.groups) {
@@ -3751,38 +3757,35 @@ export default function HomePage() {
     setError("");
     setNotice("");
     try {
-      const welcomeRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "welcome");
-      const nextSettings = {
-        ...readSettingsObject(welcomeRow?.settings),
-        ...nextValues
+      if (!selectedScopeRow?.id && !selectedScope) {
+        throw new Error("Hãy chọn group trước khi lưu Welcome.");
+      }
+      const groupPayload = {
+        bot_key: selectedBot || "main",
+        group_id: String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || ""),
+        group_name: String(selectedScopeRow?.group_name || selectedScope || ""),
+        welcome_enabled: nextValues.welcome_enabled ?? selectedScopeRow?.welcome_enabled ?? true,
+        welcome_text: nextValues.welcome_text ?? selectedScopeRow?.welcome_text ?? "",
+        welcome_delete_seconds: nextValues.welcome_delete_seconds ?? selectedScopeRow?.welcome_delete_seconds ?? 30,
+        welcome_buttons_text: nextValues.welcome_buttons_text ?? selectedScopeRow?.welcome_buttons_text ?? ""
       };
-      if (welcomeRow?.id) {
-        await api("/api/module_settings", {
+      if (selectedScopeRow?.id) {
+        await api("/api/groups", {
           method: "PATCH",
           body: JSON.stringify({
-            id: welcomeRow.id,
-            values: {
-              ...welcomeRow,
-              settings: nextSettings
-            }
+            id: selectedScopeRow.id,
+            values: groupPayload
           })
         });
       } else {
-        await api("/api/module_settings", {
+        await api("/api/groups", {
           method: "POST",
-          body: JSON.stringify({
-            bot_key: selectedBot || "main",
-            module_key: "welcome",
-            module_name: "Welcome",
-            category: "Welcome",
-            settings: nextSettings,
-            enabled: true
-          })
+          body: JSON.stringify(groupPayload)
         });
       }
-      setNotice("Đã lưu cấu hình Welcome.");
-      flashToast("Đã lưu cấu hình Welcome.");
-      await refreshAfterMutation("module_settings", { reloadRows: false, reloadLookups: true });
+      setNotice("Đã lưu cấu hình Welcome theo group.");
+      flashToast("Đã lưu cấu hình Welcome theo group.");
+      await refreshAfterMutation("groups", { reloadRows: table?.key === "groups", reloadLookups: true });
     } catch (err) {
       const message = friendlySaveError(err);
       setError(message);
@@ -4710,10 +4713,10 @@ export default function HomePage() {
   const welcomeModuleRow = useMemo(() => moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "welcome") || null, [moduleRows]);
   const welcomeSettings = useMemo(() => readSettingsObject(welcomeModuleRow?.settings), [welcomeModuleRow?.settings]);
   const welcomeModuleEnabled = welcomeModuleRow ? welcomeModuleRow.enabled !== false : false;
-  const welcomeEnabled = welcomeSettings.welcome_enabled !== "false";
-  const welcomeText = String(welcomeSettings.welcome_text || "Chào mừng {user} đến với {group}.");
-  const welcomeDeleteSeconds = Number(welcomeSettings.welcome_delete_seconds ?? 30) || 30;
-  const welcomeButtonsText = String(welcomeSettings.welcome_buttons_text || "");
+  const welcomeEnabled = groupWelcomeContext ? String(groupWelcomeContext.welcome_enabled ?? "false") !== "false" : false;
+  const welcomeText = String(groupWelcomeContext?.welcome_text || "");
+  const welcomeDeleteSeconds = Number(groupWelcomeContext?.welcome_delete_seconds ?? 30) || 30;
+  const welcomeButtonsText = String(groupWelcomeContext?.welcome_buttons_text || "");
   const welcomeRuntimeLastEventAt = formatDateTime(welcomeSettings.welcome_runtime_last_event_at);
   const welcomeRuntimeLastSuccessAt = formatDateTime(welcomeSettings.welcome_runtime_last_success_at);
   const welcomeRuntimeLastErrorAt = formatDateTime(welcomeSettings.welcome_runtime_last_error_at);
@@ -5209,7 +5212,7 @@ export default function HomePage() {
             welcomeText={welcomeDraftText}
             welcomeDeleteSeconds={welcomeDraftDeleteSeconds}
             welcomeButtonsText={welcomeDraftButtonsText}
-            hasSavedConfig={Boolean(welcomeModuleRow?.id)}
+            hasSavedConfig={Boolean(selectedScopeRow?.id)}
             saving={saving}
             testing={welcomeTesting}
             selectedGroupName={selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : ""}
@@ -5232,7 +5235,7 @@ export default function HomePage() {
               welcome_buttons_text: welcomeDraftButtonsText
             })}
             onTestRuntime={() => void testWelcomeRuntime()}
-            tabLabel={TABLE_TASK_LABELS.module_settings || "Cài đặt module"}
+            tabLabel={TABLE_TASK_LABELS.groups || "Cài đặt group"}
           />
         ) : null}
 
@@ -6428,6 +6431,38 @@ export default function HomePage() {
                       <Alert severity="info" sx={{ mb: 2 }}>
                         <strong>Đây là setup cho group đang chọn.</strong> Group chỉ quản lý phạm vi hoạt động. Luật spam, mẫu tin và bio/link được quản lý tập trung ở module để tránh nhầm.
                       </Alert>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 1.75,
+                          mb: 2,
+                          bgcolor: "rgba(15, 118, 110, 0.08)",
+                          borderColor: "rgba(15, 118, 110, 0.35)"
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Box>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                              Welcome theo group đang chọn
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Mỗi group có bộ Welcome riêng. Bot runtime không còn dùng mẫu chung cho toàn bot.
+                            </Typography>
+                          </Box>
+                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                            <Chip size="small" variant="outlined" label={`Group: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Chưa chọn"}`} />
+                            <Chip size="small" color={welcomeEnabled ? "success" : "default"} label={welcomeEnabled ? "Welcome ON" : "Welcome OFF"} />
+                            <Chip size="small" variant="outlined" label={welcomeText ? "Đã có mẫu tin riêng" : "Chưa có mẫu tin riêng"} />
+                            <Chip size="small" variant="outlined" label={welcomeButtonsText ? "Có nút inline riêng" : "Chưa có nút inline"} />
+                            <Chip size="small" variant="outlined" label={selectedScopeRow ? `Tự xóa sau ${welcomeDeleteSeconds}s` : "Chưa lưu Welcome cho group này"} />
+                          </Stack>
+                          {!selectedScopeRow ? (
+                            <Alert severity="warning" sx={{ mt: 0.5 }}>
+                              Group này chưa có cấu hình Welcome riêng. Hãy lưu group trước rồi mở module Welcome để tạo mẫu riêng cho group đó.
+                            </Alert>
+                          ) : null}
+                        </Stack>
+                      </Paper>
                       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
                         <Chip label="Giây: 300 = 5 phút" variant="outlined" />
                         <Chip label="0 = tắt / vĩnh viễn / không tự xóa" variant="outlined" />

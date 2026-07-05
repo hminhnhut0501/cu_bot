@@ -17,6 +17,7 @@ alter table groups
   add column if not exists spam_notice_delete_seconds integer default 30,
   add column if not exists welcome_enabled boolean default false,
   add column if not exists welcome_text text,
+  add column if not exists welcome_buttons_text text,
   add column if not exists welcome_delete_seconds integer default 30,
   add column if not exists scan_bio_links boolean default true,
   add column if not exists bio_link_delete_message boolean default true,

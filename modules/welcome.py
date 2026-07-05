@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from html import escape
 
-from core.utils import as_bool, as_int
+from core.utils import as_bool, as_int, normalize_id
 from modules.base import BotModule
 import telebot
 
@@ -40,6 +40,15 @@ class WelcomeModule(BotModule):
             return as_bool(row.get("enabled"), default)
         return default
 
+    def group_row(self, chat_id, fresh=False):
+        rows = self.store.fresh_rows("groups") if fresh else self.store.enabled_rows("groups")
+        target_chat_id = str(chat_id or "").strip()
+        for row in rows:
+            group_id = str(row.get("group_id") or row.get("chat_id") or "").strip()
+            if normalize_id(group_id) == normalize_id(target_chat_id):
+                return row
+        return None
+
     def update_runtime_status(self, **changes):
         row = self.module_row(fresh=True)
         if not row or not row.get("id"):
@@ -64,24 +73,14 @@ class WelcomeModule(BotModule):
     def now_iso():
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    def setting(self, key, default=None):
-        row = self.module_row()
-        if not row:
-            return default
-        settings = row.get("settings") or {}
-        if isinstance(settings, str):
-            try:
-                import json
-
-                settings = json.loads(settings)
-            except Exception:
-                settings = {}
-        if isinstance(settings, dict) and settings.get(key) not in (None, ""):
-            return settings.get(key)
+    def setting(self, chat_id, key, default=None):
+        group_row = self.group_row(chat_id, fresh=True)
+        if group_row and group_row.get(key) not in (None, ""):
+            return group_row.get(key)
         return default
 
-    def buttons_setting(self):
-        value = self.setting("welcome_buttons_text", "")
+    def buttons_setting(self, chat_id):
+        value = self.setting(chat_id, "welcome_buttons_text", "")
         return str(value or "")
 
     def parse_buttons(self, raw_text):
@@ -226,7 +225,7 @@ class WelcomeModule(BotModule):
     def admin_exempt(self, chat_id, user_id):
         try:
             member = self.bot.get_chat_member(chat_id, user_id)
-            return member.status in {"creator", "administrator"} and as_bool(self.setting("skip_admins", "true"), True)
+            return member.status in {"creator", "administrator"} and as_bool(self.setting(chat_id, "skip_admins", "true"), True)
         except Exception:
             return False
 
@@ -237,8 +236,7 @@ class WelcomeModule(BotModule):
         name = full_name or getattr(user, "username", None) or str(user.id)
         return f'<a href="tg://user?id={user.id}">{escape(str(name))}</a>'
 
-    def render_text(self, chat_id, user):
-        template = self.setting("welcome_text", "Chào mừng {user} đến với {group}.")
+    def render_text(self, template, chat_id, user):
         try:
             chat = self.bot.get_chat(chat_id)
             group_name = getattr(chat, "title", None) or getattr(chat, "username", None) or str(chat_id)
@@ -269,16 +267,33 @@ class WelcomeModule(BotModule):
             LOGGER.warning("Cannot write welcome audit %s for bot %s: %s", action, self.settings.bot_key, exc)
 
     def send_welcome(self, chat_id, user, source="service_message"):
-        text = self.render_text(chat_id, user)
-        if not text.strip():
-            LOGGER.info("Welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
+        group_row = self.group_row(chat_id, fresh=True)
+        if not group_row:
+            LOGGER.info("Skip welcome for bot %s in chat %s because no group config exists.", self.settings.bot_key, chat_id)
             self.update_runtime_status(
                 welcome_runtime_last_error_at=self.now_iso(),
-                welcome_runtime_last_error_message="Mẫu tin Welcome đang trống.",
+                welcome_runtime_last_error_message=f"Group {chat_id} chưa có cấu hình Welcome riêng.",
             )
             return False
+        if not as_bool(group_row.get("welcome_enabled"), False):
+            LOGGER.info("Welcome disabled for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            return False
+
+        template = str(group_row.get("welcome_text") or "").strip()
+        if not template:
+            LOGGER.info("Welcome text missing for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            self.update_runtime_status(
+                welcome_runtime_last_error_at=self.now_iso(),
+                welcome_runtime_last_error_message=f"Group {chat_id} chưa có mẫu tin Welcome riêng.",
+            )
+            return False
+
+        text = self.render_text(template, chat_id, user)
+        if not text.strip():
+            LOGGER.info("Rendered welcome text empty for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            return False
         try:
-            markup = self.parse_buttons(self.buttons_setting())
+            markup = self.parse_buttons(str(group_row.get("welcome_buttons_text") or ""))
             sent = self.bot.send_message(
                 chat_id,
                 text,
@@ -286,7 +301,7 @@ class WelcomeModule(BotModule):
                 reply_markup=markup,
                 **self.link_preview_kwargs(True),
             )
-            delete_after = as_int(self.setting("welcome_delete_seconds", 30), 30)
+            delete_after = as_int(group_row.get("welcome_delete_seconds"), 30)
             if delete_after > 0:
                 self.audit(
                     chat_id,
