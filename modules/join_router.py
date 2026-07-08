@@ -90,8 +90,10 @@ class JoinRouterModule(BotModule):
         old_status = str(getattr(old_member, "status", "") or "").lower()
         new_status = str(getattr(new_member, "status", "") or "").lower()
 
-        was_member = JoinRouterModule.member_is_active(old_member) or old_status == "restricted"
-        is_member = JoinRouterModule.member_is_active(new_member) or new_status == "restricted"
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
+        was_member = JoinRouterModule.member_is_active(old_member) or (old_is_member is None and old_status == "restricted")
+        is_member = JoinRouterModule.member_is_active(new_member) or (new_is_member is None and new_status == "restricted")
         return not was_member and is_member
 
     @staticmethod
@@ -99,8 +101,10 @@ class JoinRouterModule(BotModule):
         old_status = str(getattr(old_member, "status", "") or "").lower()
         new_status = str(getattr(new_member, "status", "") or "").lower()
 
-        was_member = JoinRouterModule.member_is_active(old_member) or old_status == "restricted"
-        is_member = JoinRouterModule.member_is_active(new_member) or new_status == "restricted"
+        old_is_member = getattr(old_member, "is_member", None)
+        new_is_member = getattr(new_member, "is_member", None)
+        was_member = JoinRouterModule.member_is_active(old_member) or (old_is_member is None and old_status == "restricted")
+        is_member = JoinRouterModule.member_is_active(new_member) or (new_is_member is None and new_status == "restricted")
         return was_member and not is_member
 
     def handle_chat_member(self, update):

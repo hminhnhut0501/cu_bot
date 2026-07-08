@@ -14,6 +14,11 @@ from telebot.util import content_type_service
 from core.utils import as_bool, as_int, normalize_id, normalize_text
 from modules.base import BotModule
 
+try:
+    from telebot.handler_backends import ContinueHandling
+except ImportError:  # pragma: no cover - compatibility with old TeleBot builds
+    ContinueHandling = None
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -120,7 +125,7 @@ class ModerationModule(BotModule):
     }
 
     name = "moderation"
-    priority = 10
+    priority = 0
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
     URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
 
@@ -180,24 +185,11 @@ class ModerationModule(BotModule):
 
         if message.content_type == "new_chat_members":
             self.handle_new_members(message)
-            self.forward_new_members_to_welcome(message)
+        return self.continue_handling()
 
-    def forward_new_members_to_welcome(self, message):
-        try:
-            for module in getattr(self.app, "modules", []) or []:
-                if getattr(module, "name", "") != "welcome":
-                    continue
-                handler = getattr(module, "handle_new_members", None)
-                if callable(handler):
-                    LOGGER.info(
-                        "Forward new_chat_members from moderation to welcome for bot %s chat %s.",
-                        self.settings.bot_key,
-                        getattr(message.chat, "id", None),
-                    )
-                    handler(message)
-                return
-        except Exception as exc:
-            LOGGER.warning("Cannot forward new_chat_members to welcome for bot %s: %s", self.settings.bot_key, exc)
+    @staticmethod
+    def continue_handling():
+        return ContinueHandling() if ContinueHandling is not None else None
 
     def is_bot_membership_service_message(self, message):
         if message.content_type == "new_chat_members":
