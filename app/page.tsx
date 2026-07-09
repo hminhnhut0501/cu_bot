@@ -386,10 +386,20 @@ const CORE_LAYERS = [
     navSection: "Vận hành"
   },
   {
+    key: "analytics",
+    title: "Thống kê",
+    shortTitle: "Thống kê",
+    desc: "Dashboard sức khỏe, join/out, active member và chỉ số kiểm duyệt.",
+    icon: BarChart3,
+    tone: "main",
+    tables: ["bot_metrics", "audit_logs"],
+    navSection: "Vận hành"
+  },
+  {
     key: "members",
     title: "Thành viên",
     shortTitle: "Thành viên",
-    desc: "Theo dõi nhật ký join/out của thành viên trong group bot đang quản lý.",
+    desc: "Phân quyền admin, role member, VIP, restricted và nhật ký join/out.",
     icon: Users,
     tone: "security",
     tables: ["audit_logs", "member_roles", "admins"],
@@ -698,24 +708,6 @@ const MODULE_HUBS = [
     icon: Gift,
     tone: "fun",
     tables: ["share_unlock_campaigns", "share_unlock_invites", "share_unlock_referrals"],
-  },
-  {
-    key: "analytics",
-    moduleKeys: ["analytics"],
-    title: "Thống kê",
-    desc: "Dashboard, nhật ký hoạt động và sức khỏe vận hành.",
-    icon: BarChart3,
-    tone: "main",
-    tables: ["bot_metrics", "audit_logs"]
-  },
-  {
-    key: "members",
-    moduleKeys: ["members"],
-    title: "Thành viên",
-    desc: "Phân quyền admin, role member, VIP, restricted và điểm tương tác.",
-    icon: Users,
-    tone: "security",
-    tables: ["admins", "member_roles", "reputation_rules", "giveaway_entries"]
   }
 ];
 const MODULE_TABLE_OWNER: Record<string, string> = {
