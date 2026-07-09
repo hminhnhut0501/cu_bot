@@ -4,6 +4,7 @@
 
 drop table if exists audit_logs cascade;
 drop table if exists analytics_member_activity cascade;
+drop table if exists member_moderation_state cascade;
 drop table if exists analytics_daily_stats cascade;
 drop table if exists bot_metrics cascade;
 drop table if exists giveaway_entries cascade;
@@ -489,11 +490,32 @@ create table analytics_member_activity (
   bot_key text not null default 'main',
   chat_id text not null,
   user_id text not null,
+  username text,
+  display_name text,
   activity_date date not null,
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   message_count integer not null default 1,
   unique (bot_key, chat_id, user_id, activity_date)
+);
+
+create table member_moderation_state (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  chat_id text not null,
+  user_id text not null,
+  username text,
+  display_name text,
+  status text not null default 'normal',
+  reason text,
+  until_at timestamptz,
+  created_by text,
+  created_at timestamptz not null default now(),
+  updated_by text,
+  updated_at timestamptz not null default now(),
+  last_seen_at timestamptz,
+  payload jsonb not null default '{}'::jsonb,
+  unique (bot_key, chat_id, user_id)
 );
 
 alter table bots enable row level security;
@@ -522,6 +544,7 @@ alter table audit_logs enable row level security;
 alter table bot_metrics enable row level security;
 alter table analytics_daily_stats enable row level security;
 alter table analytics_member_activity enable row level security;
+alter table member_moderation_state enable row level security;
 alter table giveaway_campaigns enable row level security;
 alter table giveaway_entries enable row level security;
 alter table entertainment_events enable row level security;

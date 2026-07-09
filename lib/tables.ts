@@ -549,6 +549,27 @@ export const TABLES: TableConfig[] = [
       { key: "last_seen_at", label: "Lần cuối", type: "text" },
       { key: "message_count", label: "Message count", type: "number" }
     ]
+  },
+  {
+    key: "member_moderation_state",
+    label: "Trạng thái kỷ luật member",
+    description: "Nguồn dữ liệu nền cho mute, ban, blacklist và trạng thái vận hành của từng user theo group.",
+    titleField: "user_id",
+    summaryFields: ["bot_key", "chat_id", "status", "updated_at"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", required: true },
+      { key: "user_id", label: "User ID", type: "text", required: true },
+      { key: "username", label: "Username", type: "text" },
+      { key: "display_name", label: "Tên hiển thị", type: "text" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["normal", "muted", "banned", "blacklisted"], required: true },
+      { key: "reason", label: "Lý do", type: "textarea" },
+      { key: "until_at", label: "Hết hạn", type: "text" },
+      { key: "created_by", label: "Tạo bởi", type: "text" },
+      { key: "updated_by", label: "Cập nhật bởi", type: "text" },
+      { key: "last_seen_at", label: "Lần thấy cuối", type: "text" },
+      { key: "payload", label: "Payload JSON", type: "textarea" }
+    ]
   }
 ];
 

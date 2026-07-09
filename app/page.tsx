@@ -189,6 +189,34 @@ type DeleteFailureAlert = {
 
 type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
+type MemberWorkspaceTab = "active" | "muted" | "banned" | "blacklisted" | "logs";
+type MemberActionType = "mute" | "ban" | "unmute" | "unban" | "blacklist" | "unblacklist" | "kick";
+type MemberOverview = {
+  date?: string;
+  summary?: {
+    activeToday?: number;
+    visibleMembers?: number;
+    muted?: number;
+    banned?: number;
+    blacklisted?: number;
+    normalTracked?: number;
+  };
+  members?: Row[];
+  active?: Row[];
+  muted?: Row[];
+  banned?: Row[];
+  blacklisted?: Row[];
+  logs?: Row[];
+};
+type MemberActionDraft = {
+  user_id: string;
+  username: string;
+  display_name: string;
+  action: MemberActionType;
+  reason: string;
+  duration_seconds: number;
+  dry_run: boolean;
+};
 
 const drawerWidth = 292;
 
@@ -1596,7 +1624,16 @@ function actionBadge(row: Row, table: TableConfig) {
         scheduled_video_skipped: "Bỏ qua gửi video",
         scheduled_video_catch_up: "Gửi bù video trễ",
         scheduled_video_sent: "Đã gửi video định kỳ",
-        scheduled_video_failed: "Lỗi gửi video định kỳ"
+        scheduled_video_failed: "Lỗi gửi video định kỳ",
+        member_mute: "Cấm chat",
+        member_unmute: "Mở chat",
+        member_ban: "Ban thành viên",
+        member_unban: "Gỡ ban",
+        member_kick: "Kick thành viên",
+        member_blacklist: "Thêm blacklist",
+        member_unblacklist: "Gỡ blacklist",
+        member_blacklist_join_blocked: "Đã chặn join",
+        member_blacklist_join_block_failed: "Lỗi chặn join"
       };
       return labels[String(action).toLowerCase()] || String(action).replaceAll("_", " ");
     }
@@ -2330,6 +2367,19 @@ export default function HomePage() {
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [memberOverview, setMemberOverview] = useState<MemberOverview | null>(null);
+  const [memberOverviewLoading, setMemberOverviewLoading] = useState(false);
+  const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("active");
+  const [memberActionOpen, setMemberActionOpen] = useState(false);
+  const [memberActionDraft, setMemberActionDraft] = useState<MemberActionDraft>({
+    user_id: "",
+    username: "",
+    display_name: "",
+    action: "mute",
+    reason: "",
+    duration_seconds: 3600,
+    dry_run: true,
+  });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>((initialCpState.channelTab === "scheduled" || initialCpState.channelTab === "sent" || initialCpState.channelTab === "deleted" || initialCpState.channelTab === "failed") ? initialCpState.channelTab : "queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
@@ -2519,6 +2569,44 @@ export default function HomePage() {
     return map;
   }, [lookups.groups]);
   const groupNameForId = (groupId: string) => groupNameById.get(String(groupId).trim()) || String(groupId || "");
+  const selectedMemberChatId = String(selectedScope || selectedScopeRow?.group_id || selectedScopeRow?.chat_id || "").trim();
+  const memberSummary = memberOverview?.summary || {};
+  const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
+    active: memberOverview?.active || [],
+    muted: memberOverview?.muted || [],
+    banned: memberOverview?.banned || [],
+    blacklisted: memberOverview?.blacklisted || [],
+    logs: memberOverview?.logs || [],
+  };
+  const memberRows = memberRowsByTab[memberTab] || [];
+  const memberTabItems = [
+    { key: "active", label: `Đang hoạt động (${memberSummary.activeToday || 0})` },
+    { key: "muted", label: `Bị cấm chat (${memberSummary.muted || 0})` },
+    { key: "banned", label: `Bị ban (${memberSummary.banned || 0})` },
+    { key: "blacklisted", label: `Blacklist (${memberSummary.blacklisted || 0})` },
+    { key: "logs", label: `Nhật ký (${memberRowsByTab.logs.length})` },
+  ];
+  const memberStatsCards: Array<{ label: string; value: number; Icon: typeof Activity; color: "success" | "warning" | "error" | "info" }> = [
+    { label: "Đang hoạt động", value: memberSummary.activeToday || 0, Icon: Activity, color: "success" },
+    { label: "Bị cấm chat", value: memberSummary.muted || 0, Icon: MessageSquare, color: "warning" },
+    { label: "Bị ban", value: memberSummary.banned || 0, Icon: ShieldCheck, color: "error" },
+    { label: "Blacklist", value: memberSummary.blacklisted || 0, Icon: Archive, color: "info" },
+  ];
+  const memberDisplayName = (row: Row) => String(row.display_name || row.full_name || row.username || row.target_display_name || row.target_username || row.user_id || row.target_user_id || "Không rõ");
+  const memberUsername = (row: Row) => {
+    const value = String(row.username || row.target_username || "").trim();
+    return value ? (value.startsWith("@") ? value : `@${value}`) : "";
+  };
+  const memberUserId = (row: Row) => String(row.user_id || row.target_user_id || row.actor_user_id || "").trim();
+  const memberActionLabel: Record<MemberActionType, string> = {
+    mute: "Cấm chat",
+    ban: "Ban",
+    unmute: "Mở chat",
+    unban: "Gỡ ban",
+    blacklist: "Thêm blacklist",
+    unblacklist: "Gỡ blacklist",
+    kick: "Kick",
+  };
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
   const scamInboxStats = useMemo(() => {
@@ -2608,13 +2696,6 @@ export default function HomePage() {
     };
   }, [currentBot?.bot_key, lookups.groups.length, scheduleIssues.length, scheduleMessagePool, scheduleMessagePreview.length, scheduleSubject.chat_id, scheduleSubject.group_id, scheduleSubject.video_enabled, scheduleVideoPool, scheduleVideoPreview.length, selectedBot, selectedScope]);
   const dashboardRows = useMemo(() => visibleRows.filter((row) => table?.key === "bot_metrics" && row.enabled !== false), [visibleRows, table?.key]);
-  const memberActivityRows = useMemo(() => {
-    if (table?.key !== "audit_logs" || activeLayer !== "members") {
-      return [] as Row[];
-    }
-    return visibleRows.filter((row) => ["member_joined", "member_left", "member_join_request"].includes(String(row.action || "").toLowerCase()));
-  }, [activeLayer, table?.key, visibleRows]);
-  const [expandedMemberAuditIds, setExpandedMemberAuditIds] = useState<Set<string>>(() => new Set());
   const configScopeModule = useMemo(() => {
     const moduleKey = activeLayer.startsWith("module:") ? activeLayer.replace("module:", "") : "";
     return MODULE_HUBS.find((module) => module.key === moduleKey);
@@ -3215,6 +3296,23 @@ export default function HomePage() {
     }
   }
 
+  async function loadMemberOverview(nextSearch = search) {
+    setMemberOverviewLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedBot) params.set("bot_key", selectedBot);
+      if (selectedScope) params.set("group_id", selectedScope);
+      if (nextSearch.trim()) params.set("search", nextSearch.trim());
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const payload = await api(`/api/members/overview${query}`);
+      setMemberOverview(payload);
+    } catch {
+      setMemberOverview(null);
+    } finally {
+      setMemberOverviewLoading(false);
+    }
+  }
+
   async function loadRows(nextSearch = search) {
     if (!table) {
       return;
@@ -3232,6 +3330,55 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function openMemberAction(row: Row = {}, action: MemberActionType = "mute") {
+    setMemberActionDraft({
+      user_id: memberUserId(row),
+      username: String(row.username || row.target_username || "").replace(/^@/, ""),
+      display_name: memberDisplayName(row),
+      action,
+      reason: "",
+      duration_seconds: action === "mute" ? 3600 : 0,
+      dry_run: true,
+    });
+    setMemberActionOpen(true);
+  }
+
+  async function submitMemberAction(event?: FormEvent) {
+    event?.preventDefault();
+    if (!selectedMemberChatId) {
+      setToast({ type: "error", message: "Chọn group trước khi thao tác thành viên." });
+      return;
+    }
+    if (!memberActionDraft.user_id.trim()) {
+      setToast({ type: "error", message: "Thiếu Telegram user_id." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        ...memberActionDraft,
+        bot_key: activeBotKey || selectedBot || "main",
+        chat_id: selectedMemberChatId,
+        user_id: memberActionDraft.user_id.trim(),
+        username: memberActionDraft.username.replace(/^@/, "").trim(),
+        display_name: memberActionDraft.display_name.trim(),
+        reason: memberActionDraft.reason.trim(),
+        duration_seconds: Number(memberActionDraft.duration_seconds || 0),
+      };
+      await api("/api/members/action", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setMemberActionOpen(false);
+      setToast({ type: "success", message: `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.` });
+      await Promise.all([loadMemberOverview(), loadLookups()]);
+    } catch (err) {
+      setToast({ type: "error", message: err instanceof Error ? err.message : "Không thể thao tác thành viên." });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -3291,6 +3438,13 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.passwordRequired, savedPassword, selectedBot, selectedScope]);
+
+  useEffect(() => {
+    if (meta && (!meta.passwordRequired || savedPassword) && activeLayer === "members") {
+      void loadMemberOverview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLayer, meta?.passwordRequired, savedPassword, search, selectedBot, selectedScope]);
 
   useEffect(() => {
     if (!lookups.bots.length || activeKey === "bots") {
@@ -5428,73 +5582,124 @@ export default function HomePage() {
           <AuditConsole auditStats={auditStats} />
         ) : null}
 
-        {table.key === "audit_logs" && activeLayer === "members" ? (
+        {activeLayer === "members" ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
                 <Box>
-                  <Typography variant="overline" color="text.secondary">Nhật ký thành viên</Typography>
-                  <Typography variant="h5">Join / out theo group đang chọn</Typography>
+                  <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2 }}>Member workspace</Typography>
+                  <Typography variant="h5">Dashboard quản lý thành viên</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Bot ghi lại các lần thành viên vào hoặc rời nhóm trong phạm vi bot đang quản lý.
+                    Theo dõi người đang hoạt động, mute, ban, blacklist và thao tác trực tiếp trong group đang chọn.
                   </Typography>
                 </Box>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                  <Chip label={`Tổng ${memberActivityRows.length}`} />
-                  <Chip color="success" label={`Join ${memberActivityRows.filter((row) => String(row.action || "") === "member_joined").length}`} />
-                  <Chip color="info" label={`Request ${memberActivityRows.filter((row) => String(row.action || "") === "member_join_request").length}`} />
-                  <Chip color="warning" label={`Out ${memberActivityRows.filter((row) => String(row.action || "") === "member_left").length}`} />
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
+                  <MuiButton variant="outlined" startIcon={<RefreshCcw size={16} />} onClick={() => void loadMemberOverview()} disabled={memberOverviewLoading}>
+                    Làm mới
+                  </MuiButton>
+                  <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={() => openMemberAction({}, "mute")} disabled={!selectedMemberChatId}>
+                    Thao tác user
+                  </MuiButton>
                 </Stack>
               </Stack>
+
+              <Grid container spacing={1.5}>
+                {memberStatsCards.map(({ label, value, Icon, color }) => (
+                  <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
+                    <Paper variant="outlined" sx={{ p: 1.75, bgcolor: "background.default", height: "100%" }}>
+                      <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontWeight: 700 }}>{label}</Typography>
+                          <Typography variant="h4">{value}</Typography>
+                        </Box>
+                        <Chip color={color} icon={<Icon size={16} />} label="live" variant="outlined" />
+                      </Stack>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+
+              <TabsBar
+                tone="filled"
+                wrapped
+                scrollable
+                value={memberTab}
+                onChange={(tab) => setMemberTab(tab as MemberWorkspaceTab)}
+                items={memberTabItems}
+              />
+
+              {!selectedMemberChatId ? (
+                <Alert severity="warning">Chọn một group ở Scope để ban, mute hoặc đọc trạng thái thành viên đúng phạm vi.</Alert>
+              ) : null}
+
               <Stack spacing={1.25}>
-                {memberActivityRows.slice(0, 20).map((row) => {
-                  const data = auditLogCardData(row, groupNameForId);
-                  const rowId = String(row.id || `${row.created_at}-${row.action}`);
-                  const expanded = expandedMemberAuditIds.has(rowId);
+                {memberOverviewLoading ? (
+                  <Paper variant="outlined" sx={{ p: 3, textAlign: "center", bgcolor: "background.default" }}>
+                    <CircularProgress size={22} />
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Đang tải trạng thái thành viên...</Typography>
+                  </Paper>
+                ) : null}
+
+                {!memberOverviewLoading && memberTab !== "logs" ? memberRows.map((row) => {
+                  const userId = memberUserId(row);
+                  const status = String(row.status || row.member_status || (memberTab === "active" ? "active" : memberTab)).toLowerCase();
                   return (
-                    <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Stack spacing={1}>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              {data.time}
-                            </Typography>
-                            <Chip size="small" color={auditActionTone(String(row.action || data.action))} label={data.action} />
-                            <Chip size="small" variant="outlined" label={`Group: ${data.groupLabel}`} />
-                            <Chip size="small" variant="outlined" label={`User: ${data.targetLabel} · ${data.targetId || "-"}`} />
-                            <MuiButton size="small" variant="text" onClick={() => setExpandedMemberAuditIds((current) => {
-                              const next = new Set(current);
-                              if (next.has(rowId)) next.delete(rowId); else next.add(rowId);
-                              return next;
-                            })}>
-                              {expanded ? "Thu gọn" : "Chi tiết"}
-                            </MuiButton>
-                          </Stack>
+                    <Paper key={`${memberTab}-${userId || row.id || row.username}`} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                      <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", md: "center" }, justifyContent: "space-between" }}>
+                        <Stack direction="row" spacing={1.25} sx={{ minWidth: 0, alignItems: "center" }}>
+                          <Box sx={{ width: 40, height: 40, borderRadius: "50%", bgcolor: "rgba(13, 148, 136, 0.12)", color: "primary.main", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+                            <Users size={20} />
+                          </Box>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="subtitle1" noWrap>{memberDisplayName(row)}</Typography>
+                            <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                              {memberUsername(row) ? <Typography variant="caption" color="text.secondary">{memberUsername(row)}</Typography> : null}
+                              <Typography variant="caption" color="text.secondary">ID {userId || "-"}</Typography>
+                              {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
+                              {row.last_seen_at || row.updated_at ? <Chip size="small" variant="outlined" label={formatDateTime(row.last_seen_at || row.updated_at)} /> : null}
+                              {row.reason ? <Chip size="small" color="warning" variant="outlined" label={String(row.reason)} /> : null}
+                            </Stack>
+                          </Box>
                         </Stack>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {String(row.action || "") === "member_left" ? "Rời nhóm" : String(row.action || "") === "member_join_request" ? "Yêu cầu vào nhóm" : "Vào nhóm"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Người thực hiện: {data.actorLabel}{data.actorId ? ` (${data.actorId})` : ""}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            · {data.reason}
-                          </Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
+                          <Chip size="small" color={status === "banned" ? "error" : status === "muted" || status === "restricted" ? "warning" : status === "blacklisted" ? "info" : "success"} label={status === "restricted" ? "muted" : status} />
+                          <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "mute")}>Mute</MuiButton>
+                          <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(row, "ban")}>Ban</MuiButton>
+                          <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "blacklist")}>Blacklist</MuiButton>
+                          {memberTab === "muted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unmute")}>Mở chat</MuiButton> : null}
+                          {memberTab === "banned" || memberTab === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, memberTab === "blacklisted" ? "unblacklist" : "unban")}>Gỡ</MuiButton> : null}
                         </Stack>
-                        {expanded ? (
-                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                            {auditLogRows(row).map((item) => (
-                              <Typography key={`${item.label}-${item.value}`} variant="caption" color="text.secondary">
-                                <strong>{item.label}</strong> {item.value}
-                              </Typography>
-                            ))}
-                          </Stack>
-                        ) : null}
                       </Stack>
                     </Paper>
                   );
-                })}
+                }) : null}
+
+                {!memberOverviewLoading && memberTab === "logs" ? memberRows.map((row) => {
+                  const data = auditLogCardData(row, groupNameForId);
+                  return (
+                    <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                      <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ justifyContent: "space-between" }}>
+                        <Box>
+                          <Typography variant="subtitle2">{data.action}</Typography>
+                          <Typography variant="body2" color="text.secondary">{data.time} · {data.targetLabel} {data.targetId ? `(${data.targetId})` : ""}</Typography>
+                        </Box>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                          <Chip size="small" color={auditActionTone(String(row.action || data.action))} label={String(row.action || "")} />
+                          <Chip size="small" variant="outlined" label={data.groupLabel} />
+                          <Chip size="small" variant="outlined" label={data.reason} />
+                        </Stack>
+                      </Stack>
+                    </Paper>
+                  );
+                }) : null}
+
+                {!memberOverviewLoading && !memberRows.length ? (
+                  <Paper variant="outlined" sx={{ p: 4, textAlign: "center", bgcolor: "background.default" }}>
+                    <Users size={30} />
+                    <Typography variant="subtitle1" sx={{ mt: 1 }}>Chưa có dữ liệu</Typography>
+                    <Typography variant="body2" color="text.secondary">Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt.</Typography>
+                  </Paper>
+                ) : null}
               </Stack>
             </Stack>
           </Paper>
@@ -6368,7 +6573,7 @@ export default function HomePage() {
         )}
             </Stack>
           </Paper>
-        ) : (
+        ) : activeLayer !== "members" ? (
         <Box
           sx={{
             display: "grid",
@@ -6795,11 +7000,89 @@ export default function HomePage() {
             </DialogContent>
           </Dialog>
         </Box>
-        )}
-        </>
         ) : null}
         </>
         ) : null}
+        </>
+        ) : null}
+      <Dialog open={memberActionOpen} onClose={() => setMemberActionOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Thao tác thành viên</DialogTitle>
+        <form onSubmit={submitMemberAction}>
+          <DialogContent dividers>
+            <Stack spacing={2}>
+              <Alert severity={memberActionDraft.dry_run ? "info" : "warning"}>
+                {memberActionDraft.dry_run
+                  ? "Đang ở chế độ dry-run: chỉ ghi state/log, chưa gọi Telegram."
+                  : "Chế độ chạy thật: bot sẽ gọi Telegram để mute/ban/unban user."}
+              </Alert>
+              <TextField
+                label="Telegram user_id"
+                value={memberActionDraft.user_id}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, user_id: event.target.value }))}
+                required
+                fullWidth
+              />
+              <TextField
+                label="Username"
+                value={memberActionDraft.username}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, username: event.target.value.replace(/^@/, "") }))}
+                fullWidth
+                placeholder="username"
+              />
+              <TextField
+                label="Tên hiển thị"
+                value={memberActionDraft.display_name}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, display_name: event.target.value }))}
+                fullWidth
+              />
+              <Select
+                value={memberActionDraft.action}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, action: event.target.value as MemberActionType }))}
+                fullWidth
+              >
+                <MenuItem value="mute">Cấm chat</MenuItem>
+                <MenuItem value="unmute">Mở chat</MenuItem>
+                <MenuItem value="ban">Ban</MenuItem>
+                <MenuItem value="unban">Gỡ ban</MenuItem>
+                <MenuItem value="kick">Kick</MenuItem>
+                <MenuItem value="blacklist">Thêm blacklist</MenuItem>
+                <MenuItem value="unblacklist">Gỡ blacklist</MenuItem>
+              </Select>
+              <TextField
+                label="Thời lượng mute (giây)"
+                type="number"
+                value={memberActionDraft.duration_seconds}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, duration_seconds: Number(event.target.value || 0) }))}
+                fullWidth
+              />
+              <TextField
+                label="Lý do"
+                value={memberActionDraft.reason}
+                onChange={(event) => setMemberActionDraft((current) => ({ ...current, reason: event.target.value }))}
+                fullWidth
+                multiline
+                minRows={2}
+              />
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Switch
+                  checked={!memberActionDraft.dry_run}
+                  onChange={(event) => setMemberActionDraft((current) => ({ ...current, dry_run: !event.target.checked }))}
+                />
+                <Box>
+                  <Typography variant="subtitle2">Gọi Telegram thật</Typography>
+                  <Typography variant="caption" color="text.secondary">Tắt để test state/log trước khi thao tác group thật.</Typography>
+                </Box>
+              </Stack>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <MuiButton onClick={() => setMemberActionOpen(false)}>Hủy</MuiButton>
+            <MuiButton type="submit" variant="contained" disabled={saving || !selectedMemberChatId}>
+              {saving ? "Đang xử lý..." : memberActionLabel[memberActionDraft.action]}
+            </MuiButton>
+          </DialogActions>
+        </form>
+      </Dialog>
       <ChannelComposer
         open={channelComposerOpen}
         composer={channelComposer}

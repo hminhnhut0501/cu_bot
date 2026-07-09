@@ -327,12 +327,20 @@ class ModerationModule(BotModule):
         try:
             self.bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
             self.state.reset_warnings(message.chat.id, target_id)
+            self.record_member_moderation_state(
+                message.chat.id,
+                target_id,
+                "normal",
+                reason="Admin command",
+                actor_user_id=getattr(message.from_user, "id", ""),
+                trigger="admin_command",
+            )
             self.audit(
                 message.chat.id,
                 "unban",
                 target_user_id=target_id,
                 actor_user_id=getattr(message.from_user, "id", ""),
-                details=self.audit_details(reason="Admin command", trigger="admin_command"),
+                details=self.audit_details(reason="Admin command", trigger="admin_command", member_status="normal"),
             )
             self.safe_reply(message, f"Đã bỏ cấm user {target_id}.")
         except Exception as exc:
@@ -388,13 +396,13 @@ class ModerationModule(BotModule):
         if not self.moderation_enabled(message.chat.id):
             return
         if self.is_automatic_forward_allowed(message):
-            self.state.mark_activity(message.chat.id, getattr(from_user, "id", None))
+            self.mark_member_activity(message)
             return
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
         if from_user and self.admin_exempt(message.chat.id, from_user.id):
-            self.state.mark_activity(message.chat.id, from_user.id)
+            self.mark_member_activity(message)
             return
         if from_user and self.handle_verification_answer(message):
             return
@@ -413,7 +421,7 @@ class ModerationModule(BotModule):
                 self.safe_delete(message, "bot_message")
             return
 
-        self.state.mark_activity(message.chat.id, message.from_user.id)
+        self.mark_member_activity(message)
 
         if self.detect_bio_link(message.chat.id, message.from_user):
             if self.setting_bool(message.chat.id, "bio_link_delete_message", True):
@@ -442,6 +450,25 @@ class ModerationModule(BotModule):
             return
         if self.detect_inline_keyboard(message):
             return
+
+    def mark_member_activity(self, message):
+        user = getattr(message, "from_user", None)
+        if not user:
+            self.state.mark_activity(message.chat.id)
+            return
+        display_name = " ".join(
+            part for part in (
+                getattr(user, "first_name", ""),
+                getattr(user, "last_name", ""),
+            )
+            if part
+        ).strip()
+        self.state.mark_activity(
+            message.chat.id,
+            getattr(user, "id", None),
+            username=getattr(user, "username", "") or "",
+            display_name=display_name,
+        )
 
     def is_command_message(self, message):
         text = getattr(message, "text", None) or ""
@@ -1150,6 +1177,15 @@ class ModerationModule(BotModule):
                 permissions=permissions,
                 use_independent_chat_permissions=True,
             )
+            self.record_member_moderation_state(
+                chat_id,
+                user_id,
+                "muted",
+                reason=reason or "Tạm cấm chat theo luật tự động",
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                until_at=until_date.isoformat() if until_date else "",
+                trigger=trigger,
+            )
             self.audit(
                 chat_id,
                 "restrict",
@@ -1160,6 +1196,7 @@ class ModerationModule(BotModule):
                     seconds=seconds,
                     until_date=until_date.isoformat() if until_date else "",
                     trigger=trigger,
+                    member_status="muted",
                 ),
             )
         except Exception as exc:
@@ -1211,6 +1248,44 @@ class ModerationModule(BotModule):
 
     def actor_for_system(self):
         return "bot"
+
+    def record_member_moderation_state(
+        self,
+        chat_id,
+        user_id,
+        status,
+        reason="",
+        actor_user_id="",
+        until_at="",
+        trigger="",
+        username="",
+        display_name="",
+        payload=None,
+    ):
+        now = datetime.utcnow().isoformat() + "Z"
+        data = {
+            "bot_key": self.settings.bot_key,
+            "chat_id": str(chat_id),
+            "user_id": str(user_id),
+            "username": username,
+            "display_name": display_name,
+            "status": status,
+            "reason": reason,
+            "until_at": until_at or None,
+            "updated_by": str(actor_user_id or self.actor_for_system()),
+            "updated_at": now,
+            "last_seen_at": now,
+            "payload": {
+                "trigger": trigger,
+                **(payload or {}),
+            },
+        }
+        if status != "normal":
+            data["created_by"] = str(actor_user_id or self.actor_for_system())
+        try:
+            self.store.upsert("member_moderation_state", data, "bot_key,chat_id,user_id")
+        except Exception as exc:
+            LOGGER.warning("Cannot record member moderation state for bot %s chat %s user %s: %s", self.settings.bot_key, chat_id, user_id, exc)
 
     def audit_details(self, **values):
         cleaned = {key: value for key, value in values.items() if value not in (None, "")}
@@ -1345,6 +1420,15 @@ class ModerationModule(BotModule):
             until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
             self.bot.ban_chat_member(chat_id, user_id, until_date=until_date)
             self.state.reset_warnings(chat_id, user_id)
+            self.record_member_moderation_state(
+                chat_id,
+                user_id,
+                "banned",
+                reason=reason or "Ban theo luật tự động",
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                until_at=until_date.isoformat() if until_date else "",
+                trigger=trigger,
+            )
             self.audit(
                 chat_id,
                 "ban",
@@ -1357,6 +1441,7 @@ class ModerationModule(BotModule):
                     trigger=trigger,
                     warning_count=warning_count,
                     warning_limit=warning_limit,
+                    member_status="banned",
                 ),
             )
         except Exception as exc:
@@ -1367,12 +1452,21 @@ class ModerationModule(BotModule):
             self.bot.ban_chat_member(chat_id, user_id)
             self.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
             self.state.reset_warnings(chat_id, user_id)
+            self.record_member_moderation_state(
+                chat_id,
+                user_id,
+                "normal",
+                reason=reason or "Kick theo luật tự động",
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                trigger=trigger,
+                payload={"last_action": "kick"},
+            )
             self.audit(
                 chat_id,
                 "kick",
                 target_user_id=user_id,
                 actor_user_id=actor_user_id or self.actor_for_system(),
-                details=self.audit_details(reason=reason or "Kick theo luật tự động", trigger=trigger),
+                details=self.audit_details(reason=reason or "Kick theo luật tự động", trigger=trigger, member_status="normal", last_action="kick"),
             )
         except Exception as exc:
             LOGGER.warning("Cannot kick %s in %s: %s", user_id, chat_id, exc)

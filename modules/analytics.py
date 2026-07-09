@@ -51,14 +51,20 @@ class AnalyticsModule(BotModule):
         now = datetime.utcnow().isoformat() + "Z"
         activity_date = self.today_key()
         rows = []
-        for chat_id, user_ids in active.items():
-            for user_id in user_ids:
+        existing_counts = self.existing_activity_counts(activity_date)
+        for chat_id, users in active.items():
+            for user_id, profile in users.items():
+                key = (str(chat_id), str(user_id))
+                next_count = int(existing_counts.get(key, 0)) + int(profile.get("message_count") or 1)
                 rows.append({
                     "bot_key": self.settings.bot_key,
                     "chat_id": str(chat_id),
                     "user_id": str(user_id),
+                    "username": str(profile.get("username") or ""),
+                    "display_name": str(profile.get("display_name") or ""),
                     "activity_date": activity_date,
                     "last_seen_at": now,
+                    "message_count": next_count,
                 })
         if not rows:
             return
@@ -71,6 +77,20 @@ class AnalyticsModule(BotModule):
             LOGGER.info("Flushed %s active member heartbeat row(s) for bot %s.", len(rows), self.settings.bot_key)
         except Exception as exc:
             LOGGER.warning("Cannot flush active member heartbeat for bot %s: %s", self.settings.bot_key, exc)
+
+    def existing_activity_counts(self, activity_date):
+        counts = {}
+        try:
+            for row in self.store.fresh_rows("analytics_member_activity"):
+                if str(row.get("activity_date") or "")[:10] != str(activity_date):
+                    continue
+                chat_id = str(row.get("chat_id") or "")
+                user_id = str(row.get("user_id") or "")
+                if chat_id and user_id:
+                    counts[(chat_id, user_id)] = int(row.get("message_count") or 0)
+        except Exception as exc:
+            LOGGER.warning("Cannot load existing active member counts for bot %s: %s", self.settings.bot_key, exc)
+        return counts
 
     def sync_member_counts(self):
         stat_date = self.today_key()

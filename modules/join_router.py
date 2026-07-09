@@ -47,6 +47,7 @@ class JoinRouterModule(BotModule):
         )
         for user in members:
             self.audit_member_event(chat_id, "member_joined", user, "service_message")
+            self.block_blacklisted_join(chat_id, user, "service_message")
         self.forward(message, "welcome")
         self.forward(message, "share_unlock")
 
@@ -136,6 +137,7 @@ class JoinRouterModule(BotModule):
 
         if self.is_join_transition(old_member, new_member):
             self.audit_member_event(chat_id, "member_joined", user, "member_state")
+            self.block_blacklisted_join(chat_id, user, "member_state")
             self.forward_chat_member(update, "welcome")
         elif self.is_leave_transition(old_member, new_member):
             self.audit_member_event(chat_id, "member_left", user, "member_state")
@@ -223,6 +225,106 @@ class JoinRouterModule(BotModule):
                     "action": action,
                     "target_user_id": user_id,
                     "details": details,
+                },
+            )
+        except Exception as exc:
+            LOGGER.warning("Join router cannot write %s audit for bot %s: %s", action, self.settings.bot_key, exc)
+
+    def find_blacklist_state(self, chat_id, user_id):
+        chat_id = str(chat_id or "").strip()
+        user_id = str(user_id or "").strip()
+        if not chat_id or not user_id:
+            return None
+        try:
+            rows = self.store.fresh_rows("member_moderation_state")
+        except Exception as exc:
+            LOGGER.warning("Join router cannot load blacklist state for bot %s: %s", self.settings.bot_key, exc)
+            rows = self.store.rows("member_moderation_state")
+        for row in rows:
+            if str(row.get("bot_key") or self.settings.bot_key) != self.settings.bot_key:
+                continue
+            if str(row.get("chat_id") or "").strip() != chat_id:
+                continue
+            if str(row.get("user_id") or "").strip() != user_id:
+                continue
+            if str(row.get("status") or "").strip().lower() == "blacklisted":
+                return row
+        return None
+
+    def block_blacklisted_join(self, chat_id, user, source):
+        user_id = str(getattr(user, "id", "") or "").strip()
+        state = self.find_blacklist_state(chat_id, user_id)
+        if not state:
+            return False
+        reason = state.get("reason") or "User nằm trong blacklist"
+        blocked = False
+        error = ""
+        try:
+            self.bot.ban_chat_member(chat_id, user_id)
+            blocked = True
+        except Exception as exc:
+            error = str(exc)
+            LOGGER.warning("Join router cannot block blacklisted user %s in chat %s: %s", user_id, chat_id, exc)
+        details = {
+            "source": source,
+            "display_name": state.get("display_name") or self.display_name_for(user),
+            "username": state.get("username") or getattr(user, "username", "") or "",
+            "reason": reason,
+            "member_status": "blacklisted",
+            "blocked": blocked,
+        }
+        if error:
+            details["error"] = error
+        try:
+            self.store.upsert(
+                "member_moderation_state",
+                {
+                    "bot_key": self.settings.bot_key,
+                    "chat_id": str(chat_id or ""),
+                    "user_id": user_id,
+                    "username": details["username"],
+                    "display_name": details["display_name"],
+                    "status": "blacklisted",
+                    "reason": reason,
+                    "updated_by": "bot",
+                    "last_seen_at": self.utcnow_iso(),
+                    "payload": {"trigger": "blacklist_join_block", "blocked": blocked, "source": source},
+                },
+                "bot_key,chat_id,user_id",
+            )
+        except Exception as exc:
+            LOGGER.warning("Join router cannot refresh blacklist state for bot %s chat %s user %s: %s", self.settings.bot_key, chat_id, user_id, exc)
+        self.audit_member_event_with_details(
+            chat_id,
+            "member_blacklist_join_blocked" if blocked else "member_blacklist_join_block_failed",
+            user_id,
+            details,
+        )
+        return blocked
+
+    @staticmethod
+    def utcnow_iso():
+        from datetime import datetime
+
+        return datetime.utcnow().isoformat() + "Z"
+
+    @staticmethod
+    def display_name_for(user):
+        first_name = getattr(user, "first_name", None) or ""
+        last_name = getattr(user, "last_name", None) or ""
+        return " ".join(part for part in (first_name, last_name) if part).strip() or getattr(user, "username", "") or str(getattr(user, "id", "") or "")
+
+    def audit_member_event_with_details(self, chat_id, action, target_user_id, details):
+        try:
+            self.store.insert(
+                "audit_logs",
+                {
+                    "bot_key": self.settings.bot_key,
+                    "chat_id": str(chat_id or ""),
+                    "actor_user_id": "bot",
+                    "action": action,
+                    "target_user_id": str(target_user_id or ""),
+                    "details": json.dumps(details, ensure_ascii=False),
                 },
             )
         except Exception as exc:

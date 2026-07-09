@@ -28,6 +28,7 @@ BOT_SCOPED_TABLES = {
     "groups",
     "keywords",
     "link_shorteners",
+    "member_moderation_state",
     "member_roles",
     "messages",
     "module_settings",
