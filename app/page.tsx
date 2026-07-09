@@ -3396,7 +3396,11 @@ export default function HomePage() {
     const landingKey = "landingKey" in layer ? String((layer as { landingKey?: string }).landingKey || "") : "";
     if (landingKey) {
       setActiveKey(landingKey);
-    } else if (!layerContainsTable(layer, activeKey)) {
+    } else if ("moduleKey" in layer && layer.moduleKey) {
+      if (!layerContainsTable(layer, activeKey)) {
+        setActiveKey(layer.tables[0]);
+      }
+    } else {
       setActiveKey(layer.tables[0]);
     }
     setSelected(null);
