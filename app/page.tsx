@@ -2350,6 +2350,7 @@ export default function HomePage() {
     notes: "",
     enabled: true,
   });
+  const restoredCpStateRef = useRef(false);
 
   useEffect(() => {
     if (!toast) {
@@ -2403,9 +2404,10 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (loading) {
+    if (loading || restoredCpStateRef.current) {
       return;
     }
+    restoredCpStateRef.current = true;
     const stored = loadCpState();
     if (stored.activeLayer) {
       setActiveLayer(stored.activeLayer);
