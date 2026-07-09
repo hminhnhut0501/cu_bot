@@ -159,6 +159,14 @@ class JoinRouterModule(BotModule):
             for module in getattr(self.app, "modules", []) or []:
                 if getattr(module, "name", "") != module_name:
                     continue
+                if not self.module_matches_bot(module):
+                    LOGGER.debug(
+                        "Join router skipped cross-bot forward to %s: router=%s module=%s.",
+                        module_name,
+                        self.settings.bot_key,
+                        getattr(getattr(module, "settings", None), "bot_key", None),
+                    )
+                    continue
                 handler = getattr(module, "handle_new_members", None)
                 if callable(handler):
                     LOGGER.info(
@@ -176,6 +184,14 @@ class JoinRouterModule(BotModule):
         try:
             for module in getattr(self.app, "modules", []) or []:
                 if getattr(module, "name", "") != module_name:
+                    continue
+                if not self.module_matches_bot(module):
+                    LOGGER.debug(
+                        "Join router skipped cross-bot member-state forward to %s: router=%s module=%s.",
+                        module_name,
+                        self.settings.bot_key,
+                        getattr(getattr(module, "settings", None), "bot_key", None),
+                    )
                     continue
                 handler = getattr(module, "handle_chat_member", None)
                 if callable(handler):
@@ -199,6 +215,11 @@ class JoinRouterModule(BotModule):
                 self.settings.bot_key,
                 exc,
             )
+
+    def module_matches_bot(self, module):
+        module_settings = getattr(module, "settings", None)
+        module_bot_key = str(getattr(module_settings, "bot_key", "") or "").strip()
+        return not module_bot_key or module_bot_key == self.settings.bot_key
 
     def audit_member_event(self, chat_id, action, user, source):
         user_id = str(getattr(user, "id", "") or "")

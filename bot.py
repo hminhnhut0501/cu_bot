@@ -105,7 +105,7 @@ def attach_raw_update_logger(bot, bot_key):
                     summary["chat_join_request_chat_id"] = getattr(getattr(chat_join_request, "chat", None), "id", None)
                     summary["chat_join_request_user_id"] = getattr(getattr(chat_join_request, "from_user", None), "id", None)
                     summary["chat_join_request_bio"] = bool(getattr(chat_join_request, "bio", None))
-                LOGGER.info("Raw update bot_key=%s: %s", bot_key, summary)
+                LOGGER.debug("Raw update bot_key=%s: %s", bot_key, summary)
         except Exception as exc:
             LOGGER.warning("Raw update logger failed for bot_key=%s: %s", bot_key, exc)
         return original(updates)
