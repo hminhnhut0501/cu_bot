@@ -65,7 +65,7 @@ import { AutomationScreen, AutoReplyScreen, BotScreen, GroupScreen, InspectorPan
 import AuditConsole from "./components/screens/AuditConsole";
 import ScamInbox from "./components/screens/ScamInbox";
 import BulkPanel from "./components/screens/BulkPanel";
-import MetricsDashboard from "./components/screens/MetricsDashboard";
+import MetricsDashboard, { type AnalyticsSummary } from "./components/screens/MetricsDashboard";
 import MenuPolicyConsole from "./components/screens/MenuPolicyConsole";
 import ChannelComposer from "./components/screens/ChannelComposer";
 import CommandPalette from "./components/screens/CommandPalette";
@@ -1260,7 +1260,20 @@ function parseDetails(value: unknown) {
     const parsed = JSON.parse(String(value));
     return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
   } catch {
-    return { raw: String(value) };
+    const raw = String(value);
+    const pairs = raw
+      .split(/[;,]/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const index = part.indexOf("=");
+        return index > 0 ? [part.slice(0, index).trim(), part.slice(index + 1).trim()] : null;
+      })
+      .filter((part): part is string[] => Boolean(part));
+    if (pairs.length) {
+      return { raw, ...Object.fromEntries(pairs) };
+    }
+    return { raw };
   }
 }
 
@@ -2323,6 +2336,8 @@ export default function HomePage() {
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
   const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
+  const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [channelTab, setChannelTab] = useState<ChannelPostTab>((initialCpState.channelTab === "scheduled" || initialCpState.channelTab === "sent" || initialCpState.channelTab === "deleted" || initialCpState.channelTab === "failed") ? initialCpState.channelTab : "queue");
   const [channelPage, setChannelPage] = useState(1);
   const [channelComposerOpen, setChannelComposerOpen] = useState(false);
@@ -2920,7 +2935,7 @@ export default function HomePage() {
   const moduleCards = useMemo(() => MODULE_HUBS.map((module) => {
     const keys = module.moduleKeys || [module.key];
     const states = keys.map((key) => moduleState.get(key)).filter(Boolean);
-    const isOn = states.length
+    const isOn = module.key === "analytics" ? true : states.length
       ? states.some((row) => row?.enabled !== false)
       : !MODULES_REQUIRE_EXPLICIT_ENABLE.has(module.key);
     return { ...module, isOn };
@@ -3190,6 +3205,22 @@ export default function HomePage() {
     }
   }
 
+  async function loadAnalyticsSummary() {
+    setAnalyticsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedBot) params.set("bot_key", selectedBot);
+      if (selectedScope) params.set("group_id", selectedScope);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const payload = await api(`/api/analytics/summary${query}`);
+      setAnalyticsSummary(payload);
+    } catch {
+      setAnalyticsSummary(null);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }
+
   async function loadRows(nextSearch = search) {
     if (!table) {
       return;
@@ -3259,6 +3290,13 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.passwordRequired, savedPassword, selectedBot]);
+
+  useEffect(() => {
+    if (meta && (!meta.passwordRequired || savedPassword)) {
+      void loadAnalyticsSummary();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta?.passwordRequired, savedPassword, selectedBot, selectedScope]);
 
   useEffect(() => {
     if (!lookups.bots.length || activeKey === "bots") {
@@ -5632,6 +5670,9 @@ export default function HomePage() {
             metricValue={metricValue}
             metricLabel={metricLabel}
             metricGroups={metricGroups}
+            analyticsSummary={analyticsSummary}
+            analyticsLoading={analyticsLoading}
+            groupNameForId={groupNameForId}
           />
         ) : null}
 

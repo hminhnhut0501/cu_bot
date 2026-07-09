@@ -1,4 +1,5 @@
 import logging
+import json
 from datetime import datetime, timezone
 from html import escape
 
@@ -73,6 +74,11 @@ class WelcomeModule(BotModule):
     def now_iso():
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+    @staticmethod
+    def audit_details(**values):
+        cleaned = {key: value for key, value in values.items() if value not in (None, "")}
+        return json.dumps(cleaned, ensure_ascii=False)
+
     def setting(self, chat_id, key, default=None):
         group_row = self.group_row(chat_id, fresh=True)
         if group_row and group_row.get(key) not in (None, ""):
@@ -115,7 +121,7 @@ class WelcomeModule(BotModule):
             welcome_runtime_last_event_count=len(members),
             welcome_runtime_last_event_source="service_message",
         )
-        self.audit(chat_id, "welcome_event_received", details=f"source=service_message,count={len(members)}")
+        self.audit(chat_id, "welcome_event_received", details=self.audit_details(source="service_message", count=len(members)))
 
         if not self.module_enabled("welcome", False):
             LOGGER.info("Welcome module disabled for bot %s. Skip chat %s.", self.settings.bot_key, chat_id)
@@ -166,9 +172,12 @@ class WelcomeModule(BotModule):
             chat_id,
             "welcome_event_received",
             target_user_id=getattr(from_user, "id", None),
-            details=(
-                f"source=member_state,old={old_status},new={new_status},"
-                f"old_is_member={old_is_member},new_is_member={new_is_member}"
+            details=self.audit_details(
+                source="member_state",
+                old_status=old_status,
+                new_status=new_status,
+                old_is_member=old_is_member,
+                new_is_member=new_is_member,
             ),
         )
         if not self.module_enabled("welcome", False):
@@ -306,7 +315,7 @@ class WelcomeModule(BotModule):
                     chat_id,
                     "welcome_delete_scheduled",
                     target_user_id=getattr(user, "id", None),
-                    details=f"delay_seconds={delete_after},message_id={sent.message_id}",
+                    details=self.audit_details(delay_seconds=delete_after, message_id=sent.message_id),
                 )
                 self.delete_later(
                     chat_id,
@@ -317,13 +326,13 @@ class WelcomeModule(BotModule):
                         chat_id,
                         "welcome_delete_success",
                         target_user_id=getattr(user, "id", None),
-                        details=f"message_id={sent.message_id}",
+                        details=self.audit_details(message_id=sent.message_id),
                     ),
                     on_error=lambda exc: self.audit(
                         chat_id,
                         "welcome_delete_failed",
                         target_user_id=getattr(user, "id", None),
-                        details=f"message_id={sent.message_id},error={exc}",
+                        details=self.audit_details(message_id=sent.message_id, error=str(exc)),
                     ),
                 )
             LOGGER.info(
@@ -336,7 +345,7 @@ class WelcomeModule(BotModule):
                 chat_id,
                 "welcome_sent",
                 target_user_id=getattr(user, "id", None),
-                details=f"source={source},message_id={sent.message_id}",
+                details=self.audit_details(source=source, message_id=sent.message_id),
             )
             self.update_runtime_status(
                 welcome_runtime_last_success_at=self.now_iso(),

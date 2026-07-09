@@ -384,17 +384,17 @@ class ModerationModule(BotModule):
         self.safe_reply(message, "\n".join(lines))
 
     def handle_group_message(self, message):
+        from_user = getattr(message, "from_user", None)
         if not self.moderation_enabled(message.chat.id):
             return
         if self.is_automatic_forward_allowed(message):
-            self.state.mark_activity(message.chat.id)
+            self.state.mark_activity(message.chat.id, getattr(from_user, "id", None))
             return
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
-        from_user = getattr(message, "from_user", None)
         if from_user and self.admin_exempt(message.chat.id, from_user.id):
-            self.state.mark_activity(message.chat.id)
+            self.state.mark_activity(message.chat.id, from_user.id)
             return
         if from_user and self.handle_verification_answer(message):
             return
@@ -413,7 +413,7 @@ class ModerationModule(BotModule):
                 self.safe_delete(message, "bot_message")
             return
 
-        self.state.mark_activity(message.chat.id)
+        self.state.mark_activity(message.chat.id, message.from_user.id)
 
         if self.detect_bio_link(message.chat.id, message.from_user):
             if self.setting_bool(message.chat.id, "bio_link_delete_message", True):

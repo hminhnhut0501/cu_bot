@@ -500,6 +500,55 @@ export const TABLES: TableConfig[] = [
       { key: "period", label: "Kỳ", type: "select", options: ["today", "week", "month", "all_time"] },
       notes
     ]
+  },
+  {
+    key: "analytics_daily_stats",
+    label: "Snapshot thống kê ngày",
+    description: "Cache thống kê theo ngày được rebuild từ audit_logs để dashboard tháng/năm chạy ổn định.",
+    titleField: "stat_date",
+    summaryFields: ["bot_key", "chat_id", "joins", "leaves", "violations"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text" },
+      { key: "stat_date", label: "Ngày", type: "text", required: true },
+      { key: "joins", label: "Join", type: "number" },
+      { key: "leaves", label: "Out", type: "number" },
+      { key: "net_growth", label: "Tăng ròng", type: "number" },
+      { key: "join_requests", label: "Yêu cầu vào", type: "number" },
+      { key: "deleted_messages", label: "Tin đã xóa", type: "number" },
+      { key: "delete_failures", label: "Xóa lỗi", type: "number" },
+      { key: "warns", label: "Warn", type: "number" },
+      { key: "restricts", label: "Cấm chat", type: "number" },
+      { key: "bans", label: "Ban", type: "number" },
+      { key: "kicks", label: "Kick", type: "number" },
+      { key: "verified_members", label: "Verify OK", type: "number" },
+      { key: "violations", label: "Vi phạm", type: "number" },
+      { key: "unique_violators", label: "Người vi phạm", type: "number" },
+      { key: "scam_reports", label: "Report scam", type: "number" },
+      { key: "scam_pending", label: "Scam chờ", type: "number" },
+      { key: "scam_confirmed", label: "Scam xác nhận", type: "number" },
+      { key: "scam_rejected", label: "Scam từ chối", type: "number" },
+      { key: "active_members", label: "Active members", type: "number" },
+      { key: "member_count", label: "Tổng member", type: "number" },
+      { key: "member_count_checked_at", label: "Lần kiểm member", type: "text" },
+      { key: "payload", label: "Payload JSON", type: "textarea" }
+    ]
+  },
+  {
+    key: "analytics_member_activity",
+    label: "Heartbeat thành viên",
+    description: "Dấu vết active member theo ngày, dùng để đếm distinct active members.",
+    titleField: "user_id",
+    summaryFields: ["bot_key", "chat_id", "activity_date", "last_seen_at"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", required: true },
+      { key: "user_id", label: "User ID", type: "text", required: true },
+      { key: "activity_date", label: "Ngày active", type: "text", required: true },
+      { key: "first_seen_at", label: "Lần đầu", type: "text" },
+      { key: "last_seen_at", label: "Lần cuối", type: "text" },
+      { key: "message_count", label: "Message count", type: "number" }
+    ]
   }
 ];
 

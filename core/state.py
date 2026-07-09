@@ -7,6 +7,7 @@ from time import time
 @dataclass
 class RuntimeState:
     group_activity: dict[int, bool] = field(default_factory=lambda: defaultdict(bool))
+    active_users: dict[int, set[int]] = field(default_factory=lambda: defaultdict(set))
     user_windows: dict[tuple[int, int], deque] = field(default_factory=lambda: defaultdict(deque))
     user_content_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
     user_duplicate_windows: dict[tuple[int, int, str], deque] = field(default_factory=lambda: defaultdict(deque))
@@ -20,15 +21,23 @@ class RuntimeState:
     recent_welcome_events: dict[tuple[int, int], float] = field(default_factory=dict)
     lock: Lock = field(default_factory=Lock)
 
-    def mark_activity(self, chat_id):
+    def mark_activity(self, chat_id, user_id=None):
         with self.lock:
             self.group_activity[int(chat_id)] = True
+            if user_id:
+                self.active_users[int(chat_id)].add(int(user_id))
 
     def consume_activity(self, chat_id):
         with self.lock:
             active = self.group_activity.get(int(chat_id), False)
             self.group_activity[int(chat_id)] = False
             return active
+
+    def consume_active_users(self):
+        with self.lock:
+            snapshot = {chat_id: set(user_ids) for chat_id, user_ids in self.active_users.items() if user_ids}
+            self.active_users.clear()
+            return snapshot
 
     def add_user_message(self, chat_id, user_id, window_seconds):
         key = (int(chat_id), int(user_id))

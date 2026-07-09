@@ -1,4 +1,5 @@
 import logging
+import json
 
 from modules.base import BotModule
 
@@ -203,7 +204,15 @@ class JoinRouterModule(BotModule):
         last_name = getattr(user, "last_name", None) or ""
         display_name = " ".join(part for part in (first_name, last_name) if part).strip() or getattr(user, "username", "") or user_id
         username = getattr(user, "username", "") or ""
-        details = f"source={source};display_name={display_name};username={username};is_bot={getattr(user, 'is_bot', False)}"
+        details = json.dumps(
+            {
+                "source": source,
+                "display_name": display_name,
+                "username": username,
+                "is_bot": bool(getattr(user, "is_bot", False)),
+            },
+            ensure_ascii=False,
+        )
         try:
             self.store.insert(
                 "audit_logs",
