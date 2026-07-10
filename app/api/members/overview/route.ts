@@ -77,6 +77,63 @@ function groupByStatus(rows: Row[]) {
   };
 }
 
+function parseDetails(value: unknown) {
+  if (!value) return {} as Row;
+  if (typeof value === "object") return value as Row;
+  try {
+    return JSON.parse(String(value)) as Row;
+  } catch {
+    return {} as Row;
+  }
+}
+
+function auditStatus(action: string) {
+  if (action === "member_blacklist" || action === "member_blacklist_join_blocked") return "blacklisted";
+  if (action === "member_ban" || action === "ban") return "banned";
+  if (action === "member_mute" || action === "restrict") return "muted";
+  if (action === "member_unblacklist" || action === "member_unban" || action === "member_unmute" || action === "unban") return "normal";
+  return "";
+}
+
+function stateRowsWithAuditFallback(stateRows: Row[], auditRows: Row[]) {
+  const map = new Map<string, Row>();
+  for (const row of stateRows) {
+    const key = `${row.bot_key || ""}:${row.chat_id || ""}:${row.user_id || ""}`;
+    map.set(key, { ...row, source: row.source || "state" });
+  }
+  const latestAuditByMember = new Map<string, Row>();
+  for (const row of auditRows) {
+    const userId = String(row.target_user_id || "").trim();
+    if (!userId) continue;
+    const key = `${row.bot_key || ""}:${row.chat_id || ""}:${userId}`;
+    if (!latestAuditByMember.has(key)) {
+      latestAuditByMember.set(key, row);
+    }
+  }
+  for (const [key, row] of latestAuditByMember.entries()) {
+    if (map.has(key)) continue;
+    const action = String(row.action || "").trim().toLowerCase();
+    const status = auditStatus(action);
+    if (!status || status === "normal") continue;
+    const details = parseDetails(row.details);
+    map.set(key, {
+      bot_key: row.bot_key,
+      chat_id: row.chat_id,
+      user_id: row.target_user_id,
+      username: details.username || details.target_username || "",
+      display_name: details.display_name || details.target_display_name || row.target_user_id,
+      status,
+      reason: details.reason || action.replaceAll("_", " "),
+      updated_by: row.actor_user_id || "audit",
+      updated_at: row.created_at,
+      last_seen_at: row.created_at,
+      payload: { source: "audit_logs", action },
+      source: "audit",
+    });
+  }
+  return Array.from(map.values());
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
@@ -138,8 +195,9 @@ export async function GET(request: NextRequest) {
     if (stateError) throw new Error(stateError.message);
     if (auditError) throw new Error(auditError.message);
 
-    const members = mergeMemberRows(activityRows || [], stateRows || [], search, limit);
-    const statuses = groupByStatus(stateRows || []);
+    const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
+    const members = mergeMemberRows(activityRows || [], moderationRows, search, limit);
+    const statuses = groupByStatus(moderationRows);
 
     return NextResponse.json({
       date: today,
