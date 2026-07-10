@@ -157,6 +157,10 @@ function telegramPayload(action: MemberAction, chatId: string, userId: string, d
   };
 }
 
+function isPersistentListAction(action: MemberAction) {
+  return action === "blacklist" || action === "unblacklist";
+}
+
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
@@ -182,19 +186,18 @@ export async function POST(request: NextRequest) {
     let telegramResult: Record<string, unknown> = dryRun ? { dry_run: true } : {};
     let telegramError = "";
 
-    if (!dryRun) {
+    if (!dryRun && !isPersistentListAction(action)) {
       const token = await loadBotToken(supabase, botKey);
-      if (!token) return badRequest("Bot chưa có token hoặc đang tắt.");
+      if (!token) {
+        return badRequest("Bot chưa có token hoặc đang tắt.");
+      }
       try {
         telegramResult = await callTelegram(token, method, tgPayload);
         if (action === "kick") {
           await callTelegram(token, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true });
         }
       } catch (error) {
-        telegramError = error instanceof Error ? error.message : "Telegram action failed.";
-        if (action !== "blacklist" && action !== "unblacklist") {
-          throw error;
-        }
+        throw error;
       }
     }
 
@@ -248,6 +251,19 @@ export async function POST(request: NextRequest) {
       target_user_id: userId,
       details: JSON.stringify(auditDetails),
     });
+
+    if (!dryRun && isPersistentListAction(action)) {
+      try {
+        const token = await loadBotToken(supabase, botKey);
+        if (!token) {
+          telegramError = "Bot chưa có token hoặc đang tắt.";
+        } else {
+          telegramResult = await callTelegram(token, method, tgPayload);
+        }
+      } catch (error) {
+        telegramError = error instanceof Error ? error.message : "Telegram action failed.";
+      }
+    }
 
     return NextResponse.json({
       ok: true,
