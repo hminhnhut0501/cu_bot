@@ -2547,7 +2547,7 @@ export default function HomePage() {
     if (!selectedScope) {
       return null;
     }
-    return lookups.groups.find((group) => String(group.group_id || "") === selectedScope) || null;
+    return lookups.groups.find((group) => String(group.group_id || group.chat_id || "") === selectedScope) || null;
   }, [lookups.groups, selectedScope]);
   const groupWelcomeContext = useMemo(() => {
     if (table?.key !== "groups") {
@@ -2567,7 +2567,7 @@ export default function HomePage() {
     return map;
   }, [lookups.groups]);
   const groupNameForId = (groupId: string) => groupNameById.get(String(groupId).trim()) || String(groupId || "");
-  const selectedMemberChatId = String(selectedScope || selectedScopeRow?.group_id || selectedScopeRow?.chat_id || "").trim();
+  const selectedMemberChatId = String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || "").trim();
   const memberSummary = memberOverview?.summary || {};
   const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
     active: memberOverview?.active || [],
@@ -2604,6 +2604,15 @@ export default function HomePage() {
     blacklist: "Thêm blacklist",
     unblacklist: "Gỡ blacklist",
     kick: "Kick",
+  };
+  const memberTabForAction: Partial<Record<MemberActionType, MemberWorkspaceTab>> = {
+    mute: "muted",
+    ban: "banned",
+    blacklist: "blacklisted",
+    unmute: "active",
+    unban: "active",
+    unblacklist: "active",
+    kick: "logs",
   };
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
@@ -3299,7 +3308,7 @@ export default function HomePage() {
     try {
       const params = new URLSearchParams();
       if (selectedBot) params.set("bot_key", selectedBot);
-      if (selectedScope) params.set("group_id", selectedScope);
+      if (selectedMemberChatId) params.set("group_id", selectedMemberChatId);
       if (nextSearch.trim()) params.set("search", nextSearch.trim());
       const query = params.toString() ? `?${params.toString()}` : "";
       const payload = await api(`/api/members/overview${query}`);
@@ -3370,6 +3379,8 @@ export default function HomePage() {
         body: JSON.stringify(payload),
       });
       setMemberActionOpen(false);
+      setSearch("");
+      setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
       const telegramError = String(result?.telegramError || "").trim();
       setToast({
         type: telegramError ? "info" : "success",
@@ -3377,7 +3388,7 @@ export default function HomePage() {
           ? `${memberActionLabel[memberActionDraft.action]} đã lưu. Telegram chưa xử lý ngay: ${telegramError}`
           : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
       });
-      await Promise.all([loadMemberOverview(), loadLookups()]);
+      await Promise.all([loadMemberOverview(""), loadLookups()]);
     } catch (err) {
       setToast({ type: "error", message: err instanceof Error ? err.message : "Không thể thao tác thành viên." });
     } finally {

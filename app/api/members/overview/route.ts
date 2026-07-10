@@ -68,11 +68,12 @@ function mergeMemberRows(activityRows: Row[], stateRows: Row[], search: string, 
 }
 
 function groupByStatus(rows: Row[]) {
+  const statusOf = (row: Row) => String(row.status || "").trim().toLowerCase();
   return {
-    muted: rows.filter((row) => row.status === "muted"),
-    banned: rows.filter((row) => row.status === "banned"),
-    blacklisted: rows.filter((row) => row.status === "blacklisted"),
-    normal: rows.filter((row) => !row.status || row.status === "normal"),
+    muted: rows.filter((row) => statusOf(row) === "muted"),
+    banned: rows.filter((row) => statusOf(row) === "banned"),
+    blacklisted: rows.filter((row) => statusOf(row) === "blacklisted"),
+    normal: rows.filter((row) => !statusOf(row) || statusOf(row) === "normal"),
   };
 }
 
