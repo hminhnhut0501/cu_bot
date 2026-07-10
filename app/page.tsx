@@ -215,7 +215,6 @@ type MemberActionDraft = {
   action: MemberActionType;
   reason: string;
   duration_seconds: number;
-  dry_run: boolean;
 };
 
 const drawerWidth = 292;
@@ -2378,7 +2377,6 @@ export default function HomePage() {
     action: "mute",
     reason: "",
     duration_seconds: 3600,
-    dry_run: true,
   });
   const [channelTab, setChannelTab] = useState<ChannelPostTab>((initialCpState.channelTab === "scheduled" || initialCpState.channelTab === "sent" || initialCpState.channelTab === "deleted" || initialCpState.channelTab === "failed") ? initialCpState.channelTab : "queue");
   const [channelPage, setChannelPage] = useState(1);
@@ -3341,7 +3339,6 @@ export default function HomePage() {
       action,
       reason: "",
       duration_seconds: action === "mute" ? 3600 : 0,
-      dry_run: true,
     });
     setMemberActionOpen(true);
   }
@@ -3368,12 +3365,18 @@ export default function HomePage() {
         reason: memberActionDraft.reason.trim(),
         duration_seconds: Number(memberActionDraft.duration_seconds || 0),
       };
-      await api("/api/members/action", {
+      const result = await api("/api/members/action", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       setMemberActionOpen(false);
-      setToast({ type: "success", message: `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.` });
+      const telegramError = String(result?.telegramError || "").trim();
+      setToast({
+        type: telegramError ? "info" : "success",
+        message: telegramError
+          ? `${memberActionLabel[memberActionDraft.action]} đã lưu. Telegram chưa xử lý ngay: ${telegramError}`
+          : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
+      });
       await Promise.all([loadMemberOverview(), loadLookups()]);
     } catch (err) {
       setToast({ type: "error", message: err instanceof Error ? err.message : "Không thể thao tác thành viên." });
@@ -7010,10 +7013,8 @@ export default function HomePage() {
         <form onSubmit={submitMemberAction}>
           <DialogContent dividers>
             <Stack spacing={2}>
-              <Alert severity={memberActionDraft.dry_run ? "info" : "warning"}>
-                {memberActionDraft.dry_run
-                  ? "Đang ở chế độ dry-run: chỉ ghi state/log, chưa gọi Telegram."
-                  : "Chế độ chạy thật: bot sẽ gọi Telegram để mute/ban/unban user."}
+              <Alert severity="warning">
+                Thao tác ở đây chạy thật. Riêng blacklist sẽ luôn lưu vào danh sách chặn; nếu Telegram không ban được ngay, bot vẫn tự chặn khi user join lại.
               </Alert>
               <TextField
                 label="Telegram user_id"
@@ -7063,16 +7064,6 @@ export default function HomePage() {
                 multiline
                 minRows={2}
               />
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Switch
-                  checked={!memberActionDraft.dry_run}
-                  onChange={(event) => setMemberActionDraft((current) => ({ ...current, dry_run: !event.target.checked }))}
-                />
-                <Box>
-                  <Typography variant="subtitle2">Gọi Telegram thật</Typography>
-                  <Typography variant="caption" color="text.secondary">Tắt để test state/log trước khi thao tác group thật.</Typography>
-                </Box>
-              </Stack>
             </Stack>
           </DialogContent>
           <DialogActions>

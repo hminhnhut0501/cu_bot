@@ -179,14 +179,22 @@ export async function POST(request: NextRequest) {
     const supabase = getSupabaseAdmin() as any;
     const method = telegramMethodFor(action);
     const tgPayload = telegramPayload(action, chatId, userId, durationSeconds);
-    let telegramResult: Record<string, unknown> = { dry_run: true };
+    let telegramResult: Record<string, unknown> = dryRun ? { dry_run: true } : {};
+    let telegramError = "";
 
     if (!dryRun) {
       const token = await loadBotToken(supabase, botKey);
       if (!token) return badRequest("Bot chưa có token hoặc đang tắt.");
-      telegramResult = await callTelegram(token, method, tgPayload);
-      if (action === "kick") {
-        await callTelegram(token, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true });
+      try {
+        telegramResult = await callTelegram(token, method, tgPayload);
+        if (action === "kick") {
+          await callTelegram(token, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true });
+        }
+      } catch (error) {
+        telegramError = error instanceof Error ? error.message : "Telegram action failed.";
+        if (action !== "blacklist" && action !== "unblacklist") {
+          throw error;
+        }
       }
     }
 
@@ -211,6 +219,7 @@ export async function POST(request: NextRequest) {
         duration_seconds: durationSeconds,
         dry_run: dryRun,
         telegram_method: method,
+        telegram_error: telegramError || undefined,
       },
     };
 
@@ -229,6 +238,7 @@ export async function POST(request: NextRequest) {
       until_at: untilAt,
       dry_run: dryRun,
       telegram_method: method,
+      telegram_error: telegramError || undefined,
     };
     await supabase.from("audit_logs").insert({
       bot_key: botKey,
@@ -244,6 +254,7 @@ export async function POST(request: NextRequest) {
       dryRun,
       action,
       telegram: telegramResult,
+      telegramError,
       row: stateRow,
     });
   } catch (error) {
