@@ -239,13 +239,26 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+    if (isPersistentListAction(action) && botKey !== "*") {
+      statePayloads.push({
+        ...statePayload,
+        bot_key: "*",
+        chat_id: "*",
+        payload: {
+          ...statePayload.payload,
+          scope: "system_global",
+          scoped_bot_key: botKey,
+          scoped_chat_id: chatId,
+        },
+      });
+    }
 
     const { data: stateRows, error: stateError } = await supabase
       .from("member_moderation_state")
       .upsert(statePayloads, { onConflict: "bot_key,chat_id,user_id" })
       .select("*");
     if (stateError) throw new Error(stateError.message);
-    const stateRow = (stateRows || []).find((row: Row) => row.chat_id === "*") || (stateRows || [])[0] || null;
+    const stateRow = (stateRows || []).find((row: Row) => row.bot_key === "*" && row.chat_id === "*") || (stateRows || []).find((row: Row) => row.chat_id === "*") || (stateRows || [])[0] || null;
 
     const auditDetails = {
       reason,
@@ -256,11 +269,12 @@ export async function POST(request: NextRequest) {
       dry_run: dryRun,
       telegram_method: method,
       telegram_error: telegramError || undefined,
-      scope: isPersistentListAction(action) ? "bot_global" : "chat",
+      scope: isPersistentListAction(action) ? (botKey === "*" ? "system_global" : "bot_global") : "chat",
       scoped_chat_id: chatId,
+      scoped_bot_key: botKey,
     };
     await supabase.from("audit_logs").insert({
-      bot_key: botKey,
+      bot_key: isPersistentListAction(action) && botKey === "*" ? "*" : botKey,
       chat_id: isPersistentListAction(action) ? "*" : chatId,
       actor_user_id: actor,
       action: auditActionFor(action),
@@ -270,9 +284,9 @@ export async function POST(request: NextRequest) {
 
     if (!dryRun && isPersistentListAction(action)) {
       try {
-        const token = await loadBotToken(supabase, botKey);
+        const token = botKey === "*" ? "" : await loadBotToken(supabase, botKey);
         if (!token) {
-          telegramError = "Bot chưa có token hoặc đang tắt.";
+          telegramError = botKey === "*" ? "Blacklist hệ thống đã lưu; từng bot sẽ ban khi user join." : "Bot chưa có token hoặc đang tắt.";
         } else {
           telegramResult = await callTelegram(token, method, tgPayload);
         }

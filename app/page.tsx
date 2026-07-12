@@ -431,6 +431,17 @@ const CORE_LAYERS = [
     tone: "security",
     tables: ["audit_logs", "member_roles", "admins"],
     navSection: "Vận hành"
+  },
+  {
+    key: "blacklist",
+    title: "Blacklist hệ thống",
+    shortTitle: "Blacklist",
+    desc: "Danh sách chặn cực mạnh áp dụng toàn bộ hệ thống và tất cả bot.",
+    icon: ShieldCheck,
+    tone: "security",
+    tables: ["audit_logs"],
+    navSection: "Vận hành",
+    landingKey: "audit_logs"
   }
 ];
 const SYSTEM_LAYERS = [
@@ -2567,7 +2578,10 @@ export default function HomePage() {
     return map;
   }, [lookups.groups]);
   const groupNameForId = (groupId: string) => groupNameById.get(String(groupId).trim()) || String(groupId || "");
+  const systemBlacklistActive = activeLayer === "blacklist";
   const selectedMemberChatId = String(selectedScopeRow?.group_id || selectedScopeRow?.chat_id || selectedScope || "").trim();
+  const effectiveMemberChatId = systemBlacklistActive ? "*" : selectedMemberChatId;
+  const effectiveMemberBotKey = systemBlacklistActive ? "*" : (activeBotKey || selectedBot || "main");
   const memberSummary = memberOverview?.summary || {};
   const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
     active: memberOverview?.active || [],
@@ -3307,8 +3321,9 @@ export default function HomePage() {
     setMemberOverviewLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedBot) params.set("bot_key", selectedBot);
-      if (selectedMemberChatId) params.set("group_id", selectedMemberChatId);
+      if (systemBlacklistActive) params.set("bot_key", "*");
+      else if (selectedBot) params.set("bot_key", selectedBot);
+      if (effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
       if (nextSearch.trim()) params.set("search", nextSearch.trim());
       const query = params.toString() ? `?${params.toString()}` : "";
       const payload = await api(`/api/members/overview${query}`);
@@ -3354,7 +3369,7 @@ export default function HomePage() {
 
   async function submitMemberAction(event?: FormEvent) {
     event?.preventDefault();
-    if (!selectedMemberChatId) {
+    if (!effectiveMemberChatId) {
       setToast({ type: "error", message: "Chọn group trước khi thao tác thành viên." });
       return;
     }
@@ -3366,8 +3381,8 @@ export default function HomePage() {
     try {
       const payload = {
         ...memberActionDraft,
-        bot_key: activeBotKey || selectedBot || "main",
-        chat_id: selectedMemberChatId,
+        bot_key: effectiveMemberBotKey,
+        chat_id: effectiveMemberChatId,
         user_id: memberActionDraft.user_id.trim(),
         username: memberActionDraft.username.replace(/^@/, "").trim(),
         display_name: memberActionDraft.display_name.trim(),
@@ -3454,7 +3469,10 @@ export default function HomePage() {
   }, [meta?.passwordRequired, savedPassword, selectedBot, selectedScope]);
 
   useEffect(() => {
-    if (meta && (!meta.passwordRequired || savedPassword) && activeLayer === "members") {
+    if (activeLayer === "blacklist") {
+      setMemberTab("blacklisted");
+    }
+    if (meta && (!meta.passwordRequired || savedPassword) && (activeLayer === "members" || activeLayer === "blacklist")) {
       void loadMemberOverview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5592,27 +5610,29 @@ export default function HomePage() {
         <>
         <Banners error={error} notice={notice} toast={toast} />
 
-        {table.key === "audit_logs" && activeLayer !== "members" ? (
+        {table.key === "audit_logs" && activeLayer !== "members" && activeLayer !== "blacklist" ? (
           <AuditConsole auditStats={auditStats} />
         ) : null}
 
-        {activeLayer === "members" ? (
+        {activeLayer === "members" || activeLayer === "blacklist" ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
                 <Box>
-                  <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2 }}>Member workspace</Typography>
-                  <Typography variant="h5">Dashboard quản lý thành viên</Typography>
+                  <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2 }}>{systemBlacklistActive ? "System blacklist" : "Member workspace"}</Typography>
+                  <Typography variant="h5">{systemBlacklistActive ? "Blacklist toàn hệ thống" : "Dashboard quản lý thành viên"}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Theo dõi người đang hoạt động, mute, ban, blacklist và thao tác trực tiếp trong group đang chọn.
+                    {systemBlacklistActive
+                      ? "Áp dụng cho tất cả bot và mọi group/channel bot đang làm admin. User bị blacklist sẽ bị ban ngay khi join."
+                      : "Theo dõi người đang hoạt động, mute, ban, blacklist và thao tác trực tiếp trong group đang chọn."}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
                   <MuiButton variant="outlined" startIcon={<RefreshCcw size={16} />} onClick={() => void loadMemberOverview()} disabled={memberOverviewLoading}>
                     Làm mới
                   </MuiButton>
-                  <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={() => openMemberAction({}, "mute")} disabled={!selectedMemberChatId}>
-                    Thao tác user
+                  <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={() => openMemberAction({}, systemBlacklistActive ? "blacklist" : "mute")} disabled={!effectiveMemberChatId}>
+                    {systemBlacklistActive ? "Thêm blacklist" : "Thao tác user"}
                   </MuiButton>
                 </Stack>
               </Stack>
@@ -5642,8 +5662,11 @@ export default function HomePage() {
                 items={memberTabItems}
               />
 
-              {!selectedMemberChatId ? (
+              {!systemBlacklistActive && !selectedMemberChatId ? (
                 <Alert severity="warning">Chọn một group ở Scope để ban, mute hoặc đọc trạng thái thành viên đúng phạm vi.</Alert>
+              ) : null}
+              {systemBlacklistActive ? (
+                <Alert severity="error">Blacklist này là toàn hệ thống: lưu với bot_key=* và chat_id=*. Mọi bot runtime sẽ áp dụng khi user join.</Alert>
               ) : null}
 
               <Stack spacing={1.25}>
@@ -5671,6 +5694,7 @@ export default function HomePage() {
                               <Typography variant="caption" color="text.secondary">ID {userId || "-"}</Typography>
                               {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
                               {row.last_seen_at || row.updated_at ? <Chip size="small" variant="outlined" label={formatDateTime(row.last_seen_at || row.updated_at)} /> : null}
+                              {String(row.bot_key || "") === "*" ? <Chip size="small" color="error" variant="filled" label="mọi bot" /> : null}
                               {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
                               {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="từ nhật ký" /> : null}
                               {row.reason ? <Chip size="small" color="warning" variant="outlined" label={String(row.reason)} /> : null}
@@ -6589,7 +6613,7 @@ export default function HomePage() {
         )}
             </Stack>
           </Paper>
-        ) : activeLayer !== "members" ? (
+        ) : activeLayer !== "members" && activeLayer !== "blacklist" ? (
         <Box
           sx={{
             display: "grid",

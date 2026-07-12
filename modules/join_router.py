@@ -263,7 +263,8 @@ class JoinRouterModule(BotModule):
             LOGGER.warning("Join router cannot load blacklist state for bot %s: %s", self.settings.bot_key, exc)
             rows = self.store.rows("member_moderation_state")
         for row in rows:
-            if str(row.get("bot_key") or self.settings.bot_key) != self.settings.bot_key:
+            row_bot_key = str(row.get("bot_key") or self.settings.bot_key).strip()
+            if row_bot_key not in {self.settings.bot_key, "*"}:
                 continue
             row_chat_id = str(row.get("chat_id") or "").strip()
             if row_chat_id not in {chat_id, "*", ""}:
