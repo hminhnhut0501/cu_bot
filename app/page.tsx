@@ -3431,10 +3431,11 @@ export default function HomePage() {
       });
       const resultRows = Array.isArray(result?.rows) ? result.rows : [];
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
+      const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
       setMemberActionOpen(false);
       setSearch("");
       setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
-      applyMemberActionResult(systemBlacklistActive ? (systemRow || result?.row) : result?.row, memberActionDraft.action);
+      applyMemberActionResult(appliedRow, memberActionDraft.action);
       const telegramError = String(result?.telegramError || "").trim();
       setToast({
         type: telegramError ? "info" : "success",
@@ -3443,6 +3444,7 @@ export default function HomePage() {
           : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
       });
       await Promise.all([loadMemberOverview(""), loadLookups()]);
+      applyMemberActionResult(appliedRow, memberActionDraft.action);
     } catch (err) {
       setToast({ type: "error", message: err instanceof Error ? err.message : "Không thể thao tác thành viên." });
     } finally {
