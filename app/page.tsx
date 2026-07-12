@@ -3330,7 +3330,7 @@ export default function HomePage() {
       const params = new URLSearchParams();
       if (systemBlacklistActive) params.set("bot_key", "*");
       else if (selectedBot) params.set("bot_key", selectedBot);
-      if (effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
+      if (!systemBlacklistActive && effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
       if (nextSearch.trim()) params.set("search", nextSearch.trim());
       const query = params.toString() ? `?${params.toString()}` : "";
       const payload = await api(`/api/members/overview${query}`);
@@ -3374,6 +3374,35 @@ export default function HomePage() {
     setMemberActionOpen(true);
   }
 
+  function applyMemberActionResult(row: Row | null | undefined, action: MemberActionType) {
+    if (!row) return;
+    setMemberOverview((current) => {
+      const base: MemberOverview = current || { summary: {}, members: [], active: [], muted: [], banned: [], blacklisted: [], logs: [] };
+      const removeUser = (rows: Row[] = []) => rows.filter((item) => String(item.user_id || item.target_user_id || "") !== String(row.user_id || row.target_user_id || ""));
+      const next: MemberOverview = {
+        ...base,
+        active: removeUser(base.active),
+        muted: removeUser(base.muted),
+        banned: removeUser(base.banned),
+        blacklisted: removeUser(base.blacklisted),
+      };
+      if (action === "blacklist") {
+        next.blacklisted = [{ ...row, status: "blacklisted" }, ...(next.blacklisted || [])];
+      } else if (action === "ban") {
+        next.banned = [{ ...row, status: "banned" }, ...(next.banned || [])];
+      } else if (action === "mute") {
+        next.muted = [{ ...row, status: "muted" }, ...(next.muted || [])];
+      }
+      next.summary = {
+        ...(base.summary || {}),
+        muted: next.muted?.length || 0,
+        banned: next.banned?.length || 0,
+        blacklisted: next.blacklisted?.length || 0,
+      };
+      return next;
+    });
+  }
+
   async function submitMemberAction(event?: FormEvent) {
     event?.preventDefault();
     if (!effectiveMemberChatId) {
@@ -3403,6 +3432,7 @@ export default function HomePage() {
       setMemberActionOpen(false);
       setSearch("");
       setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
+      applyMemberActionResult(result?.row, memberActionDraft.action);
       const telegramError = String(result?.telegramError || "").trim();
       setToast({
         type: telegramError ? "info" : "success",
@@ -5745,11 +5775,13 @@ export default function HomePage() {
                   );
                 }) : null}
 
-                {!memberOverviewLoading && !memberRows.length ? (
+                {!memberOverviewLoading && !(systemBlacklistActive ? systemBlacklistRows : memberRows).length ? (
                   <Paper variant="outlined" sx={{ p: 4, textAlign: "center", bgcolor: "background.default" }}>
-                    <Users size={30} />
+                    {systemBlacklistActive ? <ShieldCheck size={30} /> : <Users size={30} />}
                     <Typography variant="subtitle1" sx={{ mt: 1 }}>Chưa có dữ liệu</Typography>
-                    <Typography variant="body2" color="text.secondary">Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt.</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {systemBlacklistActive ? "Thêm Telegram user_id để kích hoạt blacklist toàn hệ thống." : "Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt."}
+                    </Typography>
                   </Paper>
                 ) : null}
                 {!memberOverviewLoading && systemBlacklistActive && systemBlacklistLogs.length ? (
