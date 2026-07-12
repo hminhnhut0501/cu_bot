@@ -2591,6 +2591,8 @@ export default function HomePage() {
     logs: memberOverview?.logs || [],
   };
   const memberRows = memberRowsByTab[memberTab] || [];
+  const systemBlacklistRows = memberRowsByTab.blacklisted;
+  const systemBlacklistLogs = memberRowsByTab.logs.filter((row) => String(row.action || "").toLowerCase().includes("blacklist"));
   const memberTabItems = [
     { key: "active", label: `Đang hoạt động (${memberSummary.activeToday || 0})` },
     { key: "muted", label: `Bị cấm chat (${memberSummary.muted || 0})` },
@@ -2603,6 +2605,11 @@ export default function HomePage() {
     { label: "Bị cấm chat", value: memberSummary.muted || 0, Icon: MessageSquare, color: "warning" },
     { label: "Bị ban", value: memberSummary.banned || 0, Icon: ShieldCheck, color: "error" },
     { label: "Blacklist", value: memberSummary.blacklisted || 0, Icon: Archive, color: "info" },
+  ];
+  const systemBlacklistStats: Array<{ label: string; value: string | number; Icon: typeof Activity; color: "error" | "warning" | "info" }> = [
+    { label: "User bị chặn", value: memberSummary.blacklisted || 0, Icon: ShieldCheck, color: "error" },
+    { label: "Phạm vi", value: "Mọi bot", Icon: Bot, color: "warning" },
+    { label: "Áp dụng", value: "Khi join", Icon: Activity, color: "info" },
   ];
   const memberDisplayName = (row: Row) => String(row.display_name || row.full_name || row.username || row.target_display_name || row.target_username || row.user_id || row.target_user_id || "Không rõ");
   const memberUsername = (row: Row) => {
@@ -5638,35 +5645,39 @@ export default function HomePage() {
               </Stack>
 
               <Grid container spacing={1.5}>
-                {memberStatsCards.map(({ label, value, Icon, color }) => (
+                {(systemBlacklistActive ? systemBlacklistStats : memberStatsCards).map(({ label, value, Icon, color }) => (
                   <Grid key={label} size={{ xs: 12, sm: 6, lg: 3 }}>
-                    <Paper variant="outlined" sx={{ p: 1.75, bgcolor: "background.default", height: "100%" }}>
+                    <Paper variant="outlined" sx={{ p: 1.75, bgcolor: "background.default", height: "100%", borderColor: systemBlacklistActive && label === "User bị chặn" ? "error.light" : "divider" }}>
                       <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", justifyContent: "space-between" }}>
                         <Box>
                           <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontWeight: 700 }}>{label}</Typography>
                           <Typography variant="h4">{value}</Typography>
                         </Box>
-                        <Chip color={color} icon={<Icon size={16} />} label="live" variant="outlined" />
+                        <Chip color={color} icon={<Icon size={16} />} label={systemBlacklistActive ? "system" : "live"} variant="outlined" />
                       </Stack>
                     </Paper>
                   </Grid>
                 ))}
               </Grid>
 
-              <TabsBar
-                tone="filled"
-                wrapped
-                scrollable
-                value={memberTab}
-                onChange={(tab) => setMemberTab(tab as MemberWorkspaceTab)}
-                items={memberTabItems}
-              />
+              {!systemBlacklistActive ? (
+                <TabsBar
+                  tone="filled"
+                  wrapped
+                  scrollable
+                  value={memberTab}
+                  onChange={(tab) => setMemberTab(tab as MemberWorkspaceTab)}
+                  items={memberTabItems}
+                />
+              ) : null}
 
               {!systemBlacklistActive && !selectedMemberChatId ? (
                 <Alert severity="warning">Chọn một group ở Scope để ban, mute hoặc đọc trạng thái thành viên đúng phạm vi.</Alert>
               ) : null}
               {systemBlacklistActive ? (
-                <Alert severity="error">Blacklist này là toàn hệ thống: lưu với bot_key=* và chat_id=*. Mọi bot runtime sẽ áp dụng khi user join.</Alert>
+                <Alert severity="error">
+                  Danh sách này lưu ở scope hệ thống <strong>bot_key=*</strong> và <strong>chat_id=*</strong>. Bất kỳ bot nào đang chạy gặp user này join group/channel sẽ ban ngay.
+                </Alert>
               ) : null}
 
               <Stack spacing={1.25}>
@@ -5677,7 +5688,7 @@ export default function HomePage() {
                   </Paper>
                 ) : null}
 
-                {!memberOverviewLoading && memberTab !== "logs" ? memberRows.map((row) => {
+                {!memberOverviewLoading && (systemBlacklistActive || memberTab !== "logs") ? (systemBlacklistActive ? systemBlacklistRows : memberRows).map((row) => {
                   const userId = memberUserId(row);
                   const status = String(row.status || row.member_status || (memberTab === "active" ? "active" : memberTab)).toLowerCase();
                   return (
@@ -5703,18 +5714,19 @@ export default function HomePage() {
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
                           <Chip size="small" color={status === "banned" ? "error" : status === "muted" || status === "restricted" ? "warning" : status === "blacklisted" ? "info" : "success"} label={status === "restricted" ? "muted" : status} />
-                          <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "mute")}>Mute</MuiButton>
-                          <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(row, "ban")}>Ban</MuiButton>
-                          <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "blacklist")}>Blacklist</MuiButton>
-                          {memberTab === "muted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unmute")}>Mở chat</MuiButton> : null}
-                          {memberTab === "banned" || memberTab === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, memberTab === "blacklisted" ? "unblacklist" : "unban")}>Gỡ</MuiButton> : null}
+                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "mute")}>Mute</MuiButton> : null}
+                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(row, "ban")}>Ban</MuiButton> : null}
+                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "blacklist")}>Blacklist</MuiButton> : null}
+                          {memberTab === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unmute")}>Mở chat</MuiButton> : null}
+                          {(systemBlacklistActive || memberTab === "blacklisted") ? <MuiButton size="small" variant="contained" color="error" onClick={() => openMemberAction(row, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
+                          {memberTab === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unban")}>Gỡ</MuiButton> : null}
                         </Stack>
                       </Stack>
                     </Paper>
                   );
                 }) : null}
 
-                {!memberOverviewLoading && memberTab === "logs" ? memberRows.map((row) => {
+                {!memberOverviewLoading && !systemBlacklistActive && memberTab === "logs" ? memberRows.map((row) => {
                   const data = auditLogCardData(row, groupNameForId);
                   return (
                     <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
@@ -5738,6 +5750,25 @@ export default function HomePage() {
                     <Users size={30} />
                     <Typography variant="subtitle1" sx={{ mt: 1 }}>Chưa có dữ liệu</Typography>
                     <Typography variant="body2" color="text.secondary">Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt.</Typography>
+                  </Paper>
+                ) : null}
+                {!memberOverviewLoading && systemBlacklistActive && systemBlacklistLogs.length ? (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+                    <Stack spacing={1.25}>
+                      <Box>
+                        <Typography variant="overline" color="text.secondary">Nhật ký blacklist</Typography>
+                        <Typography variant="subtitle1">Hoạt động gần nhất</Typography>
+                      </Box>
+                      {systemBlacklistLogs.slice(0, 8).map((row) => {
+                        const data = auditLogCardData(row, groupNameForId);
+                        return (
+                          <Stack key={String(row.id || `${row.created_at}-${row.action}`)} direction={{ xs: "column", md: "row" }} spacing={1} sx={{ justifyContent: "space-between", borderTop: "1px solid", borderColor: "divider", pt: 1 }}>
+                            <Typography variant="body2">{data.action}</Typography>
+                            <Typography variant="caption" color="text.secondary">{data.time} · {data.targetId || data.targetLabel}</Typography>
+                          </Stack>
+                        );
+                      })}
+                    </Stack>
                   </Paper>
                 ) : null}
               </Stack>
