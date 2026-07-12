@@ -308,12 +308,32 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const { data: stateRows, error: stateError } = await supabase
-      .from("member_moderation_state")
-      .upsert(statePayloads, { onConflict: "bot_key,chat_id,user_id" })
-      .select("*");
-    if (stateError) throw new Error(stateError.message);
-    const stateRow = (stateRows || []).find((row: Row) => row.bot_key === "*" && row.chat_id === "*") || (stateRows || []).find((row: Row) => row.chat_id === "*") || (stateRows || [])[0] || null;
+    let stateRows: Row[] = [];
+    if (action === "unblacklist") {
+      for (const payload of statePayloads) {
+        const { data, error } = await supabase
+          .from("member_moderation_state")
+          .delete()
+          .eq("bot_key", payload.bot_key)
+          .eq("chat_id", payload.chat_id)
+          .eq("user_id", payload.user_id)
+          .select("*");
+        if (error) throw new Error(error.message);
+        stateRows = [...stateRows, ...(data || [])];
+      }
+    } else {
+      const { data, error } = await supabase
+        .from("member_moderation_state")
+        .upsert(statePayloads, { onConflict: "bot_key,chat_id,user_id" })
+        .select("*");
+      if (error) throw new Error(error.message);
+      stateRows = data || [];
+    }
+    const stateRow =
+      stateRows.find((row: Row) => row.bot_key === "*" && row.chat_id === "*") ||
+      stateRows.find((row: Row) => row.chat_id === "*") ||
+      stateRows[0] ||
+      { ...statePayload, status: "normal" };
 
     const auditDetails = {
       reason,
@@ -343,9 +363,13 @@ export async function POST(request: NextRequest) {
           fanoutResult = await fanoutSystemBlacklistAction(supabase, action, userId);
           telegramResult = { system_fanout: fanoutResult };
           if (fanoutResult.attempted === 0) {
-            telegramError = "Blacklist hệ thống đã lưu nhưng chưa có bot/group bật để ban ngay.";
+            telegramError = action === "unblacklist"
+              ? "Đã gỡ blacklist hệ thống nhưng chưa có bot/group bật để unban ngay."
+              : "Blacklist hệ thống đã lưu nhưng chưa có bot/group bật để ban ngay.";
           } else if (fanoutResult.failed > 0) {
-            telegramError = `Đã lưu blacklist hệ thống; ban ngay OK ${fanoutResult.ok}/${fanoutResult.attempted}, lỗi ${fanoutResult.failed}.`;
+            telegramError = action === "unblacklist"
+              ? `Đã gỡ blacklist hệ thống; unban ngay OK ${fanoutResult.ok}/${fanoutResult.attempted}, lỗi ${fanoutResult.failed}.`
+              : `Đã lưu blacklist hệ thống; ban ngay OK ${fanoutResult.ok}/${fanoutResult.attempted}, lỗi ${fanoutResult.failed}.`;
           }
         } else {
           const token = await loadBotToken(supabase, botKey);
