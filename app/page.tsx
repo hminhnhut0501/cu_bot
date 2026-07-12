@@ -7170,7 +7170,7 @@ export default function HomePage() {
           </DialogContent>
           <DialogActions>
             <MuiButton onClick={() => setMemberActionOpen(false)}>Hủy</MuiButton>
-            <MuiButton type="submit" variant="contained" disabled={saving || !selectedMemberChatId}>
+            <MuiButton type="submit" variant="contained" disabled={saving || !effectiveMemberChatId}>
               {saving ? "Đang xử lý..." : memberActionLabel[memberActionDraft.action]}
             </MuiButton>
           </DialogActions>
