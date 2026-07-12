@@ -387,6 +387,7 @@ export async function POST(request: NextRequest) {
       telegramError,
       fanout: fanoutResult,
       row: stateRow,
+      rows: stateRows || [],
     });
   } catch (error) {
     return serverError(error);

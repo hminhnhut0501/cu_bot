@@ -77,6 +77,12 @@ function groupByStatus(rows: Row[]) {
   };
 }
 
+function sortModerationRows(rows: Row[]) {
+  return [...rows].sort((left, right) =>
+    String(right.last_seen_at || right.updated_at || "").localeCompare(String(left.last_seen_at || left.updated_at || ""))
+  );
+}
+
 function parseDetails(value: unknown) {
   if (!value) return {} as Row;
   if (typeof value === "object") return value as Row;
@@ -198,6 +204,32 @@ export async function GET(request: NextRequest) {
     if (activityError) throw new Error(activityError.message);
     if (stateError) throw new Error(stateError.message);
     if (auditError) throw new Error(auditError.message);
+
+    const isSystemBlacklist = botKey === "*" && !groupId;
+    if (isSystemBlacklist) {
+      const blacklistRows = sortModerationRows((stateRows || []).filter((row: Row) => String(row.status || "").trim().toLowerCase() === "blacklisted"))
+        .filter((row) => matchesSearch(row, search))
+        .slice(0, limit);
+      const blacklistLogs = (auditRows || []).filter((row: Row) => String(row.action || "").toLowerCase().includes("blacklist"));
+      return NextResponse.json({
+        date: today,
+        scope: { botKey, groupId },
+        summary: {
+          activeToday: 0,
+          visibleMembers: blacklistRows.length,
+          muted: 0,
+          banned: 0,
+          blacklisted: blacklistRows.length,
+          normalTracked: 0,
+        },
+        members: blacklistRows,
+        active: [],
+        muted: [],
+        banned: [],
+        blacklisted: blacklistRows,
+        logs: blacklistLogs,
+      });
+    }
 
     const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
     const members = mergeMemberRows(activityRows || [], moderationRows, search, limit);

@@ -3429,10 +3429,12 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      const resultRows = Array.isArray(result?.rows) ? result.rows : [];
+      const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
       setMemberActionOpen(false);
       setSearch("");
       setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
-      applyMemberActionResult(result?.row, memberActionDraft.action);
+      applyMemberActionResult(systemBlacklistActive ? (systemRow || result?.row) : result?.row, memberActionDraft.action);
       const telegramError = String(result?.telegramError || "").trim();
       setToast({
         type: telegramError ? "info" : "success",
