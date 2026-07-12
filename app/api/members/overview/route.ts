@@ -174,6 +174,8 @@ export async function GET(request: NextRequest) {
         "member_kick",
         "member_blacklist",
         "member_unblacklist",
+        "member_blacklist_fanout",
+        "member_unblacklist_fanout",
         "member_blacklist_join_blocked",
         "member_blacklist_join_block_failed",
         "restrict",

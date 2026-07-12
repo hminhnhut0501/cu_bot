@@ -96,6 +96,24 @@ async function loadBotToken(supabase: any, botKey: string) {
   return data?.bot_token ? String(data.bot_token) : "";
 }
 
+async function loadEnabledBots(supabase: any) {
+  const { data, error } = await supabase
+    .from("bots")
+    .select("bot_key,bot_token,name,enabled")
+    .eq("enabled", true);
+  if (error) throw new Error(error.message);
+  return (data || []).filter((row: Row) => String(row.bot_token || "").trim());
+}
+
+async function loadEnabledGroups(supabase: any) {
+  const { data, error } = await supabase
+    .from("groups")
+    .select("bot_key,group_id,group_name,enabled")
+    .neq("group_id", "");
+  if (error) throw new Error(error.message);
+  return (data || []).filter((row: Row) => row.enabled !== false && String(row.group_id || "").trim());
+}
+
 async function callTelegram(token: string, method: string, payload: Record<string, unknown>) {
   const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: "POST",
@@ -107,6 +125,42 @@ async function callTelegram(token: string, method: string, payload: Record<strin
     throw new Error(data.description || `Telegram ${method} failed (${response.status})`);
   }
   return data;
+}
+
+async function fanoutSystemBlacklistAction(supabase: any, action: MemberAction, userId: string) {
+  const bots = await loadEnabledBots(supabase);
+  const groups = await loadEnabledGroups(supabase);
+  const method = action === "unblacklist" ? "unbanChatMember" : "banChatMember";
+  const results: Row[] = [];
+  for (const bot of bots) {
+    const botKey = String(bot.bot_key || "").trim();
+    const token = String(bot.bot_token || "").trim();
+    const botGroups = groups.filter((group: Row) => String(group.bot_key || "main").trim() === botKey);
+    for (const group of botGroups) {
+      const chatId = String(group.group_id || "").trim();
+      try {
+        await callTelegram(token, method, {
+          chat_id: chatId,
+          user_id: userId,
+          ...(action === "unblacklist" ? { only_if_banned: false } : {}),
+        });
+        results.push({ bot_key: botKey, chat_id: chatId, ok: true });
+      } catch (error) {
+        results.push({
+          bot_key: botKey,
+          chat_id: chatId,
+          ok: false,
+          error: error instanceof Error ? error.message : "Telegram action failed.",
+        });
+      }
+    }
+  }
+  return {
+    attempted: results.length,
+    ok: results.filter((row) => row.ok).length,
+    failed: results.filter((row) => !row.ok).length,
+    results,
+  };
 }
 
 function telegramPayload(action: MemberAction, chatId: string, userId: string, durationSeconds: number) {
@@ -187,6 +241,7 @@ export async function POST(request: NextRequest) {
     const tgPayload = telegramPayload(action, chatId, userId, durationSeconds);
     let telegramResult: Record<string, unknown> = dryRun ? { dry_run: true } : {};
     let telegramError = "";
+    let fanoutResult: Row | null = null;
 
     if (!dryRun && !isPersistentListAction(action)) {
       const token = await loadBotToken(supabase, botKey);
@@ -284,15 +339,44 @@ export async function POST(request: NextRequest) {
 
     if (!dryRun && isPersistentListAction(action)) {
       try {
-        const token = botKey === "*" ? "" : await loadBotToken(supabase, botKey);
-        if (!token) {
-          telegramError = botKey === "*" ? "Blacklist hệ thống đã lưu; từng bot sẽ ban khi user join." : "Bot chưa có token hoặc đang tắt.";
+        if (botKey === "*") {
+          fanoutResult = await fanoutSystemBlacklistAction(supabase, action, userId);
+          telegramResult = { system_fanout: fanoutResult };
+          if (fanoutResult.attempted === 0) {
+            telegramError = "Blacklist hệ thống đã lưu nhưng chưa có bot/group bật để ban ngay.";
+          } else if (fanoutResult.failed > 0) {
+            telegramError = `Đã lưu blacklist hệ thống; ban ngay OK ${fanoutResult.ok}/${fanoutResult.attempted}, lỗi ${fanoutResult.failed}.`;
+          }
         } else {
-          telegramResult = await callTelegram(token, method, tgPayload);
+          const token = await loadBotToken(supabase, botKey);
+          if (!token) {
+            telegramError = "Bot chưa có token hoặc đang tắt.";
+          } else {
+            telegramResult = await callTelegram(token, method, tgPayload);
+          }
         }
       } catch (error) {
         telegramError = error instanceof Error ? error.message : "Telegram action failed.";
       }
+    }
+
+    if (fanoutResult) {
+      await supabase.from("audit_logs").insert({
+        bot_key: "*",
+        chat_id: "*",
+        actor_user_id: actor,
+        action: action === "unblacklist" ? "member_unblacklist_fanout" : "member_blacklist_fanout",
+        target_user_id: userId,
+        details: JSON.stringify({
+          reason,
+          trigger: "admin_cp",
+          member_status: status,
+          scope: "system_global",
+          attempted: fanoutResult.attempted,
+          ok: fanoutResult.ok,
+          failed: fanoutResult.failed,
+        }),
+      });
     }
 
     return NextResponse.json({
@@ -301,6 +385,7 @@ export async function POST(request: NextRequest) {
       action,
       telegram: telegramResult,
       telegramError,
+      fanout: fanoutResult,
       row: stateRow,
     });
   } catch (error) {
