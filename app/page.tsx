@@ -5671,6 +5671,7 @@ export default function HomePage() {
                               <Typography variant="caption" color="text.secondary">ID {userId || "-"}</Typography>
                               {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
                               {row.last_seen_at || row.updated_at ? <Chip size="small" variant="outlined" label={formatDateTime(row.last_seen_at || row.updated_at)} /> : null}
+                              {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
                               {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="từ nhật ký" /> : null}
                               {row.reason ? <Chip size="small" color="warning" variant="outlined" label={String(row.reason)} /> : null}
                             </Stack>

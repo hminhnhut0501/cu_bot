@@ -5,6 +5,8 @@ import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
+type Row = Record<string, any>;
+
 type MemberAction =
   | "mute"
   | "restrict"
@@ -223,15 +225,27 @@ export async function POST(request: NextRequest) {
         dry_run: dryRun,
         telegram_method: method,
         telegram_error: telegramError || undefined,
-      },
+      } as Row,
     };
+    const statePayloads = [statePayload];
+    if (isPersistentListAction(action) && chatId !== "*") {
+      statePayloads.push({
+        ...statePayload,
+        chat_id: "*",
+        payload: {
+          ...statePayload.payload,
+          scope: "bot_global",
+          scoped_chat_id: chatId,
+        },
+      });
+    }
 
-    const { data: stateRow, error: stateError } = await supabase
+    const { data: stateRows, error: stateError } = await supabase
       .from("member_moderation_state")
-      .upsert(statePayload, { onConflict: "bot_key,chat_id,user_id" })
-      .select("*")
-      .single();
+      .upsert(statePayloads, { onConflict: "bot_key,chat_id,user_id" })
+      .select("*");
     if (stateError) throw new Error(stateError.message);
+    const stateRow = (stateRows || []).find((row: Row) => row.chat_id === "*") || (stateRows || [])[0] || null;
 
     const auditDetails = {
       reason,
@@ -242,10 +256,12 @@ export async function POST(request: NextRequest) {
       dry_run: dryRun,
       telegram_method: method,
       telegram_error: telegramError || undefined,
+      scope: isPersistentListAction(action) ? "bot_global" : "chat",
+      scoped_chat_id: chatId,
     };
     await supabase.from("audit_logs").insert({
       bot_key: botKey,
-      chat_id: chatId,
+      chat_id: isPersistentListAction(action) ? "*" : chatId,
       actor_user_id: actor,
       action: auditActionFor(action),
       target_user_id: userId,

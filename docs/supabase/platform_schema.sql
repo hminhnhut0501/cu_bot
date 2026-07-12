@@ -518,6 +518,19 @@ create table member_moderation_state (
   unique (bot_key, chat_id, user_id)
 );
 
+create index if not exists idx_member_moderation_state_bot_chat_status
+  on member_moderation_state (bot_key, chat_id, status);
+
+create index if not exists idx_member_moderation_state_bot_user
+  on member_moderation_state (bot_key, user_id);
+
+create index if not exists idx_member_moderation_state_global_blacklist
+  on member_moderation_state (bot_key, user_id)
+  where chat_id = '*' and status = 'blacklisted';
+
+comment on table member_moderation_state is
+  'Per-chat and bot-global member moderation state. chat_id = * means blacklist applies to every group/channel handled by that bot.';
+
 alter table bots enable row level security;
 alter table groups enable row level security;
 alter table config enable row level security;

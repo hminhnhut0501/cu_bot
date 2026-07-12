@@ -160,7 +160,7 @@ export async function GET(request: NextRequest) {
       .order("updated_at", { ascending: false })
       .limit(1000);
     if (botKey) stateQuery = stateQuery.eq("bot_key", botKey);
-    if (groupId) stateQuery = stateQuery.eq("chat_id", groupId);
+    if (groupId) stateQuery = stateQuery.in("chat_id", [groupId, "*"]);
 
     let auditQuery = supabase
       .from("audit_logs")
@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(100);
     if (botKey) auditQuery = auditQuery.eq("bot_key", botKey);
-    if (groupId) auditQuery = auditQuery.eq("chat_id", groupId);
+    if (groupId) auditQuery = auditQuery.in("chat_id", [groupId, "*"]);
 
     const [
       { data: activityRows, error: activityError },

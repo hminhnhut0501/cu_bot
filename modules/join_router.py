@@ -77,6 +77,7 @@ class JoinRouterModule(BotModule):
             getattr(user, "id", None),
         )
         self.audit_member_event(chat_id, "member_join_request", user, "chat_join_request")
+        self.block_blacklisted_join(chat_id, user, "chat_join_request")
         return self.continue_handling()
 
     @staticmethod
@@ -264,7 +265,8 @@ class JoinRouterModule(BotModule):
         for row in rows:
             if str(row.get("bot_key") or self.settings.bot_key) != self.settings.bot_key:
                 continue
-            if str(row.get("chat_id") or "").strip() != chat_id:
+            row_chat_id = str(row.get("chat_id") or "").strip()
+            if row_chat_id not in {chat_id, "*", ""}:
                 continue
             if str(row.get("user_id") or "").strip() != user_id:
                 continue
