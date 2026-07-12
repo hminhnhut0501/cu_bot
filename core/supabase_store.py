@@ -95,7 +95,9 @@ class SupabaseStore:
             "accept": "application/json",
         }
         params = {"select": "*", "order": "id.asc"}
-        if table in BOT_SCOPED_TABLES:
+        if table == "member_moderation_state":
+            params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key},bot_key.eq.*)"
+        elif table in BOT_SCOPED_TABLES:
             params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key})"
         response = requests.get(url, headers=headers, params=params, timeout=15)
         response.raise_for_status()
