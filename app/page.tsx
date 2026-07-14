@@ -2597,14 +2597,12 @@ export default function HomePage() {
     { key: "active", label: `Đang hoạt động (${memberSummary.activeToday || 0})` },
     { key: "muted", label: `Bị cấm chat (${memberSummary.muted || 0})` },
     { key: "banned", label: `Bị ban (${memberSummary.banned || 0})` },
-    { key: "blacklisted", label: `Blacklist (${memberSummary.blacklisted || 0})` },
     { key: "logs", label: `Nhật ký (${memberRowsByTab.logs.length})` },
   ];
   const memberStatsCards: Array<{ label: string; value: number; Icon: typeof Activity; color: "success" | "warning" | "error" | "info" }> = [
     { label: "Đang hoạt động", value: memberSummary.activeToday || 0, Icon: Activity, color: "success" },
     { label: "Bị cấm chat", value: memberSummary.muted || 0, Icon: MessageSquare, color: "warning" },
     { label: "Bị ban", value: memberSummary.banned || 0, Icon: ShieldCheck, color: "error" },
-    { label: "Blacklist", value: memberSummary.blacklisted || 0, Icon: Archive, color: "info" },
   ];
   const systemBlacklistStats: Array<{ label: string; value: string | number; Icon: typeof Activity; color: "error" | "warning" | "info" }> = [
     { label: "User bị chặn", value: memberSummary.blacklisted || 0, Icon: ShieldCheck, color: "error" },
@@ -3512,12 +3510,14 @@ export default function HomePage() {
   useEffect(() => {
     if (activeLayer === "blacklist") {
       setMemberTab("blacklisted");
+    } else if (activeLayer === "members" && memberTab === "blacklisted") {
+      setMemberTab("active");
     }
     if (meta && (!meta.passwordRequired || savedPassword) && (activeLayer === "members" || activeLayer === "blacklist")) {
       void loadMemberOverview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLayer, meta?.passwordRequired, savedPassword, search, selectedBot, selectedScope]);
+  }, [activeLayer, meta?.passwordRequired, savedPassword, search, selectedBot, selectedScope, memberTab]);
 
   useEffect(() => {
     if (!lookups.bots.length || activeKey === "bots") {
@@ -5665,7 +5665,7 @@ export default function HomePage() {
                   <Typography variant="body2" color="text.secondary">
                     {systemBlacklistActive
                       ? "Áp dụng cho tất cả bot và mọi group/channel bot đang làm admin. User bị blacklist sẽ bị ban ngay khi join."
-                      : "Theo dõi người đang hoạt động, mute, ban, blacklist và thao tác trực tiếp trong group đang chọn."}
+                    : "Theo dõi người đang hoạt động, mute, ban và nhật ký thao tác trực tiếp trong group đang chọn."}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
@@ -5750,9 +5750,8 @@ export default function HomePage() {
                           <Chip size="small" color={status === "banned" ? "error" : status === "muted" || status === "restricted" ? "warning" : status === "blacklisted" ? "info" : "success"} label={status === "restricted" ? "muted" : status} />
                           {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "mute")}>Mute</MuiButton> : null}
                           {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(row, "ban")}>Ban</MuiButton> : null}
-                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "blacklist")}>Blacklist</MuiButton> : null}
                           {memberTab === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unmute")}>Mở chat</MuiButton> : null}
-                          {(systemBlacklistActive || memberTab === "blacklisted") ? <MuiButton size="small" variant="contained" color="error" onClick={() => openMemberAction(row, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
+                          {systemBlacklistActive ? <MuiButton size="small" variant="contained" color="error" onClick={() => openMemberAction(row, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
                           {memberTab === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unban")}>Gỡ</MuiButton> : null}
                         </Stack>
                       </Stack>
@@ -7150,8 +7149,8 @@ export default function HomePage() {
                 <MenuItem value="ban">Ban</MenuItem>
                 <MenuItem value="unban">Gỡ ban</MenuItem>
                 <MenuItem value="kick">Kick</MenuItem>
-                <MenuItem value="blacklist">Thêm blacklist</MenuItem>
-                <MenuItem value="unblacklist">Gỡ blacklist</MenuItem>
+                {systemBlacklistActive ? <MenuItem value="blacklist">Thêm blacklist</MenuItem> : null}
+                {systemBlacklistActive ? <MenuItem value="unblacklist">Gỡ blacklist</MenuItem> : null}
               </Select>
               <TextField
                 label="Thời lượng mute (giây)"
