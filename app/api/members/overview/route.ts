@@ -171,6 +171,60 @@ export async function GET(request: NextRequest) {
     const search = request.nextUrl.searchParams.get("search")?.trim() || "";
     const today = request.nextUrl.searchParams.get("date")?.trim() || vietnamDateKey();
     const limit = Math.min(Number(request.nextUrl.searchParams.get("limit") || 200), 500);
+    const isSystemBlacklist = botKey === "*" && !groupId;
+
+    if (isSystemBlacklist) {
+      const [
+        { data: blacklistStateRows, error: blacklistStateError },
+        { data: blacklistAuditRows, error: blacklistAuditError },
+      ] = await Promise.all([
+        supabase
+          .from("member_moderation_state")
+          .select("*")
+          .eq("status", "blacklisted")
+          .order("updated_at", { ascending: false })
+          .range(0, 4999),
+        supabase
+          .from("audit_logs")
+          .select("*")
+          .in("action", [
+            "member_blacklist",
+            "member_unblacklist",
+            "member_blacklist_fanout",
+            "member_unblacklist_fanout",
+            "member_blacklist_join_blocked",
+            "member_blacklist_join_block_failed",
+          ])
+          .order("created_at", { ascending: false })
+          .limit(300),
+      ]);
+
+      if (blacklistStateError) throw new Error(blacklistStateError.message);
+      if (blacklistAuditError) throw new Error(blacklistAuditError.message);
+
+      const blacklistRows = dedupeBlacklistRows(blacklistStateRows || [])
+        .filter((row) => matchesSearch(row, search))
+        .slice(0, limit);
+      const blacklistLogs = blacklistAuditRows || [];
+      return NextResponse.json({
+        date: today,
+        scope: { botKey, groupId },
+        summary: {
+          activeToday: 0,
+          visibleMembers: blacklistRows.length,
+          muted: 0,
+          banned: 0,
+          blacklisted: blacklistRows.length,
+          normalTracked: 0,
+        },
+        members: blacklistRows,
+        active: [],
+        muted: [],
+        banned: [],
+        blacklisted: blacklistRows,
+        logs: blacklistLogs,
+      });
+    }
 
     let activityQuery = supabase
       .from("analytics_member_activity")
@@ -223,36 +277,6 @@ export async function GET(request: NextRequest) {
     if (activityError) throw new Error(activityError.message);
     if (stateError) throw new Error(stateError.message);
     if (auditError) throw new Error(auditError.message);
-
-    const isSystemBlacklist = botKey === "*" && !groupId;
-    if (isSystemBlacklist) {
-      const blacklistRows = dedupeBlacklistRows((stateRows || []).filter((row: Row) =>
-        String(row.status || "").trim().toLowerCase() === "blacklisted"
-      ))
-        .filter((row) => matchesSearch(row, search))
-        .slice(0, limit);
-      const blacklistLogs = (auditRows || []).filter((row: Row) =>
-        String(row.action || "").toLowerCase().includes("blacklist")
-      );
-      return NextResponse.json({
-        date: today,
-        scope: { botKey, groupId },
-        summary: {
-          activeToday: 0,
-          visibleMembers: blacklistRows.length,
-          muted: 0,
-          banned: 0,
-          blacklisted: blacklistRows.length,
-          normalTracked: 0,
-        },
-        members: blacklistRows,
-        active: [],
-        muted: [],
-        banned: [],
-        blacklisted: blacklistRows,
-        logs: blacklistLogs,
-      });
-    }
 
     const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
     const members = mergeMemberRows(activityRows || [], moderationRows, search, limit);

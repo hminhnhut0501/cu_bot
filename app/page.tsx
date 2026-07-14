@@ -3326,8 +3326,10 @@ export default function HomePage() {
     setMemberOverviewLoading(true);
     try {
       const params = new URLSearchParams();
-      if (systemBlacklistActive) params.set("bot_key", "*");
-      else if (selectedBot) params.set("bot_key", selectedBot);
+      if (systemBlacklistActive) {
+        params.set("bot_key", "*");
+        params.set("limit", "500");
+      } else if (selectedBot) params.set("bot_key", selectedBot);
       if (!systemBlacklistActive && effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
       if (nextSearch.trim()) params.set("search", nextSearch.trim());
       const query = params.toString() ? `?${params.toString()}` : "";
