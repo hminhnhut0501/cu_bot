@@ -45,9 +45,13 @@ class JoinRouterModule(BotModule):
             chat_id,
             len(members),
         )
+        blocked_any = False
         for user in members:
             self.audit_member_event(chat_id, "member_joined", user, "service_message")
-            self.block_blacklisted_join(chat_id, user, "service_message")
+            blocked_any = self.block_blacklisted_join(chat_id, user, "service_message") or blocked_any
+        if blocked_any:
+            LOGGER.info("Join router blocked blacklisted member(s) for bot %s chat %s; skip welcome/share_unlock forward.", self.settings.bot_key, chat_id)
+            return self.continue_handling()
         self.forward(message, "welcome")
         self.forward(message, "share_unlock")
 
@@ -138,7 +142,14 @@ class JoinRouterModule(BotModule):
 
         if self.is_join_transition(old_member, new_member):
             self.audit_member_event(chat_id, "member_joined", user, "member_state")
-            self.block_blacklisted_join(chat_id, user, "member_state")
+            if self.block_blacklisted_join(chat_id, user, "member_state"):
+                LOGGER.info(
+                    "Join router blocked blacklisted user %s for bot %s chat %s; skip member-state forward.",
+                    getattr(user, "id", None),
+                    self.settings.bot_key,
+                    chat_id,
+                )
+                return self.continue_handling()
             self.forward_chat_member(update, "welcome")
         elif self.is_leave_transition(old_member, new_member):
             self.audit_member_event(chat_id, "member_left", user, "member_state")
@@ -258,10 +269,20 @@ class JoinRouterModule(BotModule):
         if not chat_id or not user_id:
             return None
         try:
-            rows = self.store.fresh_rows("member_moderation_state")
+            rows = self.store.query_rows(
+                "member_moderation_state",
+                user_id=user_id,
+                status="blacklisted",
+                order="updated_at.desc",
+                limit="20",
+            )
         except Exception as exc:
-            LOGGER.warning("Join router cannot load blacklist state for bot %s: %s", self.settings.bot_key, exc)
-            rows = self.store.rows("member_moderation_state")
+            LOGGER.warning("Join router cannot query blacklist state for bot %s user %s: %s", self.settings.bot_key, user_id, exc)
+            try:
+                rows = self.store.fresh_rows("member_moderation_state")
+            except Exception as fallback_exc:
+                LOGGER.warning("Join router cannot load blacklist fallback for bot %s: %s", self.settings.bot_key, fallback_exc)
+                rows = self.store.rows("member_moderation_state")
         for row in rows:
             row_bot_key = str(row.get("bot_key") or self.settings.bot_key).strip()
             if row_bot_key not in {self.settings.bot_key, "*"}:
@@ -286,6 +307,7 @@ class JoinRouterModule(BotModule):
         try:
             self.bot.ban_chat_member(chat_id, user_id)
             blocked = True
+            LOGGER.info("Join router blocked blacklisted user %s in chat %s for bot %s.", user_id, chat_id, self.settings.bot_key)
         except Exception as exc:
             error = str(exc)
             LOGGER.warning("Join router cannot block blacklisted user %s in chat %s: %s", user_id, chat_id, exc)

@@ -173,6 +173,23 @@ class SupabaseStore:
         rows = response.json()
         return rows[0] if rows else {}
 
+    def query_rows(self, table, **conditions):
+        url = f"{self.supabase_url}/rest/v1/{table}"
+        headers = {
+            "apikey": self.service_role_key,
+            "authorization": f"Bearer {self.service_role_key}",
+            "accept": "application/json",
+        }
+        params = {"select": "*"}
+        for key, value in conditions.items():
+            if key in {"order", "limit", "offset"}:
+                params[key] = value
+            else:
+                params[key] = value if isinstance(value, str) and "." in value else f"eq.{value}"
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response.raise_for_status()
+        return [self._clean_row(row) for row in response.json()]
+
     def fresh_rows(self, name):
         name = name.lower()
         rows = self._load_rows(name)
