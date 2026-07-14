@@ -310,16 +310,27 @@ export async function POST(request: NextRequest) {
 
     let stateRows: Row[] = [];
     if (action === "unblacklist") {
-      for (const payload of statePayloads) {
+      if (botKey === "*" && chatId === "*") {
         const { data, error } = await supabase
           .from("member_moderation_state")
           .delete()
-          .eq("bot_key", payload.bot_key)
-          .eq("chat_id", payload.chat_id)
-          .eq("user_id", payload.user_id)
+          .eq("user_id", userId)
+          .eq("status", "blacklisted")
           .select("*");
         if (error) throw new Error(error.message);
-        stateRows = [...stateRows, ...(data || [])];
+        stateRows = data || [];
+      } else {
+        for (const payload of statePayloads) {
+          const { data, error } = await supabase
+            .from("member_moderation_state")
+            .delete()
+            .eq("bot_key", payload.bot_key)
+            .eq("chat_id", payload.chat_id)
+            .eq("user_id", payload.user_id)
+            .select("*");
+          if (error) throw new Error(error.message);
+          stateRows = [...stateRows, ...(data || [])];
+        }
       }
     } else {
       const { data, error } = await supabase

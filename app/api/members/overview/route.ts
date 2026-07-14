@@ -83,6 +83,27 @@ function sortModerationRows(rows: Row[]) {
   );
 }
 
+function blacklistScopeRank(row: Row) {
+  const botKey = String(row.bot_key || "");
+  const chatId = String(row.chat_id || "");
+  if (botKey === "*" && chatId === "*") return 3;
+  if (chatId === "*") return 2;
+  return 1;
+}
+
+function dedupeBlacklistRows(rows: Row[]) {
+  const map = new Map<string, Row>();
+  for (const row of sortModerationRows(rows)) {
+    const userId = String(row.user_id || row.target_user_id || "").trim();
+    if (!userId) continue;
+    const current = map.get(userId);
+    if (!current || blacklistScopeRank(row) > blacklistScopeRank(current)) {
+      map.set(userId, row);
+    }
+  }
+  return sortModerationRows(Array.from(map.values()));
+}
+
 function parseDetails(value: unknown) {
   if (!value) return {} as Row;
   if (typeof value === "object") return value as Row;
@@ -205,16 +226,12 @@ export async function GET(request: NextRequest) {
 
     const isSystemBlacklist = botKey === "*" && !groupId;
     if (isSystemBlacklist) {
-      const blacklistRows = sortModerationRows((stateRows || []).filter((row: Row) =>
-        String(row.bot_key || "") === "*" &&
-        String(row.chat_id || "") === "*" &&
+      const blacklistRows = dedupeBlacklistRows((stateRows || []).filter((row: Row) =>
         String(row.status || "").trim().toLowerCase() === "blacklisted"
       ))
         .filter((row) => matchesSearch(row, search))
         .slice(0, limit);
       const blacklistLogs = (auditRows || []).filter((row: Row) =>
-        String(row.bot_key || "") === "*" &&
-        String(row.chat_id || "") === "*" &&
         String(row.action || "").toLowerCase().includes("blacklist")
       );
       return NextResponse.json({
