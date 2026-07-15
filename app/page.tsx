@@ -3482,7 +3482,11 @@ export default function HomePage() {
     if (table?.key !== "channel_posts" || (!savedPassword && meta?.passwordRequired)) {
       return;
     }
-    const timer = window.setInterval(async () => {
+    let timer: number | undefined;
+    const refreshChannelPosts = async () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       try {
         const query = buildScopedQuery(table, search, selectedBot, "");
         const payload = await api(`/api/channel_posts${query}`);
@@ -3490,8 +3494,32 @@ export default function HomePage() {
       } catch {
         // Keep the last known state; the next poll will retry.
       }
-    }, 3000);
-    return () => window.clearInterval(timer);
+    };
+    const startPolling = () => {
+      if (timer === undefined) {
+        void refreshChannelPosts();
+        timer = window.setInterval(refreshChannelPosts, 30000);
+      }
+    };
+    const stopPolling = () => {
+      if (timer !== undefined) {
+        window.clearInterval(timer);
+        timer = undefined;
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    startPolling();
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.passwordRequired, savedPassword, search, selectedBot, table?.key]);
 
