@@ -15,6 +15,26 @@ LOGGER = logging.getLogger(__name__)
 class ChannelPublisherModule(BotModule):
     name = "channel_publisher"
     priority = 55
+    POLL_INTERVAL_SECONDS = 30
+    ACTIONABLE_STATUSES = ("pending", "queued", "scheduled", "delete_scheduled")
+    SELECT_COLUMNS = ",".join(
+        [
+            "id",
+            "bot_key",
+            "enabled",
+            "status",
+            "target_chat_id",
+            "content",
+            "parse_mode",
+            "buttons",
+            "buttons_text",
+            "disable_web_page_preview",
+            "scheduled_at",
+            "delete_at",
+            "sent_message_id",
+            "attempt_count",
+        ]
+    )
 
     def start(self):
         self.app.run_background("channel_publisher", self.run_loop)
@@ -29,25 +49,34 @@ class ChannelPublisherModule(BotModule):
         return True
 
     def run_loop(self):
-        interval = 3
         while True:
             try:
                 self.process_posts()
             except Exception as exc:
                 LOGGER.warning("Channel publisher loop failed for bot %s: %s", self.settings.bot_key, exc)
-            time.sleep(interval)
+            time.sleep(self.POLL_INTERVAL_SECONDS)
 
     def process_posts(self):
         if not self.bot_active() or not self.module_active():
             return
-        for row in self.store.fresh_rows("channel_posts"):
+        for row in self.load_actionable_posts():
             if not as_bool(row.get("enabled"), True):
                 continue
             status = (row.get("status") or "draft").strip().lower()
             if status in {"pending", "queued"} or (status == "scheduled" and self.is_due(row.get("scheduled_at"))):
                 self.publish_post(row, status)
-            elif status in {"sent", "delete_scheduled"} and row.get("delete_at") and self.is_due(row.get("delete_at")):
+            elif status == "delete_scheduled" and row.get("delete_at") and self.is_due(row.get("delete_at")):
                 self.delete_post(row, status)
+
+    def load_actionable_posts(self):
+        return self.store.query_rows(
+            "channel_posts",
+            select=self.SELECT_COLUMNS,
+            status=f"in.({','.join(self.ACTIONABLE_STATUSES)})",
+            **{"or": f"(bot_key.is.null,bot_key.eq.{self.settings.bot_key})"},
+            order="scheduled_at.asc.nullslast,delete_at.asc.nullslast,id.asc",
+            limit="50",
+        )
 
     def publish_post(self, row, original_status):
         row_id = row.get("id")

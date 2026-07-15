@@ -180,9 +180,9 @@ class SupabaseStore:
             "authorization": f"Bearer {self.service_role_key}",
             "accept": "application/json",
         }
-        params = {"select": "*"}
+        params = {"select": conditions.pop("select", "*")}
         for key, value in conditions.items():
-            if key in {"order", "limit", "offset"}:
+            if key in {"order", "limit", "offset", "or", "and"}:
                 params[key] = value
             else:
                 params[key] = value if isinstance(value, str) and "." in value else f"eq.{value}"
