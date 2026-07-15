@@ -319,11 +319,19 @@ export async function POST(request: NextRequest) {
           .select("*");
         if (error) throw new Error(error.message);
         stateRows = data || [];
+      } else if (action === "unban") {
+        const { data, error } = await supabase
+          .from("member_moderation_state")
+          .delete()
+          .in("bot_key", [botKey, "*"])
+          .in("chat_id", [chatId, "*"])
+          .eq("user_id", userId)
+          .eq("status", "banned")
+          .select("*");
+        if (error) throw new Error(error.message);
+        stateRows = data || [];
       } else {
-        const deletePayloads = action === "unban"
-          ? [{ bot_key: botKey, chat_id: chatId, user_id: userId }]
-          : statePayloads;
-        for (const payload of deletePayloads) {
+        for (const payload of statePayloads) {
           const { data, error } = await supabase
             .from("member_moderation_state")
             .delete()
