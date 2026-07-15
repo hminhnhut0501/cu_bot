@@ -10,5 +10,9 @@ services:
         value: "true"
       - key: BOT_KEY
         value: "main"
+      - key: SUPABASE_URL
+        value: "https://anuuymwfrofbogulsyyr.supabase.co"
       - key: DATA_REFRESH_SECONDS
         value: "120"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
