@@ -309,8 +309,8 @@ export async function POST(request: NextRequest) {
     }
 
     let stateRows: Row[] = [];
-    if (action === "unblacklist") {
-      if (botKey === "*" && chatId === "*") {
+    if (action === "unblacklist" || action === "unban") {
+      if (action === "unblacklist" && botKey === "*" && chatId === "*") {
         const { data, error } = await supabase
           .from("member_moderation_state")
           .delete()
@@ -320,7 +320,10 @@ export async function POST(request: NextRequest) {
         if (error) throw new Error(error.message);
         stateRows = data || [];
       } else {
-        for (const payload of statePayloads) {
+        const deletePayloads = action === "unban"
+          ? [{ bot_key: botKey, chat_id: chatId, user_id: userId }]
+          : statePayloads;
+        for (const payload of deletePayloads) {
           const { data, error } = await supabase
             .from("member_moderation_state")
             .delete()
