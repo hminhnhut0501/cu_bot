@@ -254,7 +254,19 @@ export async function POST(request: NextRequest) {
           await callTelegram(token, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true });
         }
       } catch (error) {
-        throw error;
+        telegramError = error instanceof Error ? error.message : "Telegram action failed.";
+        if (action === "unban") {
+          return NextResponse.json(
+            {
+              ok: false,
+              action,
+              telegram: telegramResult,
+              telegramError,
+              error: `Gỡ ban thất bại: ${telegramError}`,
+            },
+            { status: 502 }
+          );
+        }
       }
     }
 
@@ -432,6 +444,7 @@ export async function POST(request: NextRequest) {
       telegram: telegramResult,
       telegramError,
       fanout: fanoutResult,
+      stateDeleted: action === "unban" ? stateRows.length : 0,
       row: stateRow,
       rows: stateRows || [],
     });

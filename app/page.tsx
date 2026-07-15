@@ -3441,7 +3441,9 @@ export default function HomePage() {
         type: telegramError ? "info" : "success",
         message: telegramError
           ? `${memberActionLabel[memberActionDraft.action]} đã lưu. Telegram chưa xử lý ngay: ${telegramError}`
-          : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
+          : memberActionDraft.action === "unban"
+            ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+            : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
       });
       await Promise.all([loadMemberOverview(""), loadLookups()]);
       applyMemberActionResult(appliedRow, memberActionDraft.action);
