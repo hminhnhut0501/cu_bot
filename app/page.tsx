@@ -2381,6 +2381,7 @@ export default function HomePage() {
   const [memberOverviewLoading, setMemberOverviewLoading] = useState(false);
   const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("active");
   const [memberActionOpen, setMemberActionOpen] = useState(false);
+  const [memberActionFeedback, setMemberActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [memberActionDraft, setMemberActionDraft] = useState<MemberActionDraft>({
     user_id: "",
     username: "",
@@ -2415,7 +2416,7 @@ export default function HomePage() {
     if (!toast) {
       return;
     }
-    const timer = window.setTimeout(() => setToast(null), 2600);
+    const timer = window.setTimeout(() => setToast(null), 8000);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -3363,6 +3364,7 @@ export default function HomePage() {
   }
 
   function openMemberAction(row: Row = {}, action: MemberActionType = "mute") {
+    setMemberActionFeedback(null);
     setMemberActionDraft({
       user_id: memberUserId(row),
       username: String(row.username || row.target_username || "").replace(/^@/, ""),
@@ -3429,14 +3431,17 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      const telegramError = String(result?.telegramError || "").trim();
+      const feedbackMessage = memberActionDraft.action === "unban"
+        ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+        : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`;
+      setMemberActionFeedback({ type: telegramError ? "error" : "success", message: telegramError || feedbackMessage });
       const resultRows = Array.isArray(result?.rows) ? result.rows : [];
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
       const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
-      setMemberActionOpen(false);
       setSearch("");
       setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
       applyMemberActionResult(appliedRow, memberActionDraft.action);
-      const telegramError = String(result?.telegramError || "").trim();
       setToast({
         type: telegramError ? "info" : "success",
         message: telegramError
@@ -3448,7 +3453,9 @@ export default function HomePage() {
       await Promise.all([loadMemberOverview(""), loadLookups()]);
       applyMemberActionResult(appliedRow, memberActionDraft.action);
     } catch (err) {
-      setToast({ type: "error", message: err instanceof Error ? err.message : "Không thể thao tác thành viên." });
+      const message = err instanceof Error ? err.message : "Không thể thao tác thành viên.";
+      setMemberActionFeedback({ type: "error", message });
+      setToast({ type: "error", message });
     } finally {
       setSaving(false);
     }
@@ -7148,6 +7155,9 @@ export default function HomePage() {
         <form onSubmit={submitMemberAction}>
           <DialogContent dividers>
             <Stack spacing={2}>
+              {memberActionFeedback ? (
+                <Alert severity={memberActionFeedback.type}>{memberActionFeedback.message}</Alert>
+              ) : null}
               <Alert severity="warning">
                 Thao tác ở đây chạy thật. Riêng blacklist sẽ luôn lưu vào danh sách chặn; nếu Telegram không ban được ngay, bot vẫn tự chặn khi user join lại.
               </Alert>
