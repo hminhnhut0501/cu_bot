@@ -2724,7 +2724,7 @@ export default function HomePage() {
       String(row.target_label || ""),
     ].some((value) => String(value || "").toLowerCase().replace(/^@/, "").includes(needle));
   };
-  const memberFilteredRows = memberRowsByTab[memberTab] || [];
+  const memberFilteredRows = memberOverview?.members || [];
   const memberPageRows = memberFilteredRows;
   const memberTotalPages = Math.max(1, Math.ceil((memberPagination.total || memberFilteredRows.length || 0) / (memberPagination.pageSize || memberPageSize)));
   const memberActiveMeta = systemBlacklistActive
@@ -2743,6 +2743,14 @@ export default function HomePage() {
     blacklist: "Thêm blacklist",
     unblacklist: "Gỡ blacklist",
     kick: "Kick",
+  };
+  const memberStatusBadgeLabel = (row: Row) => {
+    const status = memberStatusOf(row);
+    if (status === "muted" || status === "restricted") return "muted";
+    if (status === "banned") return "banned";
+    if (status === "blacklisted") return "blacklist";
+    if (String(row.action || "").toLowerCase().includes("left") || String(row.action || "").toLowerCase().includes("kick")) return "left";
+    return "normal";
   };
   const memberTabForAction: Partial<Record<MemberActionType, MemberWorkspaceTab>> = {
     mute: "moderated",
@@ -3569,7 +3577,7 @@ export default function HomePage() {
     setMemberOverviewLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("tab", memberTab);
+      params.set("tab", "all");
       if (systemBlacklistActive) {
         params.set("bot_key", "*");
         params.set("page_size", String(memberPageSize));
@@ -6059,10 +6067,8 @@ export default function HomePage() {
                       {memberTabItems.map((item) => (
                         <Chip
                           key={item.key}
-                          clickable
-                          onClick={() => setMemberTab(item.key)}
-                          color={memberTab === item.key ? memberLaneTone(item.key) : "default"}
-                          variant={memberTab === item.key ? "filled" : "outlined"}
+                          color={memberLaneTone(item.key)}
+                          variant="outlined"
                           label={item.label}
                         />
                       ))}
@@ -6098,18 +6104,6 @@ export default function HomePage() {
                         <Typography variant="h6">{memberTabLabel(memberTab)}</Typography>
                         <Typography variant="body2" color="text.secondary">{memberLaneDescription(memberTab)}</Typography>
                       </Box>
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        {memberTabItems.map((item) => (
-                          <Chip
-                            key={item.key}
-                            clickable
-                            onClick={() => setMemberTab(item.key)}
-                            color={memberTab === item.key ? memberLaneTone(item.key) : "default"}
-                            variant={memberTab === item.key ? "filled" : "outlined"}
-                            label={item.label}
-                          />
-                        ))}
-                      </Stack>
                     </Stack>
 
                     {!memberOverviewLoading && memberFilteredRows.map((row) => {
@@ -6134,7 +6128,7 @@ export default function HomePage() {
                                 </Box>
                               </Stack>
                               <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
-                                <Chip size="small" color={memberLaneTone(lane)} label={memberStatusLabel(status)} />
+                                <Chip size="small" color={memberLaneTone(lane)} label={memberStatusBadgeLabel(row)} />
                                 <Chip size="small" variant="outlined" color={memberLaneTone(lane)} label={lane} />
                               </Stack>
                             </Stack>
@@ -6162,6 +6156,19 @@ export default function HomePage() {
                       <Paper variant="outlined" sx={{ p: 3, bgcolor: "background.paper", textAlign: "center" }}>
                         <Typography variant="body2" color="text.secondary">Không có dữ liệu phù hợp bộ lọc hiện tại.</Typography>
                       </Paper>
+                    ) : null}
+
+                    {!memberOverviewLoading && memberTotalPages > 1 ? (
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Hiển thị {Math.min((memberPage - 1) * memberPageSize + 1, memberLoadedCount)}-{Math.min(memberPage * memberPageSize, memberLoadedCount)} / {memberLoadedCount}
+                        </Typography>
+                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                          <MuiButton variant="outlined" disabled={memberPage <= 1} onClick={() => setMemberPage((current) => Math.max(1, current - 1))}>Trang trước</MuiButton>
+                          <MuiButton variant="outlined" disabled={!memberOverview?.pagination?.hasNextPage} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Tải thêm</MuiButton>
+                          <MuiButton variant="outlined" disabled={memberPage >= memberTotalPages} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Trang sau</MuiButton>
+                        </Stack>
+                      </Stack>
                     ) : null}
                   </Stack>
                 </Paper>
