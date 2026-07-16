@@ -40,10 +40,25 @@ function matchesSearch(row: Row, search: string) {
     row.display_name,
     row.status,
     row.reason,
+    row.created_by,
+    row.updated_by,
+    row.source,
+    row.action,
   ].some((value) => normalize(value).includes(needle));
 }
 
-function mergeMemberRows(activityRows: Row[], stateRows: Row[], search: string, limit: number) {
+function statusOf(row: Row) {
+  return String(row.status || "").trim().toLowerCase() || "normal";
+}
+
+function sortKeyOf(row: Row, sortBy: string) {
+  if (sortBy === "display_name") return normalize(row.display_name || row.username || row.user_id);
+  if (sortBy === "status") return statusOf(row);
+  if (sortBy === "updated_at") return String(row.updated_at || row.last_seen_at || row.created_at || "");
+  return String(row.last_seen_at || row.updated_at || row.created_at || "");
+}
+
+function mergeMemberRows(activityRows: Row[], stateRows: Row[]) {
   const map = new Map<string, Row>();
   for (const row of activityRows) {
     const key = `${row.chat_id || ""}:${row.user_id || ""}`;
@@ -61,10 +76,7 @@ function mergeMemberRows(activityRows: Row[], stateRows: Row[], search: string, 
       source: map.has(key) ? "activity+state" : "state",
     });
   }
-  return Array.from(map.values())
-    .filter((row) => matchesSearch(row, search))
-    .sort((left, right) => String(right.last_seen_at || right.updated_at || "").localeCompare(String(left.last_seen_at || left.updated_at || "")))
-    .slice(0, limit);
+  return Array.from(map.values());
 }
 
 function groupByStatus(rows: Row[]) {
@@ -102,6 +114,59 @@ function dedupeBlacklistRows(rows: Row[]) {
     }
   }
   return sortModerationRows(Array.from(map.values()));
+}
+
+function applyMemberFilters(rows: Row[], filters: {
+  search: string;
+  status: string;
+  source: string;
+  reason: string;
+  sortBy: string;
+  sortDir: string;
+}) {
+  const normalized = rows.filter((row) => matchesSearch(row, filters.search));
+  const filtered = normalized.filter((row) => {
+    if (filters.status && filters.status !== "all") {
+      const current = statusOf(row);
+      if (filters.status === "normal") {
+        if (current !== "normal") return false;
+      } else if (current !== filters.status) {
+        return false;
+      }
+    }
+    if (filters.source && filters.source !== "all" && String(row.source || "").trim().toLowerCase() !== filters.source) {
+      return false;
+    }
+    if (filters.reason && filters.reason !== "all") {
+      const hasReason = Boolean(String(row.reason || row.payload?.reason || "").trim());
+      if (filters.reason === "has_reason" && !hasReason) return false;
+      if (filters.reason === "missing_reason" && hasReason) return false;
+    }
+    return true;
+  });
+  const sorted = [...filtered].sort((left, right) => {
+    const leftKey = sortKeyOf(left, filters.sortBy);
+    const rightKey = sortKeyOf(right, filters.sortBy);
+    return filters.sortDir === "asc" ? leftKey.localeCompare(rightKey) : rightKey.localeCompare(leftKey);
+  });
+  return sorted;
+}
+
+function rowsForTab(args: {
+  tab: string;
+  members: Row[];
+  active: Row[];
+  muted: Row[];
+  banned: Row[];
+  blacklisted: Row[];
+  logs: Row[];
+}) {
+  if (args.tab === "active") return args.active;
+  if (args.tab === "muted") return args.muted;
+  if (args.tab === "banned") return args.banned;
+  if (args.tab === "blacklisted") return args.blacklisted;
+  if (args.tab === "logs") return args.logs;
+  return args.members;
 }
 
 function parseDetails(value: unknown) {
@@ -170,6 +235,14 @@ export async function GET(request: NextRequest) {
     const groupId = request.nextUrl.searchParams.get("group_id")?.trim() || "";
     const search = request.nextUrl.searchParams.get("search")?.trim() || "";
     const today = request.nextUrl.searchParams.get("date")?.trim() || vietnamDateKey();
+    const tab = request.nextUrl.searchParams.get("tab")?.trim() || "all";
+    const status = request.nextUrl.searchParams.get("status")?.trim() || "all";
+    const source = request.nextUrl.searchParams.get("source")?.trim() || "all";
+    const reason = request.nextUrl.searchParams.get("reason")?.trim() || "all";
+    const sortBy = request.nextUrl.searchParams.get("sort_by")?.trim() || "last_seen_at";
+    const sortDir = request.nextUrl.searchParams.get("sort_dir")?.trim() || "desc";
+    const page = Math.max(Number(request.nextUrl.searchParams.get("page") || 1), 1);
+    const pageSize = Math.min(Math.max(Number(request.nextUrl.searchParams.get("page_size") || 25), 1), 100);
     const limit = Math.min(Number(request.nextUrl.searchParams.get("limit") || 200), 500);
     const isSystemBlacklist = botKey === "*" && !groupId;
 
@@ -202,22 +275,43 @@ export async function GET(request: NextRequest) {
       if (blacklistStateError) throw new Error(blacklistStateError.message);
       if (blacklistAuditError) throw new Error(blacklistAuditError.message);
 
-      const blacklistRows = dedupeBlacklistRows(blacklistStateRows || [])
-        .filter((row) => matchesSearch(row, search))
-        .slice(0, limit);
+      const blacklistAllRows = applyMemberFilters(dedupeBlacklistRows(blacklistStateRows || []), {
+        search,
+        status,
+        source,
+        reason,
+        sortBy,
+        sortDir,
+      });
+      const total = blacklistAllRows.length;
+      const start = (page - 1) * pageSize;
+      const blacklistRows = blacklistAllRows.slice(start, start + pageSize);
       const blacklistLogs = blacklistAuditRows || [];
       return NextResponse.json({
         date: today,
         scope: { botKey, groupId },
+        filtersApplied: { tab, search, status, source, reason, sortBy, sortDir },
         summary: {
           activeToday: 0,
-          visibleMembers: blacklistRows.length,
+          visibleMembers: total,
           muted: 0,
           banned: 0,
-          blacklisted: blacklistRows.length,
+          blacklisted: total,
           normalTracked: 0,
         },
-        members: blacklistRows,
+        pagination: {
+          page,
+          pageSize,
+          total,
+          hasNextPage: start + pageSize < total,
+          nextCursor: null,
+        },
+        meta: {
+          lastUpdatedAt: blacklistRows[0]?.updated_at || blacklistLogs[0]?.created_at || today,
+          queryMode: "mixed",
+          snapshotMode: "snapshot",
+        },
+        members: rowsForTab({ tab, members: blacklistRows, active: [], muted: [], banned: [], blacklisted: blacklistRows, logs: blacklistLogs }),
         active: [],
         muted: [],
         banned: [],
@@ -279,25 +373,55 @@ export async function GET(request: NextRequest) {
     if (auditError) throw new Error(auditError.message);
 
     const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
-    const members = mergeMemberRows(activityRows || [], moderationRows, search, limit);
+    const mergedMembers = mergeMemberRows(activityRows || [], moderationRows);
+    const filteredMembers = applyMemberFilters(mergedMembers, { search, status, source, reason, sortBy, sortDir });
+    const total = filteredMembers.length;
+    const start = (page - 1) * pageSize;
+    const members = filteredMembers.slice(start, start + pageSize);
     const statuses = groupByStatus(moderationRows);
+    const activeRows = (activityRows || []).filter((row: Row) => matchesSearch(row, search)).slice(0, limit);
+    const mutedRows = statuses.muted.filter((row) => matchesSearch(row, search)).slice(0, limit);
+    const bannedRows = statuses.banned.filter((row) => matchesSearch(row, search)).slice(0, limit);
+    const blacklistedRows = statuses.blacklisted.filter((row) => matchesSearch(row, search)).slice(0, limit);
+    const rows = rowsForTab({
+      tab,
+      members,
+      active: activeRows,
+      muted: mutedRows,
+      banned: bannedRows,
+      blacklisted: blacklistedRows,
+      logs: auditRows || [],
+    });
 
     return NextResponse.json({
       date: today,
       scope: { botKey, groupId },
+      filtersApplied: { tab, search, status, source, reason, sortBy, sortDir },
       summary: {
         activeToday: (activityRows || []).length,
-        visibleMembers: members.length,
+        visibleMembers: total,
         muted: statuses.muted.length,
         banned: statuses.banned.length,
         blacklisted: statuses.blacklisted.length,
         normalTracked: statuses.normal.length,
       },
-      members,
-      active: (activityRows || []).filter((row: Row) => matchesSearch(row, search)).slice(0, limit),
-      muted: statuses.muted.filter((row) => matchesSearch(row, search)).slice(0, limit),
-      banned: statuses.banned.filter((row) => matchesSearch(row, search)).slice(0, limit),
-      blacklisted: statuses.blacklisted.filter((row) => matchesSearch(row, search)).slice(0, limit),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        hasNextPage: start + pageSize < total,
+        nextCursor: null,
+      },
+      meta: {
+        lastUpdatedAt: members[0]?.last_seen_at || members[0]?.updated_at || auditRows?.[0]?.created_at || today,
+        queryMode: "mixed",
+        snapshotMode: "snapshot",
+      },
+      members: rows,
+      active: activeRows,
+      muted: mutedRows,
+      banned: bannedRows,
+      blacklisted: blacklistedRows,
       logs: auditRows || [],
     });
   } catch (error) {

@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  InputAdornment,
   MenuItem,
   Paper,
   Select,
@@ -57,6 +58,13 @@ import {
   Users,
   Wrench,
   X,
+  UserPlus,
+  UserMinus,
+  BellOff,
+  NotebookPen,
+  Shield,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
 import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
@@ -189,10 +197,31 @@ type DeleteFailureAlert = {
 
 type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
-type MemberWorkspaceTab = "active" | "muted" | "banned" | "blacklisted" | "logs";
+type MemberWorkspaceTab = "all" | "active" | "muted" | "banned" | "blacklisted" | "logs";
 type MemberActionType = "mute" | "ban" | "unmute" | "unban" | "blacklist" | "unblacklist" | "kick";
 type MemberOverview = {
   date?: string;
+  filtersApplied?: {
+    tab?: string;
+    search?: string;
+    status?: string;
+    source?: string;
+    reason?: string;
+    sortBy?: string;
+    sortDir?: string;
+  };
+  pagination?: {
+    page?: number;
+    pageSize?: number;
+    total?: number;
+    hasNextPage?: boolean;
+    nextCursor?: string | null;
+  };
+  meta?: {
+    lastUpdatedAt?: string;
+    queryMode?: string;
+    snapshotMode?: string;
+  };
   summary?: {
     activeToday?: number;
     visibleMembers?: number;
@@ -215,6 +244,14 @@ type MemberActionDraft = {
   action: MemberActionType;
   reason: string;
   duration_seconds: number;
+};
+type MemberFilterState = {
+  search: string;
+  status: "all" | "normal" | "muted" | "banned" | "blacklisted";
+  source: "all" | "activity" | "state" | "audit" | "activity+state";
+  reason: "all" | "has_reason" | "missing_reason";
+  sortBy: "last_seen_at" | "updated_at" | "display_name" | "status";
+  sortDir: "asc" | "desc";
 };
 
 const drawerWidth = 292;
@@ -2379,7 +2416,31 @@ export default function HomePage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [memberOverview, setMemberOverview] = useState<MemberOverview | null>(null);
   const [memberOverviewLoading, setMemberOverviewLoading] = useState(false);
-  const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("active");
+  const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("all");
+  const [memberSearchInput, setMemberSearchInput] = useState("");
+  const [memberFilters, setMemberFilters] = useState<MemberFilterState>({
+    search: "",
+    status: "all",
+    source: "all",
+    reason: "all",
+    sortBy: "last_seen_at",
+    sortDir: "desc",
+  });
+  const [memberPage, setMemberPage] = useState(1);
+  const [memberPageSize] = useState(12);
+  const [memberDetailOpen, setMemberDetailOpen] = useState(false);
+  const [memberSelectedRow, setMemberSelectedRow] = useState<Row | null>(null);
+  const [memberDetailLoading, setMemberDetailLoading] = useState(false);
+  const [memberDetail, setMemberDetail] = useState<{
+    scope?: { botKey?: string; groupId?: string; userId?: string };
+    member?: Row | null;
+    stats?: { joinCount?: number; leaveCount?: number; actionCount?: number; lastActionAt?: string };
+    timeline?: Array<{ type?: string; at: string; actor?: string; reason?: string; source?: string; label?: string; tone?: string }>;
+    notes?: Array<{ id?: string; text?: string; created_at?: string; created_by?: string; source?: string }>;
+  } | null>(null);
+  const [memberTimelineFilter, setMemberTimelineFilter] = useState<"all" | "moderation" | "activity" | "audit">("all");
+  const [memberNoteDraft, setMemberNoteDraft] = useState("");
+  const [memberNoteSaving, setMemberNoteSaving] = useState(false);
   const [memberActionOpen, setMemberActionOpen] = useState(false);
   const [memberActionFeedback, setMemberActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [memberActionDraft, setMemberActionDraft] = useState<MemberActionDraft>({
@@ -2584,20 +2645,24 @@ export default function HomePage() {
   const effectiveMemberChatId = systemBlacklistActive ? "*" : selectedMemberChatId;
   const effectiveMemberBotKey = systemBlacklistActive ? "*" : (activeBotKey || selectedBot || "main");
   const memberSummary = memberOverview?.summary || {};
+  const memberPagination = memberOverview?.pagination || {};
   const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
+    all: memberOverview?.members || [],
     active: memberOverview?.active || [],
     muted: memberOverview?.muted || [],
     banned: memberOverview?.banned || [],
     blacklisted: memberOverview?.blacklisted || [],
     logs: memberOverview?.logs || [],
   };
-  const memberRows = memberRowsByTab[memberTab] || [];
+  const memberAllRows = memberRowsByTab.all || [];
   const systemBlacklistRows = memberRowsByTab.blacklisted;
   const systemBlacklistLogs = memberRowsByTab.logs.filter((row) => String(row.action || "").toLowerCase().includes("blacklist"));
   const memberTabItems = [
+    { key: "all", label: `Tất cả (${memberSummary.visibleMembers || memberAllRows.length || 0})` },
     { key: "active", label: `Đang hoạt động (${memberSummary.activeToday || 0})` },
     { key: "muted", label: `Bị cấm chat (${memberSummary.muted || 0})` },
     { key: "banned", label: `Bị ban (${memberSummary.banned || 0})` },
+    { key: "blacklisted", label: `Blacklist (${memberSummary.blacklisted || 0})` },
     { key: "logs", label: `Nhật ký (${memberRowsByTab.logs.length})` },
   ];
   const memberStatsCards: Array<{ label: string; value: number; Icon: typeof Activity; color: "success" | "warning" | "error" | "info" }> = [
@@ -2616,6 +2681,33 @@ export default function HomePage() {
     return value ? (value.startsWith("@") ? value : `@${value}`) : "";
   };
   const memberUserId = (row: Row) => String(row.user_id || row.target_user_id || row.actor_user_id || "").trim();
+  const memberLastSeen = (row: Row) => String(row.last_seen_at || row.updated_at || row.created_at || "").trim();
+  const memberStatusOf = (row: Row) => String(row.status || row.member_status || "").trim().toLowerCase() || "normal";
+  const memberSourceOf = (row: Row) => String(row.source || "").trim().toLowerCase();
+  const memberReasonOf = (row: Row) => String(row.reason || row.payload?.reason || "").trim();
+  const memberMatchesSearch = (row: Row, query: string) => {
+    const needle = query.trim().toLowerCase().replace(/^@/, "");
+    if (!needle) return true;
+    return [
+      memberDisplayName(row),
+      memberUsername(row),
+      memberUserId(row),
+      memberReasonOf(row),
+      String(row.action || ""),
+      String(row.target_label || ""),
+    ].some((value) => String(value || "").toLowerCase().replace(/^@/, "").includes(needle));
+  };
+  const memberFilteredRows = memberRowsByTab[memberTab] || [];
+  const memberPageRows = memberFilteredRows;
+  const memberTotalPages = Math.max(1, Math.ceil((memberPagination.total || memberFilteredRows.length || 0) / (memberPagination.pageSize || memberPageSize)));
+  const memberActiveMeta = systemBlacklistActive
+    ? "system snapshot"
+    : memberOverview?.meta?.lastUpdatedAt
+      ? `cập nhật ${formatDateTime(memberOverview.meta.lastUpdatedAt)}`
+      : memberOverview?.date
+        ? `snapshot ${memberOverview.date}`
+        : "snapshot";
+  const memberLoadedCount = memberPagination.total || memberFilteredRows.length || 0;
   const memberActionLabel: Record<MemberActionType, string> = {
     mute: "Cấm chat",
     ban: "Ban",
@@ -2633,6 +2725,124 @@ export default function HomePage() {
     unban: "active",
     unblacklist: "active",
     kick: "logs",
+  };
+  const openMemberDetail = async (row: Row) => {
+    setMemberSelectedRow(row);
+    setMemberDetailOpen(true);
+    setMemberTimelineFilter("all");
+    setMemberNoteDraft("");
+    setMemberDetailLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (systemBlacklistActive) {
+        params.set("bot_key", "*");
+      } else if (selectedBot) {
+        params.set("bot_key", selectedBot);
+      }
+      if (!systemBlacklistActive && effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
+      params.set("user_id", memberUserId(row));
+      const payload = await api(`/api/members/detail?${params.toString()}`);
+      setMemberDetail(payload);
+    } catch {
+      setMemberDetail(null);
+    } finally {
+      setMemberDetailLoading(false);
+    }
+  };
+  const resetMemberFilters = () => {
+    setMemberSearchInput("");
+    setMemberFilters({
+      search: "",
+      status: "all",
+      source: "all",
+      reason: "all",
+      sortBy: "last_seen_at",
+      sortDir: "desc",
+    });
+    setMemberPage(1);
+  };
+  const memberDetailTimeline = useMemo(() => {
+    const rows = memberDetail?.timeline || [];
+    return rows.filter((item) => {
+      if (memberTimelineFilter === "all") return true;
+      if (memberTimelineFilter === "activity") return String(item.source || "").toLowerCase() === "activity";
+      if (memberTimelineFilter === "audit") return String(item.source || "").toLowerCase() === "audit";
+      return String(item.source || "").toLowerCase() === "state" || String(item.source || "").toLowerCase() === "moderation";
+    });
+  }, [memberDetail?.timeline, memberTimelineFilter]);
+  const timelineToneForSource = (source?: string) => {
+    const value = String(source || "").toLowerCase();
+    if (value === "activity") return "success";
+    if (value === "audit") return "info";
+    if (value === "state" || value === "moderation") return "warning";
+    return "default";
+  };
+  const timelineIconForType = (type?: string, source?: string) => {
+    const action = String(type || "").toLowerCase();
+    if (source === "activity") return <Activity size={15} />;
+    if (action === "member_joined") return <LogIn size={15} />;
+    if (action === "member_join_request") return <UserPlus size={15} />;
+    if (action === "member_left") return <LogOut size={15} />;
+    if (action === "member_mute" || action === "restrict") return <BellOff size={15} />;
+    if (action === "member_unmute") return <Users size={15} />;
+    if (action === "member_ban" || action === "ban") return <Shield size={15} />;
+    if (action === "member_unban") return <UserMinus size={15} />;
+    if (action === "member_kick") return <UserMinus size={15} />;
+    if (action === "member_blacklist" || action === "member_blacklist_join_blocked") return <ShieldCheck size={15} />;
+    if (action === "member_unblacklist") return <RotateCcw size={15} />;
+    if (action.includes("note")) return <NotebookPen size={15} />;
+    return <History size={15} />;
+  };
+  const timelineToneForType = (type?: string, source?: string) => {
+    const action = String(type || "").toLowerCase();
+    if (action === "member_joined" || action === "member_join_request") return "success" as const;
+    if (action === "member_left" || action === "member_kick") return "default" as const;
+    if (action === "member_mute" || action === "restrict" || action === "member_unmute") return "warning" as const;
+    if (action === "member_ban" || action === "ban" || action === "member_blacklist" || action === "member_blacklist_join_blocked") return "error" as const;
+    if (action === "member_unban" || action === "member_unblacklist") return "info" as const;
+    if (action.includes("note")) return "secondary" as const;
+    return timelineToneForSource(source) as any;
+  };
+  const saveMemberNote = async () => {
+    if (!memberSelectedRow) return;
+    const note = memberNoteDraft.trim();
+    if (!note) {
+      setToast({ type: "error", message: "Nhập note trước khi lưu." });
+      return;
+    }
+    setMemberNoteSaving(true);
+    try {
+      const params = new URLSearchParams();
+      if (systemBlacklistActive) {
+        params.set("bot_key", "*");
+      } else if (selectedBot) {
+        params.set("bot_key", selectedBot);
+      }
+      if (!systemBlacklistActive && effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
+      params.set("user_id", memberUserId(memberSelectedRow));
+      const payload = await api(`/api/members/detail?${params.toString()}`);
+      const result = await api("/api/members/detail", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: systemBlacklistActive ? "*" : (selectedBot || "main"),
+          group_id: systemBlacklistActive ? "*" : effectiveMemberChatId,
+          user_id: memberUserId(memberSelectedRow),
+          note,
+          actor_user_id: "admin_cp",
+        }),
+      });
+      setMemberNoteDraft("");
+      setMemberDetail({
+        ...payload,
+        ...result,
+      });
+      await loadMemberOverview(memberSearchInput);
+      setToast({ type: "success", message: "Đã lưu note vào member case." });
+    } catch (error) {
+      setToast({ type: "error", message: error instanceof Error ? error.message : "Không thể lưu note." });
+    } finally {
+      setMemberNoteSaving(false);
+    }
   };
   const ruleTestResults = useMemo(() => testRowsForTable(table?.key || "", visibleRows, quickTestInput), [quickTestInput, table?.key, visibleRows]);
   const showRuleTester = Boolean(table && ["keywords", "auto_replies", "domain_blacklist", "link_shorteners"].includes(table.key));
@@ -3327,12 +3537,20 @@ export default function HomePage() {
     setMemberOverviewLoading(true);
     try {
       const params = new URLSearchParams();
+      params.set("tab", memberTab);
       if (systemBlacklistActive) {
         params.set("bot_key", "*");
-        params.set("limit", "500");
+        params.set("page_size", String(memberPageSize));
       } else if (selectedBot) params.set("bot_key", selectedBot);
       if (!systemBlacklistActive && effectiveMemberChatId) params.set("group_id", effectiveMemberChatId);
       if (nextSearch.trim()) params.set("search", nextSearch.trim());
+      if (memberFilters.status) params.set("status", memberFilters.status);
+      if (memberFilters.source) params.set("source", memberFilters.source);
+      if (memberFilters.reason) params.set("reason", memberFilters.reason);
+      params.set("sort_by", memberFilters.sortBy);
+      params.set("sort_dir", memberFilters.sortDir);
+      params.set("page", String(memberPage));
+      params.set("page_size", String(memberPageSize));
       const query = params.toString() ? `?${params.toString()}` : "";
       const payload = await api(`/api/members/overview${query}`);
       setMemberOverview(payload);
@@ -3550,13 +3768,25 @@ export default function HomePage() {
     if (activeLayer === "blacklist") {
       setMemberTab("blacklisted");
     } else if (activeLayer === "members" && memberTab === "blacklisted") {
-      setMemberTab("active");
+      setMemberTab("all");
     }
     if (meta && (!meta.passwordRequired || savedPassword) && (activeLayer === "members" || activeLayer === "blacklist")) {
       void loadMemberOverview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLayer, meta?.passwordRequired, savedPassword, search, selectedBot, selectedScope, memberTab]);
+  }, [activeLayer, memberPage, memberFilters.search, memberFilters.status, memberFilters.source, memberFilters.reason, memberFilters.sortBy, memberFilters.sortDir, meta?.passwordRequired, savedPassword, selectedBot, selectedScope, memberTab]);
+
+  useEffect(() => {
+    setMemberPage(1);
+  }, [memberFilters.search, memberFilters.status, memberFilters.source, memberFilters.reason, memberFilters.sortBy, memberFilters.sortDir, memberTab]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setMemberFilters((current) => ({ ...current, search: memberSearchInput.trim() }));
+      setMemberPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [memberSearchInput]);
 
   useEffect(() => {
     if (!lookups.bots.length || activeKey === "bots") {
@@ -5704,11 +5934,11 @@ export default function HomePage() {
                   <Typography variant="body2" color="text.secondary">
                     {systemBlacklistActive
                       ? "Áp dụng cho tất cả bot và mọi group/channel bot đang làm admin. User bị blacklist sẽ bị ban ngay khi join."
-                    : "Theo dõi người đang hoạt động, mute, ban và nhật ký thao tác trực tiếp trong group đang chọn."}
+                      : "Theo dõi member, mute, ban và nhật ký thao tác theo scope đang chọn. Search và filter áp dụng ngay trên danh sách hiện tại."}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
-                  <MuiButton variant="outlined" startIcon={<RefreshCcw size={16} />} onClick={() => void loadMemberOverview()} disabled={memberOverviewLoading}>
+                  <MuiButton variant="outlined" startIcon={<RefreshCcw size={16} />} onClick={() => void loadMemberOverview(memberFilters.search)} disabled={memberOverviewLoading}>
                     Làm mới
                   </MuiButton>
                   <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={() => openMemberAction({}, systemBlacklistActive ? "blacklist" : "mute")} disabled={!effectiveMemberChatId}>
@@ -5726,7 +5956,7 @@ export default function HomePage() {
                           <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", fontWeight: 700 }}>{label}</Typography>
                           <Typography variant="h4">{value}</Typography>
                         </Box>
-                        <Chip color={color} icon={<Icon size={16} />} label={systemBlacklistActive ? "system" : "live"} variant="outlined" />
+                        <Chip color={color} icon={<Icon size={16} />} label={systemBlacklistActive ? "system" : "snapshot"} variant="outlined" />
                       </Stack>
                     </Paper>
                   </Grid>
@@ -5744,14 +5974,71 @@ export default function HomePage() {
                 />
               ) : null}
 
-              {!systemBlacklistActive && !selectedMemberChatId ? (
-                <Alert severity="warning">Chọn một group ở Scope để ban, mute hoặc đọc trạng thái thành viên đúng phạm vi.</Alert>
-              ) : null}
-              {systemBlacklistActive ? (
-                <Alert severity="error">
-                  Danh sách này lưu ở scope hệ thống <strong>bot_key=*</strong> và <strong>chat_id=*</strong>. Bất kỳ bot nào đang chạy gặp user này join group/channel sẽ ban ngay.
-                </Alert>
-              ) : null}
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                <Stack spacing={1.5}>
+                  <Stack direction={{ xs: "column", lg: "row" }} spacing={1.25} sx={{ alignItems: { xs: "stretch", lg: "center" }, justifyContent: "space-between" }}>
+                    <TextField
+                      size="small"
+                      value={memberSearchInput}
+                      onChange={(event) => {
+                        setMemberSearchInput(event.target.value);
+                      }}
+                      placeholder="Tìm theo tên, username, ID, lý do..."
+                      slotProps={{
+                        input: {
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Search size={16} />
+                            </InputAdornment>
+                          )
+                        }
+                      }}
+                      sx={{ minWidth: { xs: "100%", lg: 360 }, flex: 1 }}
+                    />
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
+                      <TextField select size="small" label="Trạng thái" value={memberFilters.status} onChange={(event) => setMemberFilters((current) => ({ ...current, status: event.target.value as MemberFilterState["status"] }))} sx={{ minWidth: 140 }}>
+                        <MenuItem value="all">Tất cả</MenuItem>
+                        <MenuItem value="normal">Normal</MenuItem>
+                        <MenuItem value="muted">Muted</MenuItem>
+                        <MenuItem value="banned">Banned</MenuItem>
+                        <MenuItem value="blacklisted">Blacklisted</MenuItem>
+                      </TextField>
+                      <TextField select size="small" label="Nguồn" value={memberFilters.source} onChange={(event) => setMemberFilters((current) => ({ ...current, source: event.target.value as MemberFilterState["source"] }))} sx={{ minWidth: 140 }}>
+                        <MenuItem value="all">Tất cả</MenuItem>
+                        <MenuItem value="activity">Activity</MenuItem>
+                        <MenuItem value="state">State</MenuItem>
+                        <MenuItem value="audit">Audit</MenuItem>
+                        <MenuItem value="activity+state">Activity + State</MenuItem>
+                      </TextField>
+                      <TextField select size="small" label="Lý do" value={memberFilters.reason} onChange={(event) => setMemberFilters((current) => ({ ...current, reason: event.target.value as MemberFilterState["reason"] }))} sx={{ minWidth: 150 }}>
+                        <MenuItem value="all">Tất cả</MenuItem>
+                        <MenuItem value="has_reason">Có lý do</MenuItem>
+                        <MenuItem value="missing_reason">Thiếu lý do</MenuItem>
+                      </TextField>
+                      <TextField select size="small" label="Sắp xếp" value={`${memberFilters.sortBy}:${memberFilters.sortDir}`} onChange={(event) => {
+                        const [sortBy, sortDir] = String(event.target.value).split(":");
+                        setMemberFilters((current) => ({ ...current, sortBy: sortBy as MemberFilterState["sortBy"], sortDir: sortDir as MemberFilterState["sortDir"] }));
+                      }} sx={{ minWidth: 170 }}>
+                        <MenuItem value="last_seen_at:desc">Mới nhất</MenuItem>
+                        <MenuItem value="last_seen_at:asc">Cũ nhất</MenuItem>
+                        <MenuItem value="display_name:asc">Tên A-Z</MenuItem>
+                        <MenuItem value="display_name:desc">Tên Z-A</MenuItem>
+                        <MenuItem value="status:asc">Trạng thái A-Z</MenuItem>
+                      </TextField>
+                    <MuiButton variant="outlined" startIcon={<SlidersHorizontal size={16} />} onClick={resetMemberFilters}>
+                        Reset
+                      </MuiButton>
+                    </Stack>
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {memberActiveMeta} · {memberFilteredRows.length} kết quả · trang {memberPage}/{memberTotalPages}
+                    </Typography>
+                    {!systemBlacklistActive && !selectedMemberChatId ? <Alert severity="warning" sx={{ py: 0.5 }}>Chọn Scope để thao tác đúng group.</Alert> : null}
+                    {systemBlacklistActive ? <Alert severity="error" sx={{ py: 0.5 }}>Blacklist này áp dụng ở scope hệ thống bot_key=* và chat_id=*.</Alert> : null}
+                  </Stack>
+                </Stack>
+              </Paper>
 
               <Stack spacing={1.25}>
                 {memberOverviewLoading ? (
@@ -5761,11 +6048,13 @@ export default function HomePage() {
                   </Paper>
                 ) : null}
 
-                {!memberOverviewLoading && (systemBlacklistActive || memberTab !== "logs") ? (systemBlacklistActive ? systemBlacklistRows : memberRows).map((row) => {
+                {!memberOverviewLoading && memberTab !== "logs" ? memberPageRows.map((row) => {
                   const userId = memberUserId(row);
-                  const status = String(row.status || row.member_status || (memberTab === "active" ? "active" : memberTab)).toLowerCase();
+                  const status = memberStatusOf(row) || (memberTab === "active" ? "normal" : memberTab);
+                  const reason = memberReasonOf(row);
+                  const lastSeen = memberLastSeen(row);
                   return (
-                    <Paper key={`${memberTab}-${userId || row.id || row.username}`} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                    <Paper key={`${memberTab}-${userId || row.id || row.username}`} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", cursor: "pointer" }} onClick={() => openMemberDetail(row)}>
                       <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", md: "center" }, justifyContent: "space-between" }}>
                         <Stack direction="row" spacing={1.25} sx={{ minWidth: 0, alignItems: "center" }}>
                           <Box sx={{ width: 40, height: 40, borderRadius: "50%", bgcolor: "rgba(13, 148, 136, 0.12)", color: "primary.main", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
@@ -5774,31 +6063,31 @@ export default function HomePage() {
                           <Box sx={{ minWidth: 0 }}>
                             <Typography variant="subtitle1" noWrap>{memberDisplayName(row)}</Typography>
                             <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
-                              {memberUsername(row) ? <Typography variant="caption" color="text.secondary">{memberUsername(row)}</Typography> : null}
+                              {memberUsername(row) ? <Typography variant="caption" color="text.secondary">{memberUsername(row)}</Typography> : <Typography variant="caption" color="text.secondary">Không có username</Typography>}
                               <Typography variant="caption" color="text.secondary">ID {userId || "-"}</Typography>
                               {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
-                              {row.last_seen_at || row.updated_at ? <Chip size="small" variant="outlined" label={formatDateTime(row.last_seen_at || row.updated_at)} /> : null}
+                              {lastSeen ? <Chip size="small" variant="outlined" label={formatDateTime(lastSeen)} /> : <Chip size="small" variant="outlined" label="Chưa có mốc thời gian" />}
                               {String(row.bot_key || "") === "*" ? <Chip size="small" color="error" variant="filled" label="mọi bot" /> : null}
                               {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
                               {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="từ nhật ký" /> : null}
-                              {row.reason ? <Chip size="small" color="warning" variant="outlined" label={String(row.reason)} /> : null}
+                              {reason ? <Chip size="small" color="warning" variant="outlined" label={reason} /> : <Chip size="small" variant="outlined" label="Chưa có lý do" />}
                             </Stack>
                           </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
                           <Chip size="small" color={status === "banned" ? "error" : status === "muted" || status === "restricted" ? "warning" : status === "blacklisted" ? "info" : "success"} label={status === "restricted" ? "muted" : status} />
-                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(row, "mute")}>Mute</MuiButton> : null}
-                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(row, "ban")}>Ban</MuiButton> : null}
-                          {memberTab === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unmute")}>Mở chat</MuiButton> : null}
-                          {systemBlacklistActive ? <MuiButton size="small" variant="contained" color="error" onClick={() => openMemberAction(row, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
-                          {memberTab === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(row, "unban")}>Gỡ</MuiButton> : null}
+                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "mute"); }}>Mute</MuiButton> : null}
+                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "ban"); }}>Ban</MuiButton> : null}
+                          {memberTab === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unmute"); }}>Mở chat</MuiButton> : null}
+                          {systemBlacklistActive ? <MuiButton size="small" variant="contained" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unblacklist"); }}>Gỡ blacklist</MuiButton> : null}
+                          {memberTab === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unban"); }}>Gỡ</MuiButton> : null}
                         </Stack>
                       </Stack>
                     </Paper>
                   );
                 }) : null}
 
-                {!memberOverviewLoading && !systemBlacklistActive && memberTab === "logs" ? memberRows.map((row) => {
+                {!memberOverviewLoading && memberTab === "logs" ? memberPageRows.map((row) => {
                   const data = auditLogCardData(row, groupNameForId);
                   return (
                     <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
@@ -5817,33 +6106,31 @@ export default function HomePage() {
                   );
                 }) : null}
 
-                {!memberOverviewLoading && !(systemBlacklistActive ? systemBlacklistRows : memberRows).length ? (
+                {!memberOverviewLoading && !memberFilteredRows.length ? (
                   <Paper variant="outlined" sx={{ p: 4, textAlign: "center", bgcolor: "background.default" }}>
                     {systemBlacklistActive ? <ShieldCheck size={30} /> : <Users size={30} />}
-                    <Typography variant="subtitle1" sx={{ mt: 1 }}>Chưa có dữ liệu</Typography>
+                    <Typography variant="subtitle1" sx={{ mt: 1 }}>Không có dữ liệu phù hợp</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {systemBlacklistActive ? "Thêm Telegram user_id để kích hoạt blacklist toàn hệ thống." : "Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt."}
+                      {memberFilters.search || memberFilters.status !== "all" || memberFilters.source !== "all" || memberFilters.reason !== "all"
+                        ? "Thử xóa bớt filter hoặc reset để xem dữ liệu đầy đủ."
+                        : systemBlacklistActive
+                          ? "Thêm Telegram user_id để kích hoạt blacklist toàn hệ thống."
+                          : "Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt."}
                     </Typography>
                   </Paper>
                 ) : null}
-                {!memberOverviewLoading && systemBlacklistActive && systemBlacklistLogs.length ? (
-                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-                    <Stack spacing={1.25}>
-                      <Box>
-                        <Typography variant="overline" color="text.secondary">Nhật ký blacklist</Typography>
-                        <Typography variant="subtitle1">Hoạt động gần nhất</Typography>
-                      </Box>
-                      {systemBlacklistLogs.slice(0, 8).map((row) => {
-                        const data = auditLogCardData(row, groupNameForId);
-                        return (
-                          <Stack key={String(row.id || `${row.created_at}-${row.action}`)} direction={{ xs: "column", md: "row" }} spacing={1} sx={{ justifyContent: "space-between", borderTop: "1px solid", borderColor: "divider", pt: 1 }}>
-                            <Typography variant="body2">{data.action}</Typography>
-                            <Typography variant="caption" color="text.secondary">{data.time} · {data.targetId || data.targetLabel}</Typography>
-                          </Stack>
-                        );
-                      })}
+
+                {!memberOverviewLoading && memberTotalPages > 1 ? (
+                  <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Hiển thị {Math.min((memberPage - 1) * memberPageSize + 1, memberLoadedCount)}-{Math.min(memberPage * memberPageSize, memberLoadedCount)} / {memberLoadedCount}
+                    </Typography>
+                    <Stack direction="row" spacing={1}>
+                      <MuiButton variant="outlined" disabled={memberPage <= 1} onClick={() => setMemberPage((current) => Math.max(1, current - 1))}>Trang trước</MuiButton>
+                      <MuiButton variant="outlined" disabled={!memberOverview?.pagination?.hasNextPage} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Tải thêm</MuiButton>
+                      <MuiButton variant="outlined" disabled={memberPage >= memberTotalPages} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Trang sau</MuiButton>
                     </Stack>
-                  </Paper>
+                  </Stack>
                 ) : null}
               </Stack>
             </Stack>
@@ -7150,6 +7437,195 @@ export default function HomePage() {
         ) : null}
         </>
         ) : null}
+      <Drawer
+        anchor="right"
+        open={memberDetailOpen}
+        onClose={() => {
+          setMemberDetailOpen(false);
+          setMemberDetail(null);
+        }}
+        slotProps={{ paper: { sx: { width: { xs: "100%", md: 420 }, p: 2, bgcolor: "background.paper" } } }}
+      >
+        {memberSelectedRow ? (
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+              <Box>
+                <Typography variant="overline" color="text.secondary">Case file</Typography>
+                <Typography variant="h5">{memberDisplayName(memberSelectedRow)}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {memberUsername(memberSelectedRow) || "Không có username"} · ID {memberUserId(memberSelectedRow) || "-"}
+                </Typography>
+              </Box>
+              <MuiButton size="small" onClick={() => setMemberDetailOpen(false)}>Đóng</MuiButton>
+            </Stack>
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Grid container spacing={1}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Trạng thái</Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 0.5 }}>
+                      <Chip size="small" label={memberStatusOf(memberSelectedRow)} color={memberStatusOf(memberSelectedRow) === "banned" ? "error" : memberStatusOf(memberSelectedRow) === "muted" ? "warning" : memberStatusOf(memberSelectedRow) === "blacklisted" ? "info" : "success"} />
+                      <Chip size="small" variant="outlined" label={memberSourceOf(memberSelectedRow) || "source unknown"} />
+                    </Stack>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Mốc gần nhất</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {memberLastSeen(memberSelectedRow) ? formatDateTime(memberLastSeen(memberSelectedRow)) : "Chưa có mốc thời gian"}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Lý do / ghi chú</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {memberReasonOf(memberSelectedRow) || "Chưa có lý do"}
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Nguồn hiển thị</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      {memberDetail?.member?.source || memberOverview?.meta?.queryMode || "mixed"} · {memberOverview?.meta?.snapshotMode || "snapshot"}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Typography variant="subtitle2" gutterBottom>Hành động nhanh</Typography>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(memberSelectedRow, "mute")}>Mute</MuiButton>
+                <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(memberSelectedRow, "ban")}>Ban</MuiButton>
+                {memberStatusOf(memberSelectedRow) === "muted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unmute")}>Mở chat</MuiButton> : null}
+                {memberStatusOf(memberSelectedRow) === "banned" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unban")}>Gỡ ban</MuiButton> : null}
+                {memberStatusOf(memberSelectedRow) === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Typography variant="subtitle2" gutterBottom>Notes</Typography>
+              <Stack spacing={1}>
+                {(memberDetail?.notes || []).slice(0, 5).map((note, index) => (
+                  <Paper key={String(note.id || `${note.created_at}-${index}`)} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
+                    <Typography variant="body2">{note.text}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {note.created_at ? formatDateTime(note.created_at) : "-"}{note.created_by ? ` · ${note.created_by}` : ""}{note.source ? ` · ${note.source}` : ""}
+                    </Typography>
+                  </Paper>
+                ))}
+                {!memberDetail?.notes?.length ? (
+                  <Typography variant="body2" color="text.secondary">Chưa có notes từ audit metadata hoặc state payload.</Typography>
+                ) : null}
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Typography variant="subtitle2" gutterBottom>Ghi chú thủ công</Typography>
+              <Stack spacing={1.25}>
+                <TextField
+                  multiline
+                  minRows={3}
+                  placeholder="Ghi chú nội bộ cho case này..."
+                  value={memberNoteDraft}
+                  onChange={(event) => setMemberNoteDraft(event.target.value)}
+                />
+                <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Ghi chú sẽ được lưu vào state payload và audit log.
+                  </Typography>
+                  <MuiButton size="small" variant="contained" disabled={memberNoteSaving || !memberNoteDraft.trim()} onClick={() => void saveMemberNote()}>
+                    {memberNoteSaving ? "Đang lưu..." : "Lưu note"}
+                  </MuiButton>
+                </Stack>
+              </Stack>
+            </Paper>
+
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                <Typography variant="subtitle2">Timeline điều tra</Typography>
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <Chip size="small" variant="outlined" label={`${memberDetail?.stats?.actionCount || 0} sự kiện`} />
+                  <TextField
+                    select
+                    size="small"
+                    value={memberTimelineFilter}
+                    onChange={(event) => setMemberTimelineFilter(event.target.value as typeof memberTimelineFilter)}
+                    sx={{ minWidth: 130 }}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="moderation">Moderation</MenuItem>
+                    <MenuItem value="activity">Activity</MenuItem>
+                    <MenuItem value="audit">Audit</MenuItem>
+                  </TextField>
+                </Stack>
+              </Stack>
+              {memberDetailLoading ? (
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", textAlign: "center" }}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Đang tải timeline...</Typography>
+                </Paper>
+              ) : (
+                <Stack spacing={1}>
+                  {memberDetailTimeline.slice(0, 10).map((item, index) => (
+                    <Paper
+                      key={`${item.at}-${item.type}-${index}`}
+                      variant="outlined"
+                      sx={{
+                        p: 1.25,
+                        bgcolor: index === 0 ? "rgba(13, 148, 136, 0.04)" : "background.paper",
+                        borderLeft: "4px solid",
+                        borderColor: item.source === "activity" ? "success.main" : item.source === "audit" ? "info.main" : "warning.main",
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                            <Box
+                              sx={{
+                                width: 30,
+                                height: 30,
+                                borderRadius: "50%",
+                                display: "grid",
+                                placeItems: "center",
+                                bgcolor: item.source === "activity" ? "rgba(34, 197, 94, 0.14)" : timelineToneForType(item.type, item.source) === "error" ? "rgba(239, 68, 68, 0.14)" : timelineToneForType(item.type, item.source) === "info" ? "rgba(59, 130, 246, 0.14)" : timelineToneForType(item.type, item.source) === "success" ? "rgba(34, 197, 94, 0.14)" : timelineToneForType(item.type, item.source) === "secondary" ? "rgba(139, 92, 246, 0.14)" : "rgba(234, 179, 8, 0.14)",
+                                color: timelineToneForType(item.type, item.source) === "error" ? "error.main" : timelineToneForType(item.type, item.source) === "info" ? "info.main" : timelineToneForType(item.type, item.source) === "success" ? "success.main" : timelineToneForType(item.type, item.source) === "secondary" ? "secondary.main" : item.source === "activity" ? "success.main" : "warning.main",
+                              }}
+                            >
+                              {timelineIconForType(item.type, item.source)}
+                            </Box>
+                            <Chip size="small" color={timelineToneForType(item.type, item.source)} label={String(item.type || item.source || "unknown").toUpperCase()} />
+                            <Chip size="small" variant="outlined" color={timelineToneForSource(item.source)} label={String(item.source || "UNKNOWN").toUpperCase()} />
+                            <Typography variant="subtitle2">{item.reason || "Sự kiện"}</Typography>
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.at ? formatDateTime(item.at) : "-"} · {item.source || "source"}
+                          </Typography>
+                        </Box>
+                        {index === 0 ? <Chip size="small" variant="outlined" label="latest" /> : <Typography variant="caption" color="text.secondary">#{index + 1}</Typography>}
+                      </Stack>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 1 }}>
+                        {item.actor ? <Chip size="small" variant="outlined" label={`actor: ${item.actor}`} /> : null}
+                      </Stack>
+                    </Paper>
+                  ))}
+                  {!memberDetailTimeline.length ? (
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+                      <Typography variant="body2" color="text.secondary">Chưa có sự kiện riêng cho user này.</Typography>
+                    </Paper>
+                  ) : null}
+                </Stack>
+              )}
+            </Paper>
+          </Stack>
+        ) : null}
+      </Drawer>
+
       <Dialog open={memberActionOpen} onClose={() => setMemberActionOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Thao tác thành viên</DialogTitle>
         <form onSubmit={submitMemberAction}>
