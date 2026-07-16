@@ -79,6 +79,49 @@ function mergeMemberRows(activityRows: Row[], stateRows: Row[]) {
   return Array.from(map.values());
 }
 
+function seedRowsFromAudit(auditRows: Row[]) {
+  const map = new Map<string, Row>();
+  for (const row of auditRows) {
+    const action = String(row.action || "").trim().toLowerCase();
+    const userId = String(row.target_user_id || "").trim();
+    const details = parseDetails(row.details);
+    if (!userId) continue;
+    if (!["member_joined", "member_join_request", "warn", "member_ban", "member_mute", "member_blacklist", "member_kick", "restrict", "ban", "kick"].includes(action)) {
+      continue;
+    }
+    const key = `${row.chat_id || ""}:${userId}`;
+    const current = map.get(key);
+    const next = {
+      bot_key: row.bot_key || "main",
+      chat_id: row.chat_id || "",
+      user_id: userId,
+      username: details.username || details.from_username || "",
+      display_name: details.display_name || details.from_name || details.target_display_name || userId,
+      status: action === "member_ban" || action === "ban"
+        ? "banned"
+        : action === "member_mute" || action === "restrict"
+          ? "muted"
+        : action === "member_blacklist"
+          ? "blacklisted"
+            : "normal",
+      reason: details.reason || row.action || "",
+      updated_by: row.actor_user_id || "audit",
+      updated_at: row.created_at,
+      last_seen_at: row.created_at,
+      source: "audit",
+      payload: {
+        source: "audit_logs",
+        action,
+        seeded_from_audit: true,
+      },
+    };
+    if (!current || String(next.updated_at || "").localeCompare(String(current.updated_at || "")) > 0) {
+      map.set(key, next);
+    }
+  }
+  return Array.from(map.values());
+}
+
 function groupByStatus(rows: Row[]) {
   const statusOf = (row: Row) => String(row.status || "").trim().toLowerCase();
   return {
@@ -261,12 +304,15 @@ export async function GET(request: NextRequest) {
           .from("audit_logs")
           .select("*")
           .in("action", [
+            "member_joined",
+            "member_join_request",
             "member_blacklist",
             "member_unblacklist",
             "member_blacklist_fanout",
             "member_unblacklist_fanout",
             "member_blacklist_join_blocked",
             "member_blacklist_join_block_failed",
+            "warn",
           ])
           .order("created_at", { ascending: false })
           .limit(300),
@@ -341,6 +387,8 @@ export async function GET(request: NextRequest) {
       .from("audit_logs")
       .select("*")
       .in("action", [
+        "member_joined",
+        "member_join_request",
         "member_mute",
         "member_unmute",
         "member_ban",
@@ -352,6 +400,7 @@ export async function GET(request: NextRequest) {
         "member_unblacklist_fanout",
         "member_blacklist_join_blocked",
         "member_blacklist_join_block_failed",
+        "warn",
         "restrict",
         "ban",
         "kick",
@@ -373,8 +422,10 @@ export async function GET(request: NextRequest) {
     if (auditError) throw new Error(auditError.message);
 
     const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
+    const auditSeeds = seedRowsFromAudit(auditRows || []);
     const mergedMembers = mergeMemberRows(activityRows || [], moderationRows);
-    const filteredMembers = applyMemberFilters(mergedMembers, { search, status, source, reason, sortBy, sortDir });
+    const combinedMembers = mergeMemberRows(mergedMembers, auditSeeds);
+    const filteredMembers = applyMemberFilters(combinedMembers, { search, status, source, reason, sortBy, sortDir });
     const total = filteredMembers.length;
     const start = (page - 1) * pageSize;
     const members = filteredMembers.slice(start, start + pageSize);

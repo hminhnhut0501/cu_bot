@@ -197,7 +197,7 @@ type DeleteFailureAlert = {
 
 type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
-type MemberWorkspaceTab = "all" | "active" | "muted" | "banned" | "blacklisted" | "logs";
+type MemberWorkspaceTab = "observed" | "moderated" | "left";
 type MemberActionType = "mute" | "ban" | "unmute" | "unban" | "blacklist" | "unblacklist" | "kick";
 type MemberOverview = {
   date?: string;
@@ -2416,7 +2416,7 @@ export default function HomePage() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [memberOverview, setMemberOverview] = useState<MemberOverview | null>(null);
   const [memberOverviewLoading, setMemberOverviewLoading] = useState(false);
-  const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("all");
+  const [memberTab, setMemberTab] = useState<MemberWorkspaceTab>("observed");
   const [memberSearchInput, setMemberSearchInput] = useState("");
   const [memberFilters, setMemberFilters] = useState<MemberFilterState>({
     search: "",
@@ -2647,28 +2647,32 @@ export default function HomePage() {
   const memberSummary = memberOverview?.summary || {};
   const memberPagination = memberOverview?.pagination || {};
   const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
-    all: memberOverview?.members || [],
-    active: memberOverview?.active || [],
-    muted: memberOverview?.muted || [],
-    banned: memberOverview?.banned || [],
-    blacklisted: memberOverview?.blacklisted || [],
-    logs: memberOverview?.logs || [],
+    observed: memberOverview?.active || [],
+    moderated: [...(memberOverview?.muted || []), ...(memberOverview?.banned || []), ...(memberOverview?.blacklisted || [])],
+    left: memberOverview?.logs || [],
   };
-  const memberAllRows = memberRowsByTab.all || [];
-  const systemBlacklistRows = memberRowsByTab.blacklisted;
-  const systemBlacklistLogs = memberRowsByTab.logs.filter((row) => String(row.action || "").toLowerCase().includes("blacklist"));
-  const memberTabItems = [
-    { key: "all", label: `Tất cả (${memberSummary.visibleMembers || memberAllRows.length || 0})` },
-    { key: "active", label: `Đang hoạt động (${memberSummary.activeToday || 0})` },
-    { key: "muted", label: `Bị cấm chat (${memberSummary.muted || 0})` },
-    { key: "banned", label: `Bị ban (${memberSummary.banned || 0})` },
-    { key: "blacklisted", label: `Blacklist (${memberSummary.blacklisted || 0})` },
-    { key: "logs", label: `Nhật ký (${memberRowsByTab.logs.length})` },
+  const memberLaneCount = {
+    observed: memberRowsByTab.observed.length,
+    moderated: memberRowsByTab.moderated.length,
+    left: memberRowsByTab.left.length,
+  };
+  const memberAllRows = [...memberRowsByTab.observed, ...memberRowsByTab.moderated, ...memberRowsByTab.left];
+  const systemBlacklistRows = memberOverview?.blacklisted || [];
+  const systemBlacklistLogs = memberRowsByTab.left.filter((row) => String(row.action || "").toLowerCase().includes("blacklist"));
+  const memberTabLabel = (key: MemberWorkspaceTab) => {
+    if (key === "observed") return `Member observed (${memberLaneCount.observed})`;
+    if (key === "moderated") return `Member moderated (${memberLaneCount.moderated})`;
+    return `Member left (${memberLaneCount.left})`;
+  };
+  const memberTabItems: Array<{ key: MemberWorkspaceTab; label: string }> = [
+    { key: "observed", label: memberTabLabel("observed") },
+    { key: "moderated", label: memberTabLabel("moderated") },
+    { key: "left", label: memberTabLabel("left") },
   ];
   const memberStatsCards: Array<{ label: string; value: number; Icon: typeof Activity; color: "success" | "warning" | "error" | "info" }> = [
-    { label: "Đang hoạt động", value: memberSummary.activeToday || 0, Icon: Activity, color: "success" },
-    { label: "Bị cấm chat", value: memberSummary.muted || 0, Icon: MessageSquare, color: "warning" },
-    { label: "Bị ban", value: memberSummary.banned || 0, Icon: ShieldCheck, color: "error" },
+    { label: "Member observed", value: memberLaneCount.observed, Icon: Activity, color: "success" },
+    { label: "Member moderated", value: memberLaneCount.moderated, Icon: MessageSquare, color: "warning" },
+    { label: "Member left", value: memberLaneCount.left, Icon: LogOut, color: "info" },
   ];
   const systemBlacklistStats: Array<{ label: string; value: string | number; Icon: typeof Activity; color: "error" | "warning" | "info" }> = [
     { label: "User bị chặn", value: memberSummary.blacklisted || 0, Icon: ShieldCheck, color: "error" },
@@ -2683,6 +2687,29 @@ export default function HomePage() {
   const memberUserId = (row: Row) => String(row.user_id || row.target_user_id || row.actor_user_id || "").trim();
   const memberLastSeen = (row: Row) => String(row.last_seen_at || row.updated_at || row.created_at || "").trim();
   const memberStatusOf = (row: Row) => String(row.status || row.member_status || "").trim().toLowerCase() || "normal";
+  const memberStatusLabel = (status: string) => {
+    const value = String(status || "").trim().toLowerCase();
+    if (value === "muted" || value === "restricted") return "Member moderated";
+    if (value === "banned" || value === "blacklisted") return "Member moderated";
+    if (value === "normal") return "Member observed";
+    return "Member left";
+  };
+  const memberLaneOfRow = (row: Row) => {
+    const status = memberStatusOf(row);
+    if (status === "muted" || status === "restricted" || status === "banned" || status === "blacklisted") return "moderated" as const;
+    if (String(row.action || "").toLowerCase().includes("left") || String(row.action || "").toLowerCase().includes("kick")) return "left" as const;
+    return "observed" as const;
+  };
+  const memberLaneTone = (lane: MemberWorkspaceTab) => {
+    if (lane === "observed") return "success" as const;
+    if (lane === "moderated") return "warning" as const;
+    return "info" as const;
+  };
+  const memberLaneDescription = (lane: MemberWorkspaceTab) => {
+    if (lane === "observed") return "Đã thấy trong group hoặc có dấu vết hoạt động.";
+    if (lane === "moderated") return "Đã bị warn, restrict, mute, ban hoặc blacklist.";
+    return "Đã rời group hoặc bị kick, chỉ còn dấu vết sự kiện.";
+  };
   const memberSourceOf = (row: Row) => String(row.source || "").trim().toLowerCase();
   const memberReasonOf = (row: Row) => String(row.reason || row.payload?.reason || "").trim();
   const memberMatchesSearch = (row: Row, query: string) => {
@@ -2718,13 +2745,13 @@ export default function HomePage() {
     kick: "Kick",
   };
   const memberTabForAction: Partial<Record<MemberActionType, MemberWorkspaceTab>> = {
-    mute: "muted",
-    ban: "banned",
-    blacklist: "blacklisted",
-    unmute: "active",
-    unban: "active",
-    unblacklist: "active",
-    kick: "logs",
+    mute: "moderated",
+    ban: "moderated",
+    blacklist: "moderated",
+    unmute: "observed",
+    unban: "observed",
+    unblacklist: "observed",
+    kick: "left",
   };
   const openMemberDetail = async (row: Row) => {
     setMemberSelectedRow(row);
@@ -2770,6 +2797,11 @@ export default function HomePage() {
       return String(item.source || "").toLowerCase() === "state" || String(item.source || "").toLowerCase() === "moderation";
     });
   }, [memberDetail?.timeline, memberTimelineFilter]);
+  const memberLaneRowsFor = (lane: MemberWorkspaceTab) => {
+    if (lane === "observed") return memberRowsByTab.observed;
+    if (lane === "moderated") return memberRowsByTab.moderated;
+    return memberRowsByTab.left;
+  };
   const timelineToneForSource = (source?: string) => {
     const value = String(source || "").toLowerCase();
     if (value === "activity") return "success";
@@ -3658,7 +3690,7 @@ export default function HomePage() {
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
       const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
       setSearch("");
-      setMemberTab(memberTabForAction[memberActionDraft.action] || "logs");
+      setMemberTab(memberTabForAction[memberActionDraft.action] || "observed");
       applyMemberActionResult(appliedRow, memberActionDraft.action);
       setToast({
         type: telegramError ? "info" : "success",
@@ -3766,9 +3798,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (activeLayer === "blacklist") {
-      setMemberTab("blacklisted");
-    } else if (activeLayer === "members" && memberTab === "blacklisted") {
-      setMemberTab("all");
+      setMemberTab("moderated");
+    } else if (activeLayer === "members" && memberTab === "left") {
+      setMemberTab("observed");
     }
     if (meta && (!meta.passwordRequired || savedPassword) && (activeLayer === "members" || activeLayer === "blacklist")) {
       void loadMemberOverview();
@@ -5934,7 +5966,7 @@ export default function HomePage() {
                   <Typography variant="body2" color="text.secondary">
                     {systemBlacklistActive
                       ? "Áp dụng cho tất cả bot và mọi group/channel bot đang làm admin. User bị blacklist sẽ bị ban ngay khi join."
-                      : "Theo dõi member, mute, ban và nhật ký thao tác theo scope đang chọn. Search và filter áp dụng ngay trên danh sách hiện tại."}
+                      : "Theo dõi Member observed, Member moderated và Member left theo scope đang chọn. Search và filter áp dụng ngay trên danh sách hiện tại."}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
@@ -5962,17 +5994,6 @@ export default function HomePage() {
                   </Grid>
                 ))}
               </Grid>
-
-              {!systemBlacklistActive ? (
-                <TabsBar
-                  tone="filled"
-                  wrapped
-                  scrollable
-                  value={memberTab}
-                  onChange={(tab) => setMemberTab(tab as MemberWorkspaceTab)}
-                  items={memberTabItems}
-                />
-              ) : null}
 
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
                 <Stack spacing={1.5}>
@@ -6034,105 +6055,117 @@ export default function HomePage() {
                     <Typography variant="caption" color="text.secondary">
                       {memberActiveMeta} · {memberFilteredRows.length} kết quả · trang {memberPage}/{memberTotalPages}
                     </Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+                      {memberTabItems.map((item) => (
+                        <Chip
+                          key={item.key}
+                          clickable
+                          onClick={() => setMemberTab(item.key)}
+                          color={memberTab === item.key ? memberLaneTone(item.key) : "default"}
+                          variant={memberTab === item.key ? "filled" : "outlined"}
+                          label={item.label}
+                        />
+                      ))}
+                    </Stack>
                     {!systemBlacklistActive && !selectedMemberChatId ? <Alert severity="warning" sx={{ py: 0.5 }}>Chọn Scope để thao tác đúng group.</Alert> : null}
                     {systemBlacklistActive ? <Alert severity="error" sx={{ py: 0.5 }}>Blacklist này áp dụng ở scope hệ thống bot_key=* và chat_id=*.</Alert> : null}
                   </Stack>
                 </Stack>
               </Paper>
 
-              <Stack spacing={1.25}>
-                {memberOverviewLoading ? (
-                  <Paper variant="outlined" sx={{ p: 3, textAlign: "center", bgcolor: "background.default" }}>
-                    <CircularProgress size={22} />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Đang tải trạng thái thành viên...</Typography>
-                  </Paper>
-                ) : null}
-
-                {!memberOverviewLoading && memberTab !== "logs" ? memberPageRows.map((row) => {
-                  const userId = memberUserId(row);
-                  const status = memberStatusOf(row) || (memberTab === "active" ? "normal" : memberTab);
-                  const reason = memberReasonOf(row);
-                  const lastSeen = memberLastSeen(row);
+              <Grid container spacing={1.5}>
+                {memberTabItems.map((lane) => {
+                  const laneRows = memberLaneRowsFor(lane.key);
+                  const laneVisibleRows = laneRows.slice(0, 6);
                   return (
-                    <Paper key={`${memberTab}-${userId || row.id || row.username}`} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", cursor: "pointer" }} onClick={() => openMemberDetail(row)}>
-                      <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", md: "center" }, justifyContent: "space-between" }}>
-                        <Stack direction="row" spacing={1.25} sx={{ minWidth: 0, alignItems: "center" }}>
-                          <Box sx={{ width: 40, height: 40, borderRadius: "50%", bgcolor: "rgba(13, 148, 136, 0.12)", color: "primary.main", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
-                            <Users size={20} />
-                          </Box>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle1" noWrap>{memberDisplayName(row)}</Typography>
-                            <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
-                              {memberUsername(row) ? <Typography variant="caption" color="text.secondary">{memberUsername(row)}</Typography> : <Typography variant="caption" color="text.secondary">Không có username</Typography>}
-                              <Typography variant="caption" color="text.secondary">ID {userId || "-"}</Typography>
-                              {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
-                              {lastSeen ? <Chip size="small" variant="outlined" label={formatDateTime(lastSeen)} /> : <Chip size="small" variant="outlined" label="Chưa có mốc thời gian" />}
-                              {String(row.bot_key || "") === "*" ? <Chip size="small" color="error" variant="filled" label="mọi bot" /> : null}
-                              {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
-                              {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="từ nhật ký" /> : null}
-                              {reason ? <Chip size="small" color="warning" variant="outlined" label={reason} /> : <Chip size="small" variant="outlined" label="Chưa có lý do" />}
-                            </Stack>
-                          </Box>
+                    <Grid key={lane.key} size={{ xs: 12, lg: 4 }}>
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 1.5,
+                          bgcolor: "background.default",
+                          height: "100%",
+                          borderColor: memberTab === lane.key ? `${memberLaneTone(lane.key)}.main` : "divider",
+                        }}
+                      >
+                        <Stack spacing={1.25}>
+                          <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                            <Box>
+                              <Typography variant="overline" color={`${memberLaneTone(lane.key)}.main`} sx={{ letterSpacing: 1.1 }}>
+                                {lane.key === "observed" ? "Observed" : lane.key === "moderated" ? "Moderated" : "Left"}
+                              </Typography>
+                              <Typography variant="h6">{lane.label}</Typography>
+                              <Typography variant="body2" color="text.secondary">{memberLaneDescription(lane.key)}</Typography>
+                            </Box>
+                            <Chip size="small" color={memberLaneTone(lane.key)} label={`${laneRows.length}`} />
+                          </Stack>
+                          <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                            <Chip size="small" variant="outlined" color={memberLaneTone(lane.key)} label={lane.key === "observed" ? "seen" : lane.key === "moderated" ? "warn/restrict/ban/kick" : "left/kick"} />
+                            {lane.key === "observed" ? <Chip size="small" variant="outlined" label={`${memberSummary.activeToday || 0} active`} /> : null}
+                            {lane.key === "moderated" ? <Chip size="small" variant="outlined" label={`${memberSummary.muted || 0} muted`} /> : null}
+                            {lane.key === "moderated" ? <Chip size="small" variant="outlined" label={`${memberSummary.banned || 0} banned`} /> : null}
+                            {lane.key === "left" ? <Chip size="small" variant="outlined" label={`${memberLaneCount.left} events`} /> : null}
+                          </Stack>
+                          <Stack spacing={1}>
+                            {memberOverviewLoading ? (
+                              <Paper variant="outlined" sx={{ p: 2, textAlign: "center", bgcolor: "background.paper" }}>
+                                <CircularProgress size={18} />
+                              </Paper>
+                            ) : null}
+                            {!memberOverviewLoading && laneVisibleRows.map((row) => {
+                              const userId = memberUserId(row);
+                              const status = memberStatusOf(row);
+                              const reason = memberReasonOf(row);
+                              const lastSeen = memberLastSeen(row);
+                              const isLeft = lane.key === "left";
+                              return (
+                                <Paper key={`${lane.key}-${userId || row.id || row.username}`} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper", cursor: "pointer" }} onClick={() => openMemberDetail(row)}>
+                                  <Stack spacing={1}>
+                                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                                      <Stack direction="row" spacing={1} sx={{ minWidth: 0, alignItems: "center" }}>
+                                        <Box sx={{ width: 32, height: 32, borderRadius: "50%", bgcolor: lane.key === "observed" ? "rgba(34,197,94,0.14)" : lane.key === "moderated" ? "rgba(245,158,11,0.16)" : "rgba(59,130,246,0.14)", color: lane.key === "observed" ? "success.main" : lane.key === "moderated" ? "warning.main" : "info.main", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+                                          {lane.key === "observed" ? <Users size={18} /> : lane.key === "moderated" ? <Shield size={18} /> : <LogOut size={18} />}
+                                        </Box>
+                                        <Box sx={{ minWidth: 0 }}>
+                                          <Typography variant="subtitle2" noWrap>{memberDisplayName(row)}</Typography>
+                                          <Typography variant="caption" color="text.secondary" noWrap>
+                                            {memberUsername(row) || "Không có username"} · ID {userId || "-"}
+                                          </Typography>
+                                        </Box>
+                                      </Stack>
+                                      <Chip size="small" color={memberLaneTone(lane.key)} label={memberStatusLabel(isLeft ? "left" : status)} />
+                                    </Stack>
+                                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                                      {lastSeen ? <Chip size="small" variant="outlined" label={formatDateTime(lastSeen)} /> : null}
+                                      {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
+                                      {String(row.bot_key || "") === "*" ? <Chip size="small" color="error" variant="filled" label="mọi bot" /> : null}
+                                      {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
+                                      {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="audit seed" /> : null}
+                                      {reason ? <Chip size="small" color={lane.key === "observed" ? "success" : lane.key === "moderated" ? "warning" : "info"} variant="outlined" label={reason} /> : null}
+                                    </Stack>
+                                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+                                      {!systemBlacklistActive && lane.key !== "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "mute"); }}>Mute</MuiButton> : null}
+                                      {!systemBlacklistActive && lane.key !== "left" ? <MuiButton size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "ban"); }}>Ban</MuiButton> : null}
+                                      {lane.key === "moderated" && status === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unmute"); }}>Mở chat</MuiButton> : null}
+                                      {lane.key === "moderated" && status === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unban"); }}>Gỡ</MuiButton> : null}
+                                      {lane.key === "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberDetail(row); }}>Xem case</MuiButton> : null}
+                                    </Stack>
+                                  </Stack>
+                                </Paper>
+                              );
+                            })}
+                            {!memberOverviewLoading && !laneVisibleRows.length ? (
+                              <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", textAlign: "center" }}>
+                                <Typography variant="body2" color="text.secondary">Không có dữ liệu trong lane này.</Typography>
+                              </Paper>
+                            ) : null}
+                          </Stack>
                         </Stack>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" } }}>
-                          <Chip size="small" color={status === "banned" ? "error" : status === "muted" || status === "restricted" ? "warning" : status === "blacklisted" ? "info" : "success"} label={status === "restricted" ? "muted" : status} />
-                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "mute"); }}>Mute</MuiButton> : null}
-                          {!systemBlacklistActive ? <MuiButton size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "ban"); }}>Ban</MuiButton> : null}
-                          {memberTab === "muted" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unmute"); }}>Mở chat</MuiButton> : null}
-                          {systemBlacklistActive ? <MuiButton size="small" variant="contained" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unblacklist"); }}>Gỡ blacklist</MuiButton> : null}
-                          {memberTab === "banned" && !systemBlacklistActive ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unban"); }}>Gỡ</MuiButton> : null}
-                        </Stack>
-                      </Stack>
-                    </Paper>
+                      </Paper>
+                    </Grid>
                   );
-                }) : null}
-
-                {!memberOverviewLoading && memberTab === "logs" ? memberPageRows.map((row) => {
-                  const data = auditLogCardData(row, groupNameForId);
-                  return (
-                    <Paper key={String(row.id || `${row.created_at}-${row.action}`)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Stack direction={{ xs: "column", md: "row" }} spacing={1} sx={{ justifyContent: "space-between" }}>
-                        <Box>
-                          <Typography variant="subtitle2">{data.action}</Typography>
-                          <Typography variant="body2" color="text.secondary">{data.time} · {data.targetLabel} {data.targetId ? `(${data.targetId})` : ""}</Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                          <Chip size="small" color={auditActionTone(String(row.action || data.action))} label={String(row.action || "")} />
-                          <Chip size="small" variant="outlined" label={data.groupLabel} />
-                          <Chip size="small" variant="outlined" label={data.reason} />
-                        </Stack>
-                      </Stack>
-                    </Paper>
-                  );
-                }) : null}
-
-                {!memberOverviewLoading && !memberFilteredRows.length ? (
-                  <Paper variant="outlined" sx={{ p: 4, textAlign: "center", bgcolor: "background.default" }}>
-                    {systemBlacklistActive ? <ShieldCheck size={30} /> : <Users size={30} />}
-                    <Typography variant="subtitle1" sx={{ mt: 1 }}>Không có dữ liệu phù hợp</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {memberFilters.search || memberFilters.status !== "all" || memberFilters.source !== "all" || memberFilters.reason !== "all"
-                        ? "Thử xóa bớt filter hoặc reset để xem dữ liệu đầy đủ."
-                        : systemBlacklistActive
-                          ? "Thêm Telegram user_id để kích hoạt blacklist toàn hệ thống."
-                          : "Dữ liệu sẽ xuất hiện khi bot ghi nhận hoạt động hoặc trạng thái kiểm duyệt."}
-                    </Typography>
-                  </Paper>
-                ) : null}
-
-                {!memberOverviewLoading && memberTotalPages > 1 ? (
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Hiển thị {Math.min((memberPage - 1) * memberPageSize + 1, memberLoadedCount)}-{Math.min(memberPage * memberPageSize, memberLoadedCount)} / {memberLoadedCount}
-                    </Typography>
-                    <Stack direction="row" spacing={1}>
-                      <MuiButton variant="outlined" disabled={memberPage <= 1} onClick={() => setMemberPage((current) => Math.max(1, current - 1))}>Trang trước</MuiButton>
-                      <MuiButton variant="outlined" disabled={!memberOverview?.pagination?.hasNextPage} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Tải thêm</MuiButton>
-                      <MuiButton variant="outlined" disabled={memberPage >= memberTotalPages} onClick={() => setMemberPage((current) => Math.min(memberTotalPages, current + 1))}>Trang sau</MuiButton>
-                    </Stack>
-                  </Stack>
-                ) : null}
-              </Stack>
+                })}
+              </Grid>
             </Stack>
           </Paper>
         ) : null}
@@ -7463,9 +7496,10 @@ export default function HomePage() {
               <Grid container spacing={1}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Trạng thái</Typography>
+                    <Typography variant="caption" color="text.secondary">Lane</Typography>
                     <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 0.5 }}>
-                      <Chip size="small" label={memberStatusOf(memberSelectedRow)} color={memberStatusOf(memberSelectedRow) === "banned" ? "error" : memberStatusOf(memberSelectedRow) === "muted" ? "warning" : memberStatusOf(memberSelectedRow) === "blacklisted" ? "info" : "success"} />
+                      <Chip size="small" label={memberStatusLabel(memberStatusOf(memberSelectedRow))} color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} />
+                      <Chip size="small" variant="outlined" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={memberLaneOfRow(memberSelectedRow as Row)} />
                       <Chip size="small" variant="outlined" label={memberSourceOf(memberSelectedRow) || "source unknown"} />
                     </Stack>
                   </Box>
@@ -7550,7 +7584,8 @@ export default function HomePage() {
               <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Typography variant="subtitle2">Timeline điều tra</Typography>
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <Chip size="small" variant="outlined" label={`${memberDetail?.stats?.actionCount || 0} sự kiện`} />
+                  <Chip size="small" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={`${memberDetail?.stats?.actionCount || 0} sự kiện`} />
+                  <Chip size="small" variant="outlined" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={memberLaneDescription(memberLaneOfRow(memberSelectedRow as Row))} />
                   <TextField
                     select
                     size="small"
@@ -7580,7 +7615,7 @@ export default function HomePage() {
                         p: 1.25,
                         bgcolor: index === 0 ? "rgba(13, 148, 136, 0.04)" : "background.paper",
                         borderLeft: "4px solid",
-                        borderColor: item.source === "activity" ? "success.main" : item.source === "audit" ? "info.main" : "warning.main",
+                        borderColor: item.source === "activity" ? "success.main" : item.source === "audit" ? "info.main" : timelineToneForType(item.type, item.source) === "error" ? "error.main" : "warning.main",
                       }}
                     >
                       <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -7599,8 +7634,9 @@ export default function HomePage() {
                             >
                               {timelineIconForType(item.type, item.source)}
                             </Box>
-                            <Chip size="small" color={timelineToneForType(item.type, item.source)} label={String(item.type || item.source || "unknown").toUpperCase()} />
+                            <Chip size="small" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={String(item.type || item.source || "unknown").toUpperCase()} />
                             <Chip size="small" variant="outlined" color={timelineToneForSource(item.source)} label={String(item.source || "UNKNOWN").toUpperCase()} />
+                            <Chip size="small" variant="outlined" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={memberLaneOfRow(memberSelectedRow as Row)} />
                             <Typography variant="subtitle2">{item.reason || "Sự kiện"}</Typography>
                           </Stack>
                           <Typography variant="caption" color="text.secondary">
