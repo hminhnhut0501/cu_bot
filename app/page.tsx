@@ -3640,6 +3640,48 @@ export default function HomePage() {
     setMemberActionOpen(true);
   }
 
+  async function runMemberAction(row: Row, action: MemberActionType) {
+    if (!effectiveMemberChatId) {
+      setToast({ type: "error", message: "Chọn group trước khi thao tác thành viên." });
+      return;
+    }
+    const userId = memberUserId(row).trim();
+    if (!userId) {
+      setToast({ type: "error", message: "Thiếu Telegram user_id." });
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        bot_key: effectiveMemberBotKey,
+        chat_id: effectiveMemberChatId,
+        user_id: userId,
+        username: memberUsername(row).replace(/^@/, "").trim(),
+        display_name: memberDisplayName(row).trim(),
+        action,
+        reason: memberReasonOf(row) || "Admin CP member action",
+        duration_seconds: action === "mute" ? 3600 : 0,
+      };
+      const result = await api("/api/members/action", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      const telegramError = String(result?.telegramError || "").trim();
+      const resultRows = Array.isArray(result?.rows) ? result.rows : [];
+      const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
+      const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
+      applyMemberActionResult(appliedRow, action);
+      setSearch("");
+      setMemberActionFeedback({ type: telegramError ? "error" : "success", message: telegramError || `${memberActionLabel[action]} đã ghi nhận.` });
+      await Promise.all([loadMemberOverview(""), loadLookups()]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Không thể thao tác thành viên.";
+      setToast({ type: "error", message });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function applyMemberActionResult(row: Row | null | undefined, action: MemberActionType) {
     if (!row) return;
     setMemberOverview((current) => {
@@ -6165,7 +6207,7 @@ export default function HomePage() {
                               {lane !== "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "mute"); }}>Mute</MuiButton> : null}
                               {lane !== "left" ? <MuiButton size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "ban"); }}>Ban</MuiButton> : null}
                               {lane === "moderated" && status === "muted" ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unmute"); }}>Mở chat</MuiButton> : null}
-                              {lane === "moderated" && memberReleaseActionFor(row) ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, memberReleaseActionFor(row)!.action); }}>{memberReleaseActionFor(row)!.label}</MuiButton> : null}
+                              {lane === "moderated" && memberReleaseActionFor(row) ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); void runMemberAction(row, memberReleaseActionFor(row)!.action); }}>{memberReleaseActionFor(row)!.label}</MuiButton> : null}
                               {lane === "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberDetail(row); }}>Xem case</MuiButton> : null}
                             </Stack>
                           </Stack>
@@ -7565,8 +7607,8 @@ export default function HomePage() {
                 <MuiButton size="small" variant="outlined" onClick={() => openMemberAction(memberSelectedRow, "mute")}>Mute</MuiButton>
                 <MuiButton size="small" variant="outlined" color="error" onClick={() => openMemberAction(memberSelectedRow, "ban")}>Ban</MuiButton>
                 {memberStatusOf(memberSelectedRow) === "muted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unmute")}>Mở chat</MuiButton> : null}
-                {memberStatusOf(memberSelectedRow) === "banned" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unban")}>Gỡ ban</MuiButton> : null}
-                {memberStatusOf(memberSelectedRow) === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => openMemberAction(memberSelectedRow, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
+                {memberStatusOf(memberSelectedRow) === "banned" ? <MuiButton size="small" variant="text" onClick={() => void runMemberAction(memberSelectedRow, "unban")}>Gỡ ban</MuiButton> : null}
+                {memberStatusOf(memberSelectedRow) === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => void runMemberAction(memberSelectedRow, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
               </Stack>
             </Paper>
 
