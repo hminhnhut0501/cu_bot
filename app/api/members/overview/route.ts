@@ -86,11 +86,12 @@ function seedRowsFromAudit(auditRows: Row[]) {
     const userId = String(row.target_user_id || "").trim();
     const details = parseDetails(row.details);
     if (!userId) continue;
-    if (!["member_joined", "member_join_request", "warn", "member_ban", "member_mute", "member_blacklist", "member_kick", "restrict", "ban", "kick"].includes(action)) {
+    if (!["member_joined", "member_join_request", "warn", "member_ban", "member_mute", "member_blacklist", "member_kick", "member_unban", "member_unmute", "member_unblacklist", "restrict", "ban", "kick", "unban"].includes(action)) {
       continue;
     }
     const key = `${row.chat_id || ""}:${userId}`;
     const current = map.get(key);
+    const isReleaseAction = ["member_unban", "member_unmute", "member_unblacklist", "unban"].includes(action);
     const next = {
       bot_key: row.bot_key || "main",
       chat_id: row.chat_id || "",
@@ -103,6 +104,8 @@ function seedRowsFromAudit(auditRows: Row[]) {
           ? "muted"
         : action === "member_blacklist"
           ? "blacklisted"
+          : isReleaseAction
+            ? "normal"
             : "normal",
       reason: details.reason || row.action || "",
       updated_by: row.actor_user_id || "audit",
