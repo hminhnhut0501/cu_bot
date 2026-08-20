@@ -2449,6 +2449,7 @@ export default function HomePage() {
     request: Record<string, unknown>;
     response: Record<string, unknown>;
     ok: boolean;
+    scopeSummary?: string;
   } | null>(null);
   const [memberActionDraft, setMemberActionDraft] = useState<MemberActionDraft>({
     user_id: "",
@@ -3689,6 +3690,7 @@ export default function HomePage() {
           debug: result?.debug || null,
         },
         ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
+        scopeSummary: buildMemberScopeSummary(result?.debug),
       });
       const telegramError = String(result?.telegramError || "").trim();
       const stateDeleted = Number(result?.stateDeleted || 0);
@@ -3763,6 +3765,28 @@ export default function HomePage() {
     });
   }
 
+  function buildMemberScopeSummary(debug: unknown) {
+    const state = (debug as {
+      state?: {
+        deleted?: number;
+        attempted_scopes?: Array<{ bot_key?: string; chat_id?: string; status?: string }>;
+        matched_scopes?: Array<{ bot_key?: string; chat_id?: string; status?: string }>;
+      };
+    } | null)?.state;
+    if (!state) return "";
+    const deleted = Number(state.deleted || 0);
+    const attempted = (state.attempted_scopes || [])
+      .map((scope) => `${scope.bot_key || "*"}:${scope.chat_id || "*"}`)
+      .join(", ");
+    const matched = (state.matched_scopes || [])
+      .map((scope) => `${scope.bot_key || "*"}:${scope.chat_id || "*"}`)
+      .join(", ");
+    if (deleted > 0) {
+      return matched ? `Matched scopes: ${matched}` : "";
+    }
+    return attempted ? `Checked scopes (no match): ${attempted}` : "";
+  }
+
   async function submitMemberAction(event?: FormEvent) {
     event?.preventDefault();
     if (!effectiveMemberChatId) {
@@ -3801,6 +3825,7 @@ export default function HomePage() {
           debug: result?.debug || null,
         },
         ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
+        scopeSummary: buildMemberScopeSummary(result?.debug),
       });
       const telegramError = String(result?.telegramError || "").trim();
       const stateDeleted = Number(result?.stateDeleted || 0);
@@ -7696,6 +7721,11 @@ export default function HomePage() {
                       {JSON.stringify(memberActionTrace.response, null, 2)}
                     </Typography>
                   </Paper>
+                  {memberActionTrace.scopeSummary ? (
+                    <Alert severity="info">
+                      {memberActionTrace.scopeSummary}
+                    </Alert>
+                  ) : null}
                 </Stack>
               </Paper>
             ) : null}

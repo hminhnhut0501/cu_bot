@@ -54,6 +54,8 @@ type ActionTrace = {
     deleted: number;
     row_count: number;
     scope: string;
+    attempted_scopes?: Array<{ bot_key: string; chat_id: string; status: string }> | null;
+    matched_scopes?: Array<{ bot_key: string; chat_id: string; status: string }> | null;
   };
   audit: {
     action: string;
@@ -197,6 +199,22 @@ async function fanoutSystemBlacklistAction(supabase: any, action: MemberAction, 
     failed: results.filter((row) => !row.ok).length,
     results,
   };
+}
+
+function unbanAttemptScopes(botKey: string, chatId: string) {
+  const scopes = [
+    { bot_key: botKey, chat_id: chatId, status: "banned" },
+  ];
+  if (botKey !== "*") {
+    scopes.push({ bot_key: "*", chat_id: chatId, status: "banned" });
+  }
+  if (chatId !== "*") {
+    scopes.push({ bot_key: botKey, chat_id: "*", status: "banned" });
+  }
+  if (botKey !== "*" && chatId !== "*") {
+    scopes.push({ bot_key: "*", chat_id: "*", status: "banned" });
+  }
+  return scopes;
 }
 
 function telegramPayload(action: MemberAction, chatId: string, userId: string, durationSeconds: number) {
@@ -392,6 +410,7 @@ export async function POST(request: NextRequest) {
     }
 
     let stateRows: Row[] = [];
+    let attemptedScopes: Array<{ bot_key: string; chat_id: string; status: string }> | null = null;
     if (action === "unblacklist" || action === "unban") {
       if (action === "unblacklist" && botKey === "*" && chatId === "*") {
         const { data, error } = await supabase
@@ -403,6 +422,7 @@ export async function POST(request: NextRequest) {
         if (error) throw new Error(error.message);
         stateRows = data || [];
       } else if (action === "unban") {
+        attemptedScopes = unbanAttemptScopes(botKey, chatId);
         const { data, error } = await supabase
           .from("member_moderation_state")
           .delete()
@@ -439,6 +459,11 @@ export async function POST(request: NextRequest) {
       stateRows.find((row: Row) => row.chat_id === "*") ||
       stateRows[0] ||
       { ...statePayload, status: "normal" };
+    const matchedScopes = stateRows.map((row: Row) => ({
+      bot_key: String(row.bot_key || ""),
+      chat_id: String(row.chat_id || ""),
+      status: String(row.status || ""),
+    }));
 
     const auditDetails = {
       reason,
@@ -543,6 +568,8 @@ export async function POST(request: NextRequest) {
           deleted: action === "unban" ? stateRows.length : 0,
           row_count: stateRows.length,
           scope: isPersistentListAction(action) ? (botKey === "*" ? "system_global" : "bot_global") : "chat",
+          attempted_scopes: action === "unban" ? attemptedScopes : null,
+          matched_scopes: action === "unban" ? matchedScopes : null,
         },
         audit: {
           action: auditActionFor(action),
