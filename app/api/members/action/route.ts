@@ -30,6 +30,42 @@ type ActionBody = {
   actor_user_id?: string;
 };
 
+type ActionTrace = {
+  request: {
+    bot_key: string;
+    chat_id: string;
+    user_id: string;
+    action: MemberAction | "";
+    reason: string;
+    duration_seconds: number;
+    dry_run: boolean;
+    actor_user_id: string;
+  };
+  telegram: {
+    method: string;
+    payload: Record<string, unknown>;
+    attempted: boolean;
+    ok: boolean;
+    error: string;
+    result: Record<string, unknown>;
+  };
+  state: {
+    status: string;
+    deleted: number;
+    row_count: number;
+    scope: string;
+  };
+  audit: {
+    action: string;
+    inserted: boolean;
+  };
+  fanout?: {
+    attempted: number;
+    ok: number;
+    failed: number;
+  } | null;
+};
+
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
@@ -242,6 +278,8 @@ export async function POST(request: NextRequest) {
     let telegramResult: Record<string, unknown> = dryRun ? { dry_run: true } : {};
     let telegramError = "";
     let fanoutResult: Row | null = null;
+    let telegramAttempted = Boolean(!dryRun && !isPersistentListAction(action));
+    let telegramOk = dryRun || isPersistentListAction(action);
 
     if (!dryRun && !isPersistentListAction(action)) {
       const token = await loadBotToken(supabase, botKey);
@@ -250,12 +288,44 @@ export async function POST(request: NextRequest) {
       }
       try {
         telegramResult = await callTelegram(token, method, tgPayload);
+        telegramOk = true;
         if (action === "kick") {
           await callTelegram(token, "unbanChatMember", { chat_id: chatId, user_id: userId, only_if_banned: true });
         }
       } catch (error) {
         telegramError = error instanceof Error ? error.message : "Telegram action failed.";
+        telegramOk = false;
         if (action === "unban") {
+          const trace: ActionTrace = {
+            request: {
+              bot_key: botKey,
+              chat_id: chatId,
+              user_id: userId,
+              action,
+              reason,
+              duration_seconds: durationSeconds,
+              dry_run: dryRun,
+              actor_user_id: actor,
+            },
+            telegram: {
+              method,
+              payload: tgPayload,
+              attempted: telegramAttempted,
+              ok: false,
+              error: telegramError,
+              result: telegramResult,
+            },
+            state: {
+              status: "banned",
+              deleted: 0,
+              row_count: 0,
+              scope: "chat",
+            },
+            audit: {
+              action: auditActionFor(action),
+              inserted: false,
+            },
+          };
           return NextResponse.json(
             {
               ok: false,
@@ -263,6 +333,7 @@ export async function POST(request: NextRequest) {
               telegram: telegramResult,
               telegramError,
               error: `Gỡ ban thất bại: ${telegramError}`,
+              debug: trace,
             },
             { status: 502 }
           );
@@ -382,7 +453,7 @@ export async function POST(request: NextRequest) {
       scoped_chat_id: chatId,
       scoped_bot_key: botKey,
     };
-    await supabase.from("audit_logs").insert({
+    const auditInsert = await supabase.from("audit_logs").insert({
       bot_key: isPersistentListAction(action) && botKey === "*" ? "*" : botKey,
       chat_id: isPersistentListAction(action) ? "*" : chatId,
       actor_user_id: actor,
@@ -390,6 +461,7 @@ export async function POST(request: NextRequest) {
       target_user_id: userId,
       details: JSON.stringify(auditDetails),
     });
+    const auditInserted = !auditInsert.error;
 
     if (!dryRun && isPersistentListAction(action)) {
       try {
@@ -447,6 +519,43 @@ export async function POST(request: NextRequest) {
       stateDeleted: action === "unban" ? stateRows.length : 0,
       row: stateRow,
       rows: stateRows || [],
+      debug: {
+        request: {
+          bot_key: botKey,
+          chat_id: chatId,
+          user_id: userId,
+          action,
+          reason,
+          duration_seconds: durationSeconds,
+          dry_run: dryRun,
+          actor_user_id: actor,
+        },
+        telegram: {
+          method,
+          payload: tgPayload,
+          attempted: telegramAttempted,
+          ok: telegramOk,
+          error: telegramError,
+          result: telegramResult,
+        },
+        state: {
+          status,
+          deleted: action === "unban" ? stateRows.length : 0,
+          row_count: stateRows.length,
+          scope: isPersistentListAction(action) ? (botKey === "*" ? "system_global" : "bot_global") : "chat",
+        },
+        audit: {
+          action: auditActionFor(action),
+          inserted: auditInserted,
+        },
+        fanout: fanoutResult
+          ? {
+              attempted: fanoutResult.attempted,
+              ok: fanoutResult.ok,
+              failed: fanoutResult.failed,
+            }
+          : null,
+      } satisfies ActionTrace,
     });
   } catch (error) {
     return serverError(error);

@@ -2443,6 +2443,13 @@ export default function HomePage() {
   const [memberNoteSaving, setMemberNoteSaving] = useState(false);
   const [memberActionOpen, setMemberActionOpen] = useState(false);
   const [memberActionFeedback, setMemberActionFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [memberActionTrace, setMemberActionTrace] = useState<{
+    at: string;
+    action: string;
+    request: Record<string, unknown>;
+    response: Record<string, unknown>;
+    ok: boolean;
+  } | null>(null);
   const [memberActionDraft, setMemberActionDraft] = useState<MemberActionDraft>({
     user_id: "",
     username: "",
@@ -3670,6 +3677,19 @@ export default function HomePage() {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      setMemberActionTrace({
+        at: new Date().toISOString(),
+        action,
+        request: payload,
+        response: {
+          ok: Boolean(result?.ok),
+          action: result?.action,
+          telegramError: result?.telegramError || "",
+          stateDeleted: result?.stateDeleted ?? 0,
+          debug: result?.debug || null,
+        },
+        ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
+      });
       const telegramError = String(result?.telegramError || "").trim();
       const resultRows = Array.isArray(result?.rows) ? result.rows : [];
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
@@ -3764,6 +3784,19 @@ export default function HomePage() {
       const result = await api("/api/members/action", {
         method: "POST",
         body: JSON.stringify(payload),
+      });
+      setMemberActionTrace({
+        at: new Date().toISOString(),
+        action: String(memberActionDraft.action || "mute"),
+        request: payload,
+        response: {
+          ok: Boolean(result?.ok),
+          action: result?.action,
+          telegramError: result?.telegramError || "",
+          stateDeleted: result?.stateDeleted ?? 0,
+          debug: result?.debug || null,
+        },
+        ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
       });
       const telegramError = String(result?.telegramError || "").trim();
       const feedbackMessage = memberActionDraft.action === "unban"
@@ -7630,6 +7663,32 @@ export default function HomePage() {
                 {memberStatusOf(memberSelectedRow) === "blacklisted" ? <MuiButton size="small" variant="text" onClick={() => void runMemberAction(memberSelectedRow, "unblacklist")}>Gỡ blacklist</MuiButton> : null}
               </Stack>
             </Paper>
+
+            {memberActionTrace ? (
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                  <Typography variant="subtitle2">Action trace</Typography>
+                  <Chip size="small" color={memberActionTrace.ok ? "success" : "error"} label={memberActionTrace.ok ? "ok" : "error"} />
+                </Stack>
+                <Stack spacing={1}>
+                  <Alert severity={memberActionTrace.ok ? "success" : "error"}>
+                    {memberActionTrace.action} · {memberActionTrace.at ? formatDateTime(memberActionTrace.at) : "-"}
+                  </Alert>
+                  <Paper variant="outlined" sx={{ p: 1, bgcolor: "background.paper" }}>
+                    <Typography variant="caption" color="text.secondary">Request</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "monospace" }}>
+                      {JSON.stringify(memberActionTrace.request, null, 2)}
+                    </Typography>
+                  </Paper>
+                  <Paper variant="outlined" sx={{ p: 1, bgcolor: "background.paper" }}>
+                    <Typography variant="caption" color="text.secondary">Response</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "monospace" }}>
+                      {JSON.stringify(memberActionTrace.response, null, 2)}
+                    </Typography>
+                  </Paper>
+                </Stack>
+              </Paper>
+            ) : null}
 
             <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
               <Typography variant="subtitle2" gutterBottom>Notes</Typography>
