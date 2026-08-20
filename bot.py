@@ -45,6 +45,30 @@ class _ExpectedRuntimeNoiseFilter(logging.Filter):
         return not any(pattern in message for pattern in self.SUPPRESSED_PATTERNS)
 
 
+class _WarningRateLimitFilter(logging.Filter):
+    def __init__(self, minutes=10):
+        super().__init__()
+        self.min_interval_seconds = max(60, int(minutes) * 60)
+        self._last_seen = {}
+        self._lock = threading.Lock()
+
+    def filter(self, record):
+        if record.levelno < logging.WARNING:
+            return True
+        if record.name.startswith("TeleBot") or record.name.startswith("telebot"):
+            return True
+
+        message = record.getMessage()
+        key = (record.name, record.levelno, message)
+        now = time.time()
+        with self._lock:
+            last_seen = self._last_seen.get(key, 0.0)
+            if now - last_seen < self.min_interval_seconds:
+                return False
+            self._last_seen[key] = now
+        return True
+
+
 def bool_env(name, default=False):
     raw_value = os.environ.get(name)
     if raw_value in (None, ""):
@@ -203,6 +227,7 @@ def main():
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     logging.getLogger().addFilter(_ExpectedRuntimeNoiseFilter())
+    logging.getLogger().addFilter(_WarningRateLimitFilter(minutes=int(os.environ.get("LOG_WARNING_RATE_LIMIT_MINUTES", "10") or 10)))
     for logger_name in ("TeleBot", "telebot"):
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.WARNING)
