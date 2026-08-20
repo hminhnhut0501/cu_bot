@@ -216,7 +216,7 @@ class ScheduledPostsModule(BotModule):
         ]
         selected = weighted_choice(candidates)
         if not selected:
-            LOGGER.warning("No message candidate for bot %s pool %s", self.settings.bot_key, pool)
+            LOGGER.info("No message candidate for bot %s pool %s", self.settings.bot_key, pool)
             self.record_audit(chat_id, "scheduled_message_skipped", {"reason": "empty_message_pool", "pool": pool})
             return
 
@@ -239,7 +239,7 @@ class ScheduledPostsModule(BotModule):
         ]
         selected = weighted_choice(candidates)
         if not selected:
-            LOGGER.warning("No video candidate for bot %s pool %s", self.settings.bot_key, pool)
+            LOGGER.info("No video candidate for bot %s pool %s", self.settings.bot_key, pool)
             self.record_audit(chat_id, "scheduled_video_skipped", {"reason": "empty_video_pool", "pool": pool})
             return
 

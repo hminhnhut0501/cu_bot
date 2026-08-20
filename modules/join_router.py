@@ -121,7 +121,7 @@ class JoinRouterModule(BotModule):
         user = getattr(new_member, "user", None)
         chat_id = getattr(chat, "id", None)
         if not chat or not old_member or not new_member or not user or chat_id is None:
-            LOGGER.warning("Join router received incomplete chat_member update for bot %s.", self.settings.bot_key)
+            LOGGER.debug("Join router received incomplete chat_member update for bot %s.", self.settings.bot_key)
             return self.continue_handling()
 
         old_status = str(getattr(old_member, "status", "") or "").lower()
@@ -277,11 +277,11 @@ class JoinRouterModule(BotModule):
                 limit="20",
             )
         except Exception as exc:
-            LOGGER.warning("Join router cannot query blacklist state for bot %s user %s: %s", self.settings.bot_key, user_id, exc)
+            LOGGER.debug("Join router cannot query blacklist state for bot %s user %s: %s", self.settings.bot_key, user_id, exc)
             try:
                 rows = self.store.fresh_rows("member_moderation_state")
             except Exception as fallback_exc:
-                LOGGER.warning("Join router cannot load blacklist fallback for bot %s: %s", self.settings.bot_key, fallback_exc)
+                LOGGER.debug("Join router cannot load blacklist fallback for bot %s: %s", self.settings.bot_key, fallback_exc)
                 rows = self.store.rows("member_moderation_state")
         for row in rows:
             row_bot_key = str(row.get("bot_key") or self.settings.bot_key).strip()

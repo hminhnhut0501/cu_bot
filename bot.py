@@ -56,7 +56,7 @@ def load_active_bot_rows(settings):
 def attach_raw_update_logger(bot, bot_key):
     original = getattr(bot, "process_new_updates", None)
     if not callable(original):
-        LOGGER.warning("Raw update logger unavailable for bot_key=%s: process_new_updates missing.", bot_key)
+        LOGGER.debug("Raw update logger unavailable for bot_key=%s: process_new_updates missing.", bot_key)
         return
 
     if getattr(bot, "_raw_update_logger_attached", False):
@@ -107,7 +107,7 @@ def attach_raw_update_logger(bot, bot_key):
                     summary["chat_join_request_bio"] = bool(getattr(chat_join_request, "bio", None))
                 LOGGER.debug("Raw update bot_key=%s: %s", bot_key, summary)
         except Exception as exc:
-            LOGGER.warning("Raw update logger failed for bot_key=%s: %s", bot_key, exc)
+            LOGGER.info("Raw update logger failed for bot_key=%s: %s", bot_key, exc)
         return original(updates)
 
     bot.process_new_updates = MethodType(wrapped, bot)

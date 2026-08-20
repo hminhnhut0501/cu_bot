@@ -53,7 +53,7 @@ class ChannelPublisherModule(BotModule):
             try:
                 self.process_posts()
             except Exception as exc:
-                LOGGER.warning("Channel publisher loop failed for bot %s: %s", self.settings.bot_key, exc)
+                LOGGER.error("Channel publisher loop failed for bot %s: %s", self.settings.bot_key, exc)
             time.sleep(self.POLL_INTERVAL_SECONDS)
 
     def process_posts(self):
@@ -188,7 +188,7 @@ class ChannelPublisherModule(BotModule):
                 },
             )
         except Exception as exc:
-            LOGGER.warning("Cannot write channel post event %s for post %s: %s", event_type, row_id, exc)
+            LOGGER.error("Cannot write channel post event %s for post %s: %s", event_type, row_id, exc)
 
     def is_due(self, value):
         parsed = self.parse_datetime(value)
@@ -244,7 +244,7 @@ class ChannelPublisherModule(BotModule):
                     if isinstance(row, list)
                 ]
             except Exception:
-                LOGGER.warning("Invalid channel button JSON for bot %s.", self.settings.bot_key)
+                LOGGER.info("Invalid channel button JSON for bot %s.", self.settings.bot_key)
                 return []
         rows = []
         for line in text.splitlines():

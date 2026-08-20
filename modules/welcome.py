@@ -68,7 +68,7 @@ class WelcomeModule(BotModule):
         try:
             self.store.update("module_settings", row["id"], {"settings": settings})
         except Exception as exc:
-            LOGGER.warning("Cannot update welcome runtime status for bot %s: %s", self.settings.bot_key, exc)
+            LOGGER.debug("Cannot update welcome runtime status for bot %s: %s", self.settings.bot_key, exc)
 
     @staticmethod
     def now_iso():
@@ -127,7 +127,7 @@ class WelcomeModule(BotModule):
             LOGGER.info("Welcome module disabled for bot %s. Skip chat %s.", self.settings.bot_key, chat_id)
             return
         if not self.can_send_messages(message.chat.id):
-            LOGGER.warning("Welcome cannot send messages for bot %s in chat %s.", self.settings.bot_key, chat_id)
+            LOGGER.info("Welcome cannot send messages for bot %s in chat %s.", self.settings.bot_key, chat_id)
             self.update_runtime_status(
                 welcome_runtime_last_error_at=self.now_iso(),
                 welcome_runtime_last_error_message=f"Bot không có quyền gửi tin ở chat {chat_id}.",
@@ -188,7 +188,7 @@ class WelcomeModule(BotModule):
             )
             return
         if not self.can_send_messages(chat_id):
-            LOGGER.warning(
+            LOGGER.info(
                 "Welcome cannot send messages for bot %s in chat %s after member-state event.",
                 self.settings.bot_key,
                 chat_id,
@@ -227,7 +227,7 @@ class WelcomeModule(BotModule):
             permissions = getattr(member, "permissions", None)
             return bool(getattr(permissions, "can_send_messages", False))
         except Exception as exc:
-            LOGGER.warning("Cannot inspect bot permissions in %s: %s", chat_id, exc)
+            LOGGER.debug("Cannot inspect bot permissions in %s: %s", chat_id, exc)
             return False
 
     def admin_exempt(self, chat_id, user_id):
@@ -272,7 +272,7 @@ class WelcomeModule(BotModule):
                 "details": details,
             })
         except Exception as exc:
-            LOGGER.warning("Cannot write welcome audit %s for bot %s: %s", action, self.settings.bot_key, exc)
+            LOGGER.debug("Cannot write welcome audit %s for bot %s: %s", action, self.settings.bot_key, exc)
 
     def send_welcome(self, chat_id, user, source="service_message"):
         group_row = self.group_row(chat_id, fresh=True)
@@ -355,7 +355,7 @@ class WelcomeModule(BotModule):
             )
             return True
         except Exception as exc:
-            LOGGER.warning(
+            LOGGER.info(
                 "Cannot send welcome message for bot %s in %s to user %s: %s",
                 self.settings.bot_key,
                 chat_id,

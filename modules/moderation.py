@@ -262,7 +262,7 @@ class ModerationModule(BotModule):
                 payload["enabled"] = True
                 self.store.insert("groups", payload)
         except Exception as exc:
-            LOGGER.warning("Cannot sync discovered group %s: %s", group_id, exc)
+            LOGGER.info("Cannot sync discovered group %s: %s", group_id, exc)
 
     def handle_new_members(self, message):
         for user in message.new_chat_members or []:
@@ -272,7 +272,7 @@ class ModerationModule(BotModule):
                         self.bot.ban_chat_member(message.chat.id, user.id)
                         LOGGER.info("Removed unknown bot %s from chat %s", user.id, message.chat.id)
                     except Exception as exc:
-                        LOGGER.warning("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
+                        LOGGER.info("Cannot remove bot %s from %s: %s", user.id, message.chat.id, exc)
                 continue
             if self.admin_exempt(message.chat.id, getattr(user, "id", None)):
                 continue
@@ -1012,7 +1012,7 @@ class ModerationModule(BotModule):
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "forward_warning")
         except Exception as exc:
-            LOGGER.warning("Cannot send forward warning in %s: %s", chat_id, exc)
+            LOGGER.info("Cannot send forward warning in %s: %s", chat_id, exc)
         self.audit(
             chat_id,
             "forward_warn",
@@ -1117,7 +1117,7 @@ class ModerationModule(BotModule):
                 use_independent_chat_permissions=True,
             )
         except Exception as exc:
-            LOGGER.warning("Cannot restrict user %s in %s for bio link: %s", user_id, chat_id, exc)
+            LOGGER.info("Cannot restrict user %s in %s for bio link: %s", user_id, chat_id, exc)
 
     def restore_chat_permissions(self, chat_id, user_id):
         permissions = telebot.types.ChatPermissions(
@@ -1141,7 +1141,7 @@ class ModerationModule(BotModule):
                 use_independent_chat_permissions=True,
             )
         except Exception as exc:
-            LOGGER.warning("Cannot restore permissions for user %s in %s: %s", user_id, chat_id, exc)
+            LOGGER.info("Cannot restore permissions for user %s in %s: %s", user_id, chat_id, exc)
 
     def notify_bio_link_violation(self, chat_id, user):
         mention = self.user_mention(user)
@@ -1156,7 +1156,7 @@ class ModerationModule(BotModule):
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "bio_link_notice")
         except Exception as exc:
-            LOGGER.warning("Cannot notify bio violation in %s: %s", chat_id, exc)
+            LOGGER.info("Cannot notify bio violation in %s: %s", chat_id, exc)
 
     def user_mention(self, user):
         first_name = getattr(user, "first_name", None) or ""
@@ -1214,7 +1214,7 @@ class ModerationModule(BotModule):
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "spam_notice")
         except Exception as exc:
-            LOGGER.warning("Cannot send spam restrict notice in %s: %s", chat_id, exc)
+            LOGGER.info("Cannot send spam restrict notice in %s: %s", chat_id, exc)
 
     def delete_later(self, chat_id, message_id, delay_seconds, reason):
         def worker():
