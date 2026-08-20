@@ -3691,17 +3691,21 @@ export default function HomePage() {
         ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
       });
       const telegramError = String(result?.telegramError || "").trim();
+      const stateDeleted = Number(result?.stateDeleted || 0);
       const resultRows = Array.isArray(result?.rows) ? result.rows : [];
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
       const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
       applyMemberActionResult(appliedRow, action);
       setSearch("");
       const successMessage = action === "unban"
-        ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+        ? (stateDeleted > 0
+          ? `Gỡ ban thành công trên Telegram và đã xóa ${stateDeleted} trạng thái ban.`
+          : "Telegram unban OK nhưng không tìm thấy state ban tương ứng trong database.")
         : `${memberActionLabel[action]} đã ghi nhận.`;
+      const hasSoftWarning = action === "unban" && !telegramError && stateDeleted === 0;
       const message = telegramError || successMessage;
       setMemberActionFeedback({ type: telegramError ? "error" : "success", message });
-      setToast({ type: telegramError ? "error" : "success", message });
+      setToast({ type: telegramError ? "error" : hasSoftWarning ? "info" : "success", message });
       await Promise.all([loadMemberOverview(""), loadLookups()]);
       return result;
     } catch (err) {
@@ -3799,9 +3803,13 @@ export default function HomePage() {
         ok: Boolean(result?.ok) && !String(result?.telegramError || "").trim(),
       });
       const telegramError = String(result?.telegramError || "").trim();
+      const stateDeleted = Number(result?.stateDeleted || 0);
       const feedbackMessage = memberActionDraft.action === "unban"
-        ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+        ? (stateDeleted > 0
+          ? `Gỡ ban thành công trên Telegram và đã xóa ${stateDeleted} trạng thái ban.`
+          : "Telegram unban OK nhưng không tìm thấy state ban tương ứng trong database.")
         : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`;
+      const hasSoftWarning = memberActionDraft.action === "unban" && !telegramError && stateDeleted === 0;
       setMemberActionFeedback({ type: telegramError ? "error" : "success", message: telegramError || feedbackMessage });
       const resultRows = Array.isArray(result?.rows) ? result.rows : [];
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
@@ -3810,11 +3818,13 @@ export default function HomePage() {
       setMemberTab(memberTabForAction[memberActionDraft.action] || "observed");
       applyMemberActionResult(appliedRow, memberActionDraft.action);
       setToast({
-        type: telegramError ? "info" : "success",
+        type: telegramError ? "info" : hasSoftWarning ? "info" : "success",
         message: telegramError
           ? `${memberActionLabel[memberActionDraft.action]} đã lưu. Telegram chưa xử lý ngay: ${telegramError}`
           : memberActionDraft.action === "unban"
-            ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+            ? (stateDeleted > 0
+              ? `Gỡ ban thành công trên Telegram và đã xóa ${stateDeleted} trạng thái ban.`
+              : "Telegram unban OK nhưng không tìm thấy state ban tương ứng trong database.")
             : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
       });
       await Promise.all([loadMemberOverview(""), loadLookups()]);
