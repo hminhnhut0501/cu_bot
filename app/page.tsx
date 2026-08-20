@@ -3642,12 +3642,16 @@ export default function HomePage() {
 
   async function runMemberAction(row: Row, action: MemberActionType) {
     if (!effectiveMemberChatId) {
-      setToast({ type: "error", message: "Chọn group trước khi thao tác thành viên." });
+      const message = "Chọn group trước khi thao tác thành viên.";
+      setMemberActionFeedback({ type: "error", message });
+      setToast({ type: "error", message });
       return;
     }
     const userId = memberUserId(row).trim();
     if (!userId) {
-      setToast({ type: "error", message: "Thiếu Telegram user_id." });
+      const message = "Thiếu Telegram user_id.";
+      setMemberActionFeedback({ type: "error", message });
+      setToast({ type: "error", message });
       return;
     }
     setSaving(true);
@@ -3672,11 +3676,20 @@ export default function HomePage() {
       const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
       applyMemberActionResult(appliedRow, action);
       setSearch("");
-      setMemberActionFeedback({ type: telegramError ? "error" : "success", message: telegramError || `${memberActionLabel[action]} đã ghi nhận.` });
+      const successMessage = action === "unban"
+        ? `Gỡ ban thành công trên Telegram và đã xóa ${Number(result?.stateDeleted || 0)} trạng thái ban.`
+        : `${memberActionLabel[action]} đã ghi nhận.`;
+      const message = telegramError || successMessage;
+      setMemberActionFeedback({ type: telegramError ? "error" : "success", message });
+      setToast({ type: telegramError ? "error" : "success", message });
       await Promise.all([loadMemberOverview(""), loadLookups()]);
+      return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Không thể thao tác thành viên.";
+      const rawMessage = err instanceof Error ? err.message : "Không thể thao tác thành viên.";
+      const message = rawMessage.includes("Gỡ ban thất bại") ? rawMessage : `Không thể thao tác thành viên. ${rawMessage}`;
+      setMemberActionFeedback({ type: "error", message });
       setToast({ type: "error", message });
+      throw err;
     } finally {
       setSaving(false);
     }
@@ -6065,6 +6078,12 @@ export default function HomePage() {
                   </Grid>
                 ))}
               </Grid>
+
+              {memberActionFeedback ? (
+                <Alert severity={memberActionFeedback.type}>
+                  {memberActionFeedback.message}
+                </Alert>
+              ) : null}
 
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
                 <Stack spacing={1.5}>
