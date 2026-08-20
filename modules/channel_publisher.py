@@ -69,14 +69,24 @@ class ChannelPublisherModule(BotModule):
                 self.delete_post(row, status)
 
     def load_actionable_posts(self):
-        return self.store.query_rows(
-            "channel_posts",
-            select=self.SELECT_COLUMNS,
-            status=f"in.({','.join(self.ACTIONABLE_STATUSES)})",
-            **{"or": f"(bot_key.is.null,bot_key.eq.{self.settings.bot_key})"},
-            order="scheduled_at.asc.nullslast,delete_at.asc.nullslast,id.asc",
-            limit="50",
-        )
+        rows = self.store.rows("channel_posts")
+        actionable = []
+        for row in rows:
+            bot_key = (row.get("bot_key") or "").strip()
+            status = (row.get("status") or "draft").strip().lower()
+            if bot_key not in {"", self.settings.bot_key}:
+                continue
+            if status not in self.ACTIONABLE_STATUSES:
+                continue
+            actionable.append(row)
+        return sorted(
+            actionable,
+            key=lambda row: (
+                str(row.get("scheduled_at") or ""),
+                str(row.get("delete_at") or ""),
+                str(row.get("id") or ""),
+            ),
+        )[:50]
 
     def publish_post(self, row, original_status):
         row_id = row.get("id")
