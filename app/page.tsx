@@ -2752,6 +2752,12 @@ export default function HomePage() {
     if (String(row.action || "").toLowerCase().includes("left") || String(row.action || "").toLowerCase().includes("kick")) return "left";
     return "normal";
   };
+  const memberReleaseActionFor = (row: Row) => {
+    const status = memberStatusOf(row);
+    if (status === "blacklisted") return { action: "unblacklist" as MemberActionType, label: "Gỡ blacklist" };
+    if (status === "banned") return { action: "unban" as MemberActionType, label: "Gỡ ban" };
+    return null;
+  };
   const memberTabForAction: Partial<Record<MemberActionType, MemberWorkspaceTab>> = {
     mute: "moderated",
     ban: "moderated",
@@ -3639,25 +3645,40 @@ export default function HomePage() {
     setMemberOverview((current) => {
       const base: MemberOverview = current || { summary: {}, members: [], active: [], muted: [], banned: [], blacklisted: [], logs: [] };
       const removeUser = (rows: Row[] = []) => rows.filter((item) => String(item.user_id || item.target_user_id || "") !== String(row.user_id || row.target_user_id || ""));
+      const upsertUser = (rows: Row[] = [], nextRow: Row) => {
+        const kept = removeUser(rows);
+        return [nextRow, ...kept];
+      };
+      const normalRow = { ...row, status: "normal", member_status: "normal" };
+      const bannedRow = { ...row, status: "banned", member_status: "banned" };
+      const mutedRow = { ...row, status: "muted", member_status: "muted" };
+      const blacklistedRow = { ...row, status: "blacklisted", member_status: "blacklisted" };
       const next: MemberOverview = {
         ...base,
         active: removeUser(base.active),
         muted: removeUser(base.muted),
         banned: removeUser(base.banned),
         blacklisted: removeUser(base.blacklisted),
+        members: removeUser(base.members),
       };
       if (action === "blacklist") {
-        next.blacklisted = [{ ...row, status: "blacklisted" }, ...(next.blacklisted || [])];
+        next.blacklisted = [blacklistedRow, ...(next.blacklisted || [])];
+        next.members = upsertUser(next.members, blacklistedRow);
       } else if (action === "ban") {
-        next.banned = [{ ...row, status: "banned" }, ...(next.banned || [])];
+        next.banned = [bannedRow, ...(next.banned || [])];
+        next.members = upsertUser(next.members, bannedRow);
       } else if (action === "mute") {
-        next.muted = [{ ...row, status: "muted" }, ...(next.muted || [])];
+        next.muted = [mutedRow, ...(next.muted || [])];
+        next.members = upsertUser(next.members, mutedRow);
+      } else if (action === "unban" || action === "unmute" || action === "unblacklist") {
+        next.members = upsertUser(next.members, normalRow);
       }
       next.summary = {
         ...(base.summary || {}),
         muted: next.muted?.length || 0,
         banned: next.banned?.length || 0,
         blacklisted: next.blacklisted?.length || 0,
+        visibleMembers: next.members?.length || 0,
       };
       return next;
     });
@@ -6144,7 +6165,7 @@ export default function HomePage() {
                               {lane !== "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "mute"); }}>Mute</MuiButton> : null}
                               {lane !== "left" ? <MuiButton size="small" variant="outlined" color="error" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "ban"); }}>Ban</MuiButton> : null}
                               {lane === "moderated" && status === "muted" ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unmute"); }}>Mở chat</MuiButton> : null}
-                              {lane === "moderated" && status === "banned" ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, "unban"); }}>Gỡ</MuiButton> : null}
+                              {lane === "moderated" && memberReleaseActionFor(row) ? <MuiButton size="small" variant="text" onClick={(event) => { event.stopPropagation(); openMemberAction(row, memberReleaseActionFor(row)!.action); }}>{memberReleaseActionFor(row)!.label}</MuiButton> : null}
                               {lane === "left" ? <MuiButton size="small" variant="outlined" onClick={(event) => { event.stopPropagation(); openMemberDetail(row); }}>Xem case</MuiButton> : null}
                             </Stack>
                           </Stack>
