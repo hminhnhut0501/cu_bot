@@ -6285,6 +6285,7 @@ export default function HomePage() {
                             <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
                               {lastSeen ? <Chip size="small" variant="outlined" label={formatDateTime(lastSeen)} /> : null}
                               {row.message_count !== undefined ? <Chip size="small" variant="outlined" label={`${row.message_count} tin`} /> : null}
+                              <Chip size="small" color={lane === "observed" ? "success" : lane === "moderated" ? "warning" : "info"} variant="outlined" label={`Nguồn ${lane}`} />
                               {String(row.bot_key || "") === "*" ? <Chip size="small" color="error" variant="filled" label="mọi bot" /> : null}
                               {String(row.chat_id || "") === "*" ? <Chip size="small" color="error" variant="outlined" label="toàn bot" /> : null}
                               {row.source === "audit" ? <Chip size="small" color="info" variant="outlined" label="audit seed" /> : null}
@@ -7656,7 +7657,7 @@ export default function HomePage() {
                     <Typography variant="caption" color="text.secondary">Lane</Typography>
                     <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 0.5 }}>
                       <Chip size="small" label={memberStatusLabel(memberStatusOf(memberSelectedRow))} color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} />
-                      <Chip size="small" variant="outlined" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={memberLaneOfRow(memberSelectedRow as Row)} />
+                      <Chip size="small" variant="outlined" color={memberLaneTone(memberLaneOfRow(memberSelectedRow as Row))} label={`Nguồn ${memberLaneOfRow(memberSelectedRow as Row)}`} />
                       <Chip size="small" variant="outlined" label={memberSourceOf(memberSelectedRow) || "source unknown"} />
                     </Stack>
                   </Box>

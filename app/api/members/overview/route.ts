@@ -79,7 +79,7 @@ function mergeMemberRows(activityRows: Row[], stateRows: Row[]) {
   return Array.from(map.values());
 }
 
-function seedRowsFromAudit(auditRows: Row[]) {
+function seedRowsFromAudit(auditRows: Row[], supportedUsers: Set<string>) {
   const map = new Map<string, Row>();
   for (const row of auditRows) {
     const action = String(row.action || "").trim().toLowerCase();
@@ -89,9 +89,12 @@ function seedRowsFromAudit(auditRows: Row[]) {
     if (!["member_joined", "member_join_request", "warn", "member_ban", "member_mute", "member_blacklist", "member_kick", "member_unban", "member_unmute", "member_unblacklist", "restrict", "ban", "kick", "unban"].includes(action)) {
       continue;
     }
+    const isReleaseAction = ["member_unban", "member_unmute", "member_unblacklist", "unban"].includes(action);
+    if (isReleaseAction && !supportedUsers.has(userId)) {
+      continue;
+    }
     const key = `${row.chat_id || ""}:${userId}`;
     const current = map.get(key);
-    const isReleaseAction = ["member_unban", "member_unmute", "member_unblacklist", "unban"].includes(action);
     const next = {
       bot_key: row.bot_key || "main",
       chat_id: row.chat_id || "",
@@ -425,7 +428,11 @@ export async function GET(request: NextRequest) {
     if (auditError) throw new Error(auditError.message);
 
     const moderationRows = stateRowsWithAuditFallback(stateRows || [], auditRows || []);
-    const auditSeeds = seedRowsFromAudit(auditRows || []);
+    const supportedUsers = new Set<string>([
+      ...(activityRows || []).map((row: Row) => String(row.user_id || "").trim()).filter(Boolean),
+      ...(stateRows || []).map((row: Row) => String(row.user_id || "").trim()).filter(Boolean),
+    ]);
+    const auditSeeds = seedRowsFromAudit(auditRows || [], supportedUsers);
     const mergedMembers = mergeMemberRows(activityRows || [], moderationRows);
     const combinedMembers = mergeMemberRows(mergedMembers, auditSeeds);
     const filteredMembers = applyMemberFilters(combinedMembers, { search, status, source, reason, sortBy, sortDir });
