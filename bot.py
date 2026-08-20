@@ -22,6 +22,29 @@ class _DeprecatedTeleBotWarningFilter(logging.Filter):
         return "can_send_media_messages" not in message
 
 
+class _ExpectedRuntimeNoiseFilter(logging.Filter):
+    SUPPRESSED_PATTERNS = (
+        "Join router received incomplete chat_member update",
+        "Join router cannot query blacklist state",
+        "Join router cannot load blacklist fallback",
+        "No message candidate for bot",
+        "No video candidate for bot",
+        "Welcome cannot send messages for bot",
+        "Cannot inspect bot permissions in",
+        "Cannot notify bio violation in",
+        "Cannot send spam restrict notice in",
+        "Invalid channel button JSON for bot",
+        "Raw update logger unavailable for bot_key=",
+        "Raw update logger failed for bot_key=",
+    )
+
+    def filter(self, record):
+        if record.levelno < logging.WARNING:
+            return True
+        message = record.getMessage()
+        return not any(pattern in message for pattern in self.SUPPRESSED_PATTERNS)
+
+
 def bool_env(name, default=False):
     raw_value = os.environ.get(name)
     if raw_value in (None, ""):
@@ -179,6 +202,7 @@ def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    logging.getLogger().addFilter(_ExpectedRuntimeNoiseFilter())
     for logger_name in ("TeleBot", "telebot"):
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.WARNING)
