@@ -145,6 +145,22 @@ h1,h2,h3,p { margin-top:0; }
   background:var(--accent);
   color:white;
 }
+.submenu-nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:12px;
+  margin-bottom:18px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:white;
+}
+.submenu-nav a {
+  padding:9px 12px;
+  border-radius:999px;
+  background:#edf5ef;
+  color:var(--ink);
+}
 .toolbar {
   padding:14px;
   background:rgba(255,255,255,.9);
