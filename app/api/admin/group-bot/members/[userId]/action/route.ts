@@ -7,7 +7,7 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   if (auth.response) return auth.response;
   const { userId } = await context.params;
   const body = await request.json();
-  const groupId = String(body.group_id ?? '');
+  const groupId = String(body.group_id ?? body.chat_id ?? body.telegram_chat_id ?? '');
   const action = String(body.action ?? '');
   if (!groupId || !action) return NextResponse.json({ error: 'group_id and action are required' }, { status: 422 });
   const status = action === 'ban' ? 'banned' : action === 'restrict' ? 'restricted' : action === 'unban' ? 'member' : null;

@@ -223,39 +223,18 @@ export default function GroupBotAdminPage() {
     const response = await fetch('/api/admin/group-bot/blacklist', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ group_id: selectedGroupId, item_type: itemType, item_value: itemValue, reason: 'manual' }),
+      body: JSON.stringify({
+        group_id: selectedGroupId,
+        telegram_chat_id: groupDetail?.group.telegram_chat_id ?? null,
+        item_type: itemType,
+        item_value: itemValue,
+        reason: 'manual',
+      }),
     });
     const result = await response.json();
     if (!response.ok) return notify('error', result.error ?? 'Không thêm được blacklist');
     notify('success', 'Đã thêm blacklist');
     setItemValue('');
-    await loadDetail(selectedGroupId);
-  }
-
-  useEffect(() => {
-    setBlacklistPreview(itemValue ? previewNormalizedBlacklistValue(itemValue) : '');
-  }, [itemValue]);
-
-  async function patchBlacklist(item: BlacklistItem, patch: Partial<BlacklistItem>) {
-    const response = await fetch('/api/admin/group-bot/blacklist', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ id: item.id, ...patch }),
-    });
-    const result = await response.json();
-    if (!response.ok) return notify('error', result.error ?? 'Không cập nhật blacklist');
-    notify('success', 'Đã cập nhật blacklist');
-    await loadDetail(selectedGroupId);
-  }
-
-  async function deleteBlacklist(id: string) {
-    const response = await fetch(`/api/admin/group-bot/blacklist?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: await authHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) return notify('error', result.error ?? 'Không xoá được blacklist');
-    notify('success', 'Đã xoá blacklist');
     await loadDetail(selectedGroupId);
   }
 
@@ -273,28 +252,9 @@ export default function GroupBotAdminPage() {
     await loadDetail(selectedGroupId);
   }
 
-  async function patchWelcome(item: Welcome, patch: Partial<Welcome>) {
-    const response = await fetch('/api/admin/group-bot/welcome', {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json', ...(await authHeaders()) },
-      body: JSON.stringify({ id: item.id, ...patch }),
-    });
-    const result = await response.json();
-    if (!response.ok) return notify('error', result.error ?? 'Không cập nhật welcome');
-    notify('success', 'Đã cập nhật welcome');
-    await loadDetail(selectedGroupId);
-  }
-
-  async function deleteWelcome(id: string) {
-    const response = await fetch(`/api/admin/group-bot/welcome?id=${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: await authHeaders(),
-    });
-    const result = await response.json();
-    if (!response.ok) return notify('error', result.error ?? 'Không xoá được welcome');
-    notify('success', 'Đã xoá welcome');
-    await loadDetail(selectedGroupId);
-  }
+  useEffect(() => {
+    setBlacklistPreview(itemValue ? previewNormalizedBlacklistValue(itemValue) : '');
+  }, [itemValue]);
 
   async function memberAction(userId: string, action: 'restrict' | 'ban' | 'unban') {
     if (!selectedGroupId) return;

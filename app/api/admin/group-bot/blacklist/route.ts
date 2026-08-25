@@ -28,8 +28,9 @@ export async function POST(request: Request) {
   const itemType = String(body.item_type ?? '').trim();
   const itemValue = String(body.item_value ?? '').trim();
   if (!itemType || !itemValue) return NextResponse.json({ error: 'item_type and item_value are required' }, { status: 422 });
+  const groupId = String(body.group_id ?? body.chat_id ?? body.telegram_chat_id ?? '').trim() || null;
   const { data, error } = await createBlacklistItem({
-    group_id: body.group_id ? String(body.group_id) : null,
+    group_id: groupId,
     item_type: itemType,
     item_value: itemValue,
     normalized_value: normalizeGroupBotValue(itemValue),
