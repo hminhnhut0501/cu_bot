@@ -1,20 +1,5 @@
-import Link from 'next/link';
 import { ReactNode } from 'react';
-
-const sections = [
-  { href: '/admin/group-bot', label: 'Tổng quan' },
-  { href: '/admin/group-bot/members', label: 'Thành viên' },
-  { href: '/admin/group-bot/members/blacklist', label: 'Blacklist' },
-  { href: '/admin/group-bot/members/settings', label: 'Cài đặt thành viên' },
-  { href: '/admin/group-bot/members/history', label: 'Lịch sử' },
-  { href: '/admin/group-bot/moderation/settings', label: 'Cài đặt kiểm duyệt' },
-  { href: '/admin/group-bot/moderation/welcome', label: 'Welcome' },
-  { href: '/admin/group-bot/moderation/spam', label: 'Chống spam' },
-  { href: '/admin/group-bot/moderation/keyword-blacklist', label: 'Từ khóa cấm' },
-  { href: '/admin/group-bot/moderation/link-rules', label: 'Chống bot/link' },
-  { href: '/admin/group-bot/audit', label: 'Nhật ký' },
-  { href: '/admin/group-bot/audit/events', label: 'Sự kiện' },
-];
+import { GroupBotSidebar } from './_components/sidebar';
 
 export default function GroupBotLayout({ children }: { children: ReactNode }) {
   return (
@@ -31,13 +16,7 @@ export default function GroupBotLayout({ children }: { children: ReactNode }) {
           <a className="secondary" href="/">Trang chủ</a>
         </div>
       </header>
-      <nav className="submenu-nav" aria-label="Group bot submenu">
-        {sections.map((item) => (
-          <Link key={item.href} href={item.href}>
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <GroupBotSidebar />
       {children}
     </main>
   );

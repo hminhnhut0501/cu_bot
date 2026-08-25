@@ -1,16 +1,25 @@
-import { SectionPage } from '../../_components/section-page';
+export const dynamic = 'force-dynamic';
 
-export default function AuditEventsPage() {
+import { SectionPage } from '../../_components/section-page';
+import { listGroups, fetchGroupAdminBundle } from '@/lib/group-bot/admin-service';
+
+export default async function AuditEventsPage() {
+  const { data: groups } = await listGroups();
+  const group = groups?.[0] ?? null;
+  const bundle = group ? await fetchGroupAdminBundle(group.id) : null;
+  const events = bundle?.memberEvents.data ?? [];
+
   return (
-    <SectionPage title="Sự kiện" description="Timeline sự kiện vận hành, tách riêng khỏi audit log.">
+    <SectionPage title="Sự kiện" description={group ? `Timeline live của ${group.title}` : 'Chưa có group nào.'}>
       <div className="section-stack">
         <article className="overview-card">
           <h3>Sự kiện mới nhất</h3>
-          <p className="muted">Sẽ hiển thị các lifecycle event như member join/leave, moderation hit, welcome send.</p>
-        </article>
-        <article className="overview-card">
-          <h3>Lọc nhanh</h3>
-          <p className="muted">Filter theo loại sự kiện, member, và khoảng thời gian.</p>
+          {events.length ? events.slice(0, 12).map((event) => (
+            <p className="history" key={event.id}>
+              <strong>{event.event_type}</strong>
+              <small>{event.telegram_user_id} · {new Date(event.created_at).toLocaleString('vi-VN')}</small>
+            </p>
+          )) : <p className="muted">Chưa có sự kiện.</p>}
         </article>
       </div>
     </SectionPage>
