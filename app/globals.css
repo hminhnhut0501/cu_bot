@@ -184,8 +184,10 @@ h1,h2,h3,p { margin-top:0; }
   justify-content:space-between;
   align-items:center;
 }
-.sidebar-group-title::after {
-  content:'';
+.sidebar-group-chevron {
+  color:var(--muted);
+  font-size:18px;
+  line-height:1;
 }
 .sidebar-group.open .sidebar-group-title {
   background:#f1f7f3;

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 const groups = [
@@ -38,16 +39,30 @@ const groups = [
 
 export function GroupBotSidebar() {
   const pathname = usePathname();
+  const [openGroup, setOpenGroup] = useState<string>('');
+
+  useEffect(() => {
+    const current = groups.find((group) => group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`)));
+    if (current) setOpenGroup(current.label);
+  }, [pathname]);
+
   return (
     <nav className="group-sidebar" aria-label="Group bot submenu">
       {groups.map((group) => {
-        const expanded = group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+        const isCurrent = group.items.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+        const expanded = openGroup === group.label || (isCurrent && !openGroup);
         return (
           <section key={group.label} className={`sidebar-group ${expanded ? 'open' : ''}`}>
-            <button type="button" className="sidebar-group-title" aria-expanded={expanded}>
+            <button
+              type="button"
+              className="sidebar-group-title"
+              aria-expanded={expanded}
+              onClick={() => setOpenGroup((current) => (current === group.label ? '' : group.label))}
+            >
               {group.label}
+              <span className="sidebar-group-chevron">{expanded ? '−' : '+'}</span>
             </button>
-            <div className="sidebar-group-items">
+            <div className="sidebar-group-items" hidden={!expanded}>
               {group.items.map((item) => (
                 <Link key={item.href} className={pathname === item.href ? 'active' : ''} href={item.href}>
                   {item.label}
