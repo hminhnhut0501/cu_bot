@@ -13,6 +13,7 @@ const sections = [
   { href: '/admin/group-bot/moderation/keyword-blacklist', label: 'Từ khóa cấm' },
   { href: '/admin/group-bot/moderation/link-rules', label: 'Chống bot/link' },
   { href: '/admin/group-bot/audit', label: 'Nhật ký' },
+  { href: '/admin/group-bot/audit/events', label: 'Sự kiện' },
 ];
 
 export default function GroupBotLayout({ children }: { children: ReactNode }) {
