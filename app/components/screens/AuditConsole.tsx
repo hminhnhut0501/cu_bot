@@ -29,10 +29,10 @@ export default function AuditConsole({ auditStats }: { auditStats: AuditStats })
           gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" },
         }}
       >
-        <StatCard label="Tổng log" value={auditStats.total} />
+        <StatCard label="Tổng log" value={auditStats.total} tone="neutral" />
         <StatCard label="Nghiêm trọng" value={auditStats.critical} tone="danger" />
         <StatCard label="Cần chú ý" value={auditStats.warning} tone="warning" />
-        <StatCard label="Mới nhất" value={auditStats.latestTime} compact />
+        <StatCard label="Mới nhất" value={auditStats.latestTime} compact tone="info" />
       </Box>
     </Section>
   );

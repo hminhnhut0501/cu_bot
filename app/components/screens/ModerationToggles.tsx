@@ -77,9 +77,9 @@ export default function ModerationToggles(props: ModerationTogglesProps) {
 
 function ToggleRow({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
   return (
-    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
+    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.8), transparent 100%)" }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between" }}>
-        <Typography variant="body2">{label}</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600, letterSpacing: "-0.01em" }}>{label}</Typography>
         <Switch checked={checked} onChange={onToggle} />
       </Stack>
     </Paper>

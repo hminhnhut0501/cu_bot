@@ -69,11 +69,11 @@ export default function Section({
         p: padding,
         bgcolor: subtle ? "background.default" : "background.paper",
         borderColor: "divider",
-        borderTop: `3px solid ${alpha(accent.color, theme.palette.mode === "dark" ? 0.72 : 0.64)}`,
+        borderTop: `2px solid ${alpha(accent.color, theme.palette.mode === "dark" ? 0.68 : 0.56)}`,
         borderRadius: `${tokens.radius.md}px`,
         backgroundImage: subtle
           ? "none"
-          : `linear-gradient(135deg, ${alpha(accent.color, theme.palette.mode === "dark" ? 0.12 : 0.05)}, transparent 48%)`,
+          : `linear-gradient(135deg, ${alpha(accent.color, theme.palette.mode === "dark" ? 0.08 : 0.035)}, transparent 52%)`,
         ...sx,
       }}
     >
@@ -109,13 +109,13 @@ export default function Section({
                 {eyebrow ? (
                   <Typography
                     variant="overline"
-                    sx={{ display: "block", mb: 0.25, color: accent.color }}
+                    sx={{ display: "block", mb: 0.25, color: accent.color, letterSpacing: 0.8 }}
                   >
                     {eyebrow}
                   </Typography>
                 ) : null}
                 {title ? (
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                     {title}
                   </Typography>
                 ) : null}

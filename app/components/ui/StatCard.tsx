@@ -86,8 +86,11 @@ export default function StatCard({
       tabIndex={onClick ? 0 : undefined}
       sx={{
         p: compact ? 1.5 : 2,
-        bgcolor: alpha(toneColor, theme.palette.mode === "dark" ? 0.12 : 0.05),
-        borderColor: alpha(toneColor, theme.palette.mode === "dark" ? 0.35 : 0.16),
+        bgcolor: theme.palette.mode === "dark" ? alpha(toneColor, 0.08) : alpha(toneColor, 0.03),
+        borderColor: alpha(toneColor, theme.palette.mode === "dark" ? 0.18 : 0.09),
+        borderTopWidth: 1,
+        borderTopStyle: "solid",
+        borderTopColor: alpha(toneColor, theme.palette.mode === "dark" ? 0.34 : 0.22),
         cursor: onClick ? "pointer" : "default",
         transition: "border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease",
         "&:hover": onClick ? { borderColor: toneColor, boxShadow: 1, transform: "translateY(-1px)" } : undefined,
@@ -98,7 +101,7 @@ export default function StatCard({
           <Typography
             variant="overline"
             color="text.secondary"
-            sx={{ lineHeight: 1.2 }}
+            sx={{ lineHeight: 1.2, letterSpacing: "0.09em" }}
           >
             {label}
           </Typography>
@@ -111,7 +114,7 @@ export default function StatCard({
                 display: "grid",
                 placeItems: "center",
                 color: toneColor,
-                backgroundColor: theme.palette.mode === "dark" ? alpha(toneColor, 0.22) : toneBg,
+                backgroundColor: theme.palette.mode === "dark" ? alpha(toneColor, 0.16) : alpha(toneColor, 0.08),
                 flexShrink: 0,
               }}
             >
@@ -121,7 +124,7 @@ export default function StatCard({
         </Box>
         <Typography
           variant={compact ? "h6" : "h5"}
-          sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.2 }}
+          sx={{ fontWeight: 800, color: "text.primary", lineHeight: 1.1, letterSpacing: "-0.03em" }}
         >
           {value}
         </Typography>

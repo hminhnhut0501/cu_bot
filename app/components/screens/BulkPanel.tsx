@@ -209,15 +209,15 @@ export default function BulkPanel(props: BulkPanelProps) {
       </Stack>
 
       {props.parsedBulkRows.length ? (
-        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.75), transparent 100%)" }}>
           <Stack spacing={0.5}>
             {props.parsedBulkRows.slice(0, 5).map((row, index) => (
-              <Typography key={`${index}-${JSON.stringify(row)}`} variant="body2">
+              <Typography key={`${index}-${JSON.stringify(row)}`} variant="body2" sx={{ fontWeight: 600, lineHeight: 1.65 }}>
                 {index + 1}. {props.titleFor(row, props.table)}
               </Typography>
             ))}
             {props.parsedBulkRows.length > 5 ? (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
                 ... và {props.parsedBulkRows.length - 5} mục khác
               </Typography>
             ) : null}

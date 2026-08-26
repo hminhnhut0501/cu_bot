@@ -128,41 +128,40 @@ export default function MetricsDashboard({
         icon={<BarChart3 size={20} />}
         actions={analyticsLoading ? <Chip size="small" label="Đang cập nhật" /> : <Chip size="small" label={`TZ: ${analyticsSummary?.timezone || "Asia/Ho_Chi_Minh"}`} />}
       >
-        <Box
-          sx={{
-            display: "grid",
-            gap: 1.5,
-            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" },
-          }}
-        >
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
           {primaryCards.map((item) => (
             <StatCard key={item.label} label={item.label} value={formatNumber(item.value)} hint={item.hint} icon={item.icon} tone={item.tone} />
           ))}
         </Box>
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: 1.25,
-            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, minmax(0, 1fr))" },
-          }}
-        >
+        <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
           {moderationCards.map((item) => (
             <StatCard key={item.label} compact label={item.label} value={formatNumber(item.value)} hint={item.hint} />
           ))}
         </Box>
 
         <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" } }}>
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-            <Stack spacing={1}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.75,
+              bgcolor: "background.default",
+              backgroundImage: "linear-gradient(135deg, rgba(14, 165, 233, 0.04), transparent 56%)",
+            }}
+          >
+            <Stack spacing={1.25}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <TrendingUp size={17} />
-                <Typography variant="subtitle2">Top hành động hôm nay</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                  Top hành động hôm nay
+                </Typography>
               </Stack>
               {analyticsSummary?.topActionsToday?.length ? analyticsSummary.topActionsToday.map((item) => (
-                <Stack key={item.action} direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">{actionLabel(item.action)}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>{formatNumber(item.count)}</Typography>
+                <Stack key={item.action} direction="row" sx={{ justifyContent: "space-between", gap: 1, py: 0.25 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                    {actionLabel(item.action)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>{formatNumber(item.count)}</Typography>
                 </Stack>
               )) : (
                 <Typography variant="body2" color="text.secondary">Hôm nay chưa có log vận hành trong scope này.</Typography>
@@ -170,16 +169,25 @@ export default function MetricsDashboard({
             </Stack>
           </Paper>
 
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-            <Stack spacing={1}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1.75,
+              bgcolor: "background.default",
+              backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)",
+            }}
+          >
+            <Stack spacing={1.25}>
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <TrendingDown size={17} />
-                <Typography variant="subtitle2">Group nổi bật hôm nay</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                  Group nổi bật hôm nay
+                </Typography>
               </Stack>
               {analyticsSummary?.topGroupsToday?.length ? analyticsSummary.topGroupsToday.map((item) => (
-                <Stack key={item.chatId} direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
-                  <Typography variant="body2" color="text.secondary">{groupNameForId?.(item.chatId) || item.chatId}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                <Stack key={item.chatId} direction="row" sx={{ justifyContent: "space-between", gap: 1, py: 0.25 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>{groupNameForId?.(item.chatId) || item.chatId}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
                     +{formatNumber(item.joins)} / -{formatNumber(item.leaves)} / lỗi {formatNumber(item.violations)}
                   </Typography>
                 </Stack>
@@ -235,7 +243,16 @@ export default function MetricsDashboard({
         <Stack spacing={1.5}>
           {metricGroups.map(([period, items]) => (
             <Box key={period}>
-              <Typography variant="subtitle2" sx={{ mb: 0.75, textTransform: "uppercase", letterSpacing: 0.6, color: "text.secondary" }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  mb: 0.75,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: "text.secondary",
+                  fontWeight: 800,
+                }}
+              >
                 {metricPeriod(period)}
               </Typography>
               <Box
@@ -246,12 +263,33 @@ export default function MetricsDashboard({
                 }}
               >
                 {items.map((row) => (
-                  <StatCard
+                  <Paper
                     key={String(row.id || row.metric_key)}
-                    compact
-                    label={metricLabel(String(row.metric_key || ""))}
-                    value={metricValue(row)}
-                  />
+                    variant="outlined"
+                    sx={{
+                      p: 1.5,
+                      bgcolor: "background.default",
+                      backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)",
+                      borderTop: "1px solid",
+                      borderTopColor: "divider",
+                      transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
+                      "&:hover": {
+                        transform: "translateY(-1px)",
+                        boxShadow: "0 12px 26px rgba(15, 23, 42, 0.05)",
+                        borderColor: "primary.main",
+                      },
+                    }}
+                  >
+                    <Stack spacing={0.75}>
+                      <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: "0.08em", fontWeight: 700, textTransform: "uppercase" }}>
+                        {metricLabel(String(row.metric_key || ""))}
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.03em" }}>{metricValue(row)}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {metricPeriod(String(row.period || ""))}
+                      </Typography>
+                    </Stack>
+                  </Paper>
                 ))}
               </Box>
             </Box>

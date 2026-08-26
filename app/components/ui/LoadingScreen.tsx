@@ -29,16 +29,17 @@ export default function LoadingScreen({
         display: "grid",
         placeItems: "center",
         backgroundColor: "background.default",
+        backgroundImage: "radial-gradient(circle at top, rgba(15, 118, 110, 0.08), transparent 38%), linear-gradient(180deg, rgba(255,255,255,0.9), transparent 100%)",
         color: "text.secondary",
       }}
     >
       <Stack spacing={1.5} sx={{ alignItems: "center" }} component="div">
-        <CircularProgress size={28} thickness={4} />
-        <Typography variant="body2" color="text.secondary">
+        <CircularProgress size={30} thickness={4} />
+        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
           {label}
         </Typography>
         {hint ? (
-          <Typography variant="caption" color="text.disabled">
+          <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 360, textAlign: "center", lineHeight: 1.65 }}>
             {hint}
           </Typography>
         ) : null}

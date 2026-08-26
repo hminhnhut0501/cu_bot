@@ -67,7 +67,15 @@ export default function ChannelComposer(props: ChannelComposerProps) {
         role="dialog"
         aria-label="Soạn bài đăng channel"
         onClick={(event) => event.stopPropagation()}
-        sx={{ width: "100%", maxWidth: 1100, maxHeight: "95vh", overflow: "auto", p: 0, bgcolor: "background.paper" }}
+        sx={{
+          width: "100%",
+          maxWidth: 1100,
+          maxHeight: "95vh",
+          overflow: "auto",
+          p: 0,
+          bgcolor: "background.paper",
+          backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.86), transparent 100%)",
+        }}
       >
         <Stack spacing={0}>
           <Stack
@@ -76,8 +84,12 @@ export default function ChannelComposer(props: ChannelComposerProps) {
             sx={{ p: 2, alignItems: "flex-start", justifyContent: "space-between", borderBottom: "1px solid", borderColor: "divider" }}
           >
             <Box>
-              <Typography variant="overline" color="primary">Đăng channel · Giờ Việt Nam GMT+7</Typography>
-              <Typography variant="h6">{props.composer.id ? "Sửa bài đăng" : "Soạn bài mới"}</Typography>
+              <Typography variant="overline" color="primary" sx={{ letterSpacing: "0.12em", fontWeight: 800 }}>
+                Đăng channel · Giờ Việt Nam GMT+7
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.03em" }}>
+                {props.composer.id ? "Sửa bài đăng" : "Soạn bài mới"}
+              </Typography>
             </Box>
             <IconButton size="small" onClick={props.onClose}>
               <X size={18} />
@@ -153,9 +165,9 @@ export default function ChannelComposer(props: ChannelComposerProps) {
                 placeholder="Soạn nội dung sẽ hiển thị trên Telegram..."
               />
 
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-                  <Typography variant="subtitle2">Nút inline</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Nút inline</Typography>
                   <MuiButton
                     size="small"
                     variant="outlined"
@@ -266,11 +278,11 @@ export default function ChannelComposer(props: ChannelComposerProps) {
               />
             </Stack>
 
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
               <Stack spacing={1.5}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                   <Eye size={17} />
-                  <Typography variant="subtitle1">Xem trước Telegram</Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Xem trước Telegram</Typography>
                 </Stack>
                 <Box
                   sx={{
@@ -279,10 +291,11 @@ export default function ChannelComposer(props: ChannelComposerProps) {
                     borderRadius: 1,
                     p: 1.5,
                     bgcolor: "background.paper",
+                    backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.88), transparent 100%)",
                   }}
                 >
-                  <Typography variant="subtitle2">{props.composer.title || "Bài đăng mới"}</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>{props.composer.title || "Bài đăng mới"}</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5, lineHeight: 1.7 }}>
                     {props.composer.content || "Nội dung bài đăng sẽ xuất hiện tại đây."}
                   </Typography>
                   <Stack spacing={0.5} sx={{ mt: 1 }}>

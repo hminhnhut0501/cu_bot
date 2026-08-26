@@ -169,6 +169,12 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                 cursor: "pointer",
                 borderColor: isSelected ? "primary.main" : "divider",
                 opacity: row.enabled === false ? 0.7 : 1,
+                transition: "transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease",
+                "&:hover": {
+                  transform: "translateY(-1px)",
+                  borderColor: "primary.main",
+                  boxShadow: "0 12px 26px rgba(15, 23, 42, 0.05)",
+                },
               }}
             >
               <Stack direction="row" spacing={1.25} sx={{ alignItems: "flex-start" }}>
@@ -185,7 +191,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                   {isAuditCard && auditData ? (
                     <Stack spacing={1}>
                       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
                           {titleFor(row, table)}
                         </Typography>
                         <Chip size="small" label={state.label} color={stateColor(state.className)} variant="outlined" />
@@ -270,9 +276,9 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                           {actionBadge(row, table)}
                         </Typography>
                       </Stack>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                        {readOnlyTable ? auditLogSummary(row) : previewText(row, table) || "Chưa có nội dung mô tả."}
-                      </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.7 }}>
+                          {readOnlyTable ? auditLogSummary(row) : previewText(row, table) || "Chưa có nội dung mô tả."}
+                        </Typography>
                       {table.key === "scam_reports" ? (
                         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 0.5 }}>
                           {scamReportFacts(row).map((item) => (
@@ -288,7 +294,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                         <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 0.5, flexWrap: "wrap" }}>
                           <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: auditMarkerColor(auditLogSeverity(row)) }} />
                           {auditLogEssentials(row).slice(0, 2).map((item) => (
-                            <Typography key={item.label} variant="caption" color="text.secondary">
+                            <Typography key={item.label} variant="caption" color="text.secondary" sx={{ display: "inline-flex", gap: 0.5 }}>
                               <strong>{item.label}</strong> {item.value}
                             </Typography>
                           ))}
@@ -305,7 +311,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                           {isAuditExpanded ? (
                             <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                               {auditLogDetails(row).map((item) => (
-                                <Typography key={`${item.label}-${item.value}`} variant="caption" color="text.secondary">
+                                <Typography key={`${item.label}-${item.value}`} variant="caption" color="text.secondary" sx={{ display: "inline-flex", gap: 0.5 }}>
                                   <strong>{item.label}</strong> {item.value}
                                 </Typography>
                               ))}
@@ -332,7 +338,7 @@ export default function WorkbenchList(props: WorkbenchListProps) {
                 </Box>
 
                 {!readOnlyTable ? (
-                  <Stack direction="row" spacing={0.5}>
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
                     {table.key === "channel_posts" && row.status !== "pending" && row.status !== "sending" ? (
                       <MuiButton
                         size="small"

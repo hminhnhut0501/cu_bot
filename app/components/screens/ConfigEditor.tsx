@@ -125,10 +125,10 @@ export default function ConfigEditor({
     <Box component="form" onSubmit={save}>
       <Stack spacing={1.5}>
         {editorKind === "boolean" ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", justifyContent: "space-between" }}>
               <Box>
-                <Typography variant="subtitle2">Bật / tắt giá trị</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Bật / tắt giá trị</Typography>
                 <Typography variant="body2" color="text.secondary">Đổi trực tiếp trạng thái của config này.</Typography>
               </Box>
               <Switch
@@ -143,9 +143,9 @@ export default function ConfigEditor({
             </Stack>
           </Paper>
         ) : editorKind === "multiselect" ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack spacing={1}>
-              <Typography variant="subtitle2">Chọn loại nội dung được phép</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Chọn loại nội dung được phép</Typography>
               <FormGroup row sx={{ gap: 1 }}>
                 {forwardContentOptions.map((option) => (
                   <FormControlLabel
@@ -166,9 +166,9 @@ export default function ConfigEditor({
             </Stack>
           </Paper>
         ) : editorKind === "multiselect_sources" ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack spacing={1}>
-              <Typography variant="subtitle2">Chọn nguồn forward được phép</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Chọn nguồn forward được phép</Typography>
               <FormGroup row sx={{ gap: 1 }}>
                 {forwardSourceOptions.map((option) => (
                   <FormControlLabel
@@ -189,9 +189,9 @@ export default function ConfigEditor({
             </Stack>
           </Paper>
         ) : editorKind === "select" ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack spacing={1}>
-              <Typography variant="subtitle2">Chọn giá trị cố định</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Chọn giá trị cố định</Typography>
               <TextField
                 select
                 size="small"
@@ -221,9 +221,9 @@ export default function ConfigEditor({
             </Stack>
           </Paper>
         ) : editorKind === "number" ? (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack spacing={1}>
-              <Typography variant="subtitle2">Nhập giá trị số</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Nhập giá trị số</Typography>
               <TextField
                 type="number"
                 size="small"
@@ -236,9 +236,9 @@ export default function ConfigEditor({
             </Stack>
           </Paper>
         ) : (
-          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
             <Stack spacing={0.75}>
-              <Typography variant="subtitle2">Nhập nội dung / giá trị</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Nhập nội dung / giá trị</Typography>
               <TextField
                 multiline
                 minRows={String(draft.value || "").length > 120 ? 6 : 3}
@@ -256,19 +256,14 @@ export default function ConfigEditor({
           </Paper>
         )}
 
-        <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
+        <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.85), transparent 100%)" }}>
           <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-          <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>
-            Hủy
-          </MuiButton>
-          <MuiButton
-            type="submit"
-            variant="contained"
-            disabled={saving}
-            startIcon={<Save size={17} />}
-          >
-            Lưu
-          </MuiButton>
+            <MuiButton type="button" variant="outlined" onClick={closeFocusedPanel}>
+              Hủy
+            </MuiButton>
+            <MuiButton type="submit" variant="contained" disabled={saving} startIcon={<Save size={17} />}>
+              Lưu
+            </MuiButton>
           </Stack>
         </Paper>
       </Stack>

@@ -51,9 +51,9 @@ export default function KeyValue({
         }}
       >
         <Typography
-          variant="body2"
+          variant="caption"
           color="text.secondary"
-          sx={{ fontWeight: 500, flexShrink: 0 }}
+          sx={{ fontWeight: 700, flexShrink: 0, letterSpacing: "0.08em", textTransform: "uppercase" }}
         >
           {label}:
         </Typography>
@@ -62,9 +62,10 @@ export default function KeyValue({
           sx={{
             color: emphasis ? "primary.main" : "text.primary",
             fontFamily: mono ? "ui-monospace, monospace" : undefined,
-            fontWeight: emphasis ? 600 : 400,
+            fontWeight: emphasis ? 700 : 500,
             wordBreak: "break-word",
             minWidth: 0,
+            letterSpacing: "-0.01em",
           }}
         >
           {value}
@@ -78,7 +79,7 @@ export default function KeyValue({
       <Typography
         variant="caption"
         color="text.secondary"
-        sx={{ display: "block", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}
+        sx={{ display: "block", textTransform: "uppercase", letterSpacing: "0.10em", fontWeight: 700 }}
       >
         {label}
       </Typography>
@@ -88,8 +89,9 @@ export default function KeyValue({
           mt: 0.25,
           color: emphasis ? "primary.main" : "text.primary",
           fontFamily: mono ? "ui-monospace, monospace" : undefined,
-          fontWeight: emphasis ? 600 : 500,
+          fontWeight: emphasis ? 700 : 500,
           wordBreak: "break-word",
+          letterSpacing: "-0.01em",
         }}
       >
         {value}

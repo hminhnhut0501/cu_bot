@@ -73,7 +73,7 @@ export default function NavSidebar({
     borderRight: "1px solid",
     borderColor: "divider",
     backgroundColor: "background.paper",
-    backgroundImage: "none",
+    backgroundImage: "linear-gradient(180deg, rgba(15, 118, 110, 0.03), transparent 18%)",
   };
 
   const content = (
@@ -85,19 +85,19 @@ export default function NavSidebar({
       <Box sx={{ flex: 1, overflowY: "auto", py: 1 }}>
         {groups && groups.length > 0
           ? groups.map((group, groupIdx) => (
-              <Box
-                key={group.key}
-                sx={{
-                  px: 1.5,
-                  py: 1,
-                  opacity: group.muted ? 0.6 : 1,
-                }}
-              >
+                <Box
+                  key={group.key}
+                  sx={{
+                    px: 1.5,
+                    py: 0.75,
+                    opacity: group.muted ? 0.6 : 1,
+                  }}
+                >
                 {group.title ? (
                   <Typography
                     variant="overline"
                     color={group.muted ? "text.disabled" : "text.secondary"}
-                    sx={{ display: "block", px: 1, mb: 0.5 }}
+                    sx={{ display: "block", px: 1, mb: 0.75, letterSpacing: "0.11em" }}
                   >
                     {group.title}
                   </Typography>
@@ -113,20 +113,28 @@ export default function NavSidebar({
                           onSelect(item.key);
                           if (variant === "temporary") onClose();
                         }}
-                        sx={{ borderRadius: 1, px: 1 }}
+                        sx={{
+                          borderRadius: 1.5,
+                          px: 1.25,
+                          py: 1,
+                          "&.Mui-selected": {
+                            boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
+                          },
+                        }}
                       >
                         {item.icon ? (
                           <ListItemIcon sx={{ minWidth: 28, color: "inherit" }}>
                             {item.icon}
                           </ListItemIcon>
                         ) : null}
-                        <ListItemText
+                          <ListItemText
                           primary={item.label}
                           slotProps={{
                             primary: {
                               sx: {
                                 fontSize: "0.8125rem",
-                                fontWeight: activeKey === item.key ? 600 : 500,
+                                fontWeight: activeKey === item.key ? 700 : 600,
+                                letterSpacing: "-0.01em",
                               },
                             },
                           }}
@@ -156,7 +164,14 @@ export default function NavSidebar({
                       onSelect(item.key);
                       if (variant === "temporary") onClose();
                     }}
-                    sx={{ borderRadius: 1, px: 1 }}
+                    sx={{
+                      borderRadius: 1.5,
+                      px: 1.25,
+                      py: 1,
+                      "&.Mui-selected": {
+                        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.06)",
+                      },
+                    }}
                   >
                     {item.icon ? (
                       <ListItemIcon sx={{ minWidth: 28, color: "inherit" }}>
@@ -165,7 +180,7 @@ export default function NavSidebar({
                     ) : null}
                     <ListItemText
                       primary={item.label}
-                      slotProps={{ primary: { sx: { fontSize: "0.8125rem" } } }}
+                      slotProps={{ primary: { sx: { fontSize: "0.8125rem", fontWeight: 600, letterSpacing: "-0.01em" } } }}
                     />
                     {item.badge ? (
                       <Box sx={{ ml: 1, color: "text.secondary" }}>{item.badge}</Box>

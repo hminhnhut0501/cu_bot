@@ -78,15 +78,22 @@ function WorkspacePanel(props: {
   actions?: ReactNode;
 }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        bgcolor: "background.default",
+        backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)",
+      }}
+    >
       <Stack spacing={1.5}>
         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: { xs: "flex-start", md: "center" }, flexDirection: { xs: "column", md: "row" } }}>
           <Box>
-            <Typography variant="overline" color="text.secondary">
+            <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: "0.11em" }}>
               Workspace
             </Typography>
-            <Typography variant="subtitle2">{props.title}</Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>{props.title}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 860 }}>
               {props.subtitle}
             </Typography>
           </Box>
@@ -188,7 +195,14 @@ export function WelcomeScreen(props: {
   };
   return (
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          bgcolor: "background.default",
+          backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)",
+        }}
+      >
         <Stack spacing={2}>
           {props.tabLabel ? (
             <WorkspacePanel
@@ -209,8 +223,8 @@ export function WelcomeScreen(props: {
           ) : null}
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật chào thành viên mới</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Bật chào thành viên mới</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
                 Công tắc này điều khiển trạng thái Welcome của group đang xem. Nội dung sửa trong popup bên dưới.
               </Typography>
             </Box>
@@ -225,7 +239,7 @@ export function WelcomeScreen(props: {
             <Stack spacing={1.5}>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
                 <Box>
-                  <Typography variant="subtitle2">Tin chào</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Tin chào</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Mẫu tin, nút inline và thời gian tự xóa sẽ chỉnh trong popup.
                   </Typography>
@@ -236,8 +250,8 @@ export function WelcomeScreen(props: {
               </Box>
               <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
                 <Stack spacing={0.75}>
-                  <Typography variant="caption" color="text.secondary">Preview nhanh</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: "0.08em" }}>Preview nhanh</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
                     {props.welcomeText || "Chưa có mẫu tin chào."}
                   </Typography>
                 </Stack>
@@ -249,7 +263,7 @@ export function WelcomeScreen(props: {
             <Stack spacing={1.5}>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
                 <Box>
-                  <Typography variant="subtitle2">Kiểm tra runtime Welcome</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Kiểm tra runtime Welcome</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Gửi thử đúng mẫu Welcome vào group đang xem để kiểm tra quyền bot và runtime.
                   </Typography>
@@ -357,11 +371,11 @@ export function ModerationScreen(props: {
   return (
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="security">
       <Stack spacing={2}>
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(37, 99, 235, 0.04), transparent 56%)" }}>
           <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Trạng thái bảo vệ</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Trạng thái bảo vệ</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
                 {props.selectedGroupProtection.ready ? "Đủ điều kiện bảo vệ group đang chọn." : "Còn thiếu một số thiết lập trước khi bảo vệ đầy đủ."}
               </Typography>
             </Box>
@@ -379,10 +393,10 @@ export function ModerationScreen(props: {
           ))}
         </Box>
 
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)" }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
             <Box>
-              <Typography variant="subtitle2">Lối đi nhanh</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Lối đi nhanh</Typography>
               <Typography variant="body2" color="text.secondary">
                 Mở thẳng cấu hình, preset từ khóa hoặc flow bảo vệ group đang chọn.
               </Typography>
@@ -457,12 +471,12 @@ export function GiveawayScreen(props: {
   const getEntryCount = (campaignId: string) => props.giveawayEntries.filter((row) => String(row.giveaway_id || "") === String(campaignId)).length;
   return (
     <Section eyebrow="MODULE" title="Giveaway" subtitle="Tạo campaign giveaway, mẫu tin tham gia và công bố người thắng." tone="fun">
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(217, 70, 239, 0.04), transparent 56%)" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật module Giveaway</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Bật module Giveaway</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
                 Bật để dùng /giveaway, /join và /draw với template tin đẹp.
               </Typography>
             </Box>
@@ -470,7 +484,7 @@ export function GiveawayScreen(props: {
           </Box>
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={1.25}>
-              <Typography variant="subtitle2">Campaign giveaway</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Campaign giveaway</Typography>
               <Typography variant="body2" color="text.secondary">
                 Tạo campaign từ popup, gồm phần thưởng, số người thắng, mẫu tin mời tham gia và mẫu công bố kết quả.
               </Typography>
@@ -484,7 +498,7 @@ export function GiveawayScreen(props: {
           </Paper>
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={1.5}>
-              <Typography variant="subtitle2">Danh sách campaign</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Danh sách campaign</Typography>
               <Typography variant="body2" color="text.secondary">
                 Xem nhanh campaign, số người tham gia, và thao tác quay hoặc đóng ngay trên từng card.
               </Typography>
@@ -493,11 +507,11 @@ export function GiveawayScreen(props: {
                   const status = String(campaign.status || "open");
                   const entryCount = getEntryCount(campaign.id);
                   return (
-                    <Paper key={campaign.id} variant="outlined" sx={{ p: 1.75, bgcolor: "background.default" }}>
+                    <Paper key={campaign.id} variant="outlined" sx={{ p: 1.75, bgcolor: "background.default", borderTop: "1px solid", borderTopColor: "divider" }}>
                       <Stack spacing={1.25}>
                         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1.5, alignItems: "flex-start" }}>
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{campaign.title || "Giveaway"}</Typography>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>{campaign.title || "Giveaway"}</Typography>
                             <Typography variant="body2" color="text.secondary">
                               {campaign.prize || "Chưa có phần thưởng"} · Group {campaign.chat_id || props.selectedScope || "-"}
                             </Typography>
@@ -509,7 +523,7 @@ export function GiveawayScreen(props: {
                           <Chip size="small" variant="outlined" label={`Tham gia ${entryCount}`} />
                           {campaign.require_keyword ? <Chip size="small" variant="outlined" label={`Từ khóa: ${campaign.require_keyword}`} /> : null}
                         </Stack>
-                        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.65 }}>
                           {campaign.description || "Chưa có mô tả."}
                         </Typography>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -686,12 +700,12 @@ export function ShareUnlockScreen(props: {
 
   return (
     <Section eyebrow="MODULE" title="Mở khóa bằng chia sẻ" subtitle="Mời đủ số người qua link riêng của từng user, bot mới mở khóa link thưởng." tone="fun">
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(79, 70, 229, 0.04), transparent 56%)" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật module Share Unlock</Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Bật module Share Unlock</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
                 Bot tạo invite link riêng, đếm referral hợp lệ, và tự gửi phần thưởng khi đủ điều kiện.
               </Typography>
             </Box>
@@ -707,7 +721,7 @@ export function ShareUnlockScreen(props: {
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" } }}>
               <Box>
-                <Typography variant="subtitle2">Campaign mở khóa</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Campaign mở khóa</Typography>
                 <Typography variant="body2" color="text.secondary">
                   Group áp dụng: {props.selectedScopeName || props.selectedScope || "Chưa chọn group"}
                 </Typography>
@@ -720,7 +734,7 @@ export function ShareUnlockScreen(props: {
 
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={1.5}>
-              <Typography variant="subtitle2">Tiến độ và referral</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Tiến độ và referral</Typography>
               <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", xl: "repeat(2, minmax(0, 1fr))" } }}>
                 {props.campaigns.length ? props.campaigns.map((campaign) => {
                   const campaignReferrals = props.referrals.filter((row) => String(row.campaign_id || "") === String(campaign.id));
@@ -728,11 +742,11 @@ export function ShareUnlockScreen(props: {
                   const required = Number(campaign.required_invites || 5);
                   const topReferrers = topReferrersForCampaign(String(campaign.id), required);
                   return (
-                    <Paper key={campaign.id} variant="outlined" sx={{ p: 1.75, bgcolor: "background.default" }}>
+                    <Paper key={campaign.id} variant="outlined" sx={{ p: 1.75, bgcolor: "background.default", borderTop: "1px solid", borderTopColor: "divider" }}>
                       <Stack spacing={1.25}>
                         <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, alignItems: "flex-start" }}>
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{campaign.title || "Campaign mở khóa"}</Typography>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>{campaign.title || "Campaign mở khóa"}</Typography>
                             <Typography variant="body2" color="text.secondary">
                               Group {campaign.source_chat_id || "-"} · Mở khi đủ {campaign.required_invites || 5} người
                             </Typography>
@@ -748,7 +762,7 @@ export function ShareUnlockScreen(props: {
                           <Chip size="small" variant="outlined" label={`Referral ${campaignReferrals.length}`} />
                           <Chip size="small" variant="outlined" label={`Thưởng: ${campaign.unlock_target_type || "invite_link"}`} />
                         </Stack>
-                        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.65 }}>
                           {campaign.description || "Chưa có mô tả."}
                         </Typography>
                         <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
@@ -1327,10 +1341,10 @@ export function BotScreen(props: {
           ))}
         </Box>
 
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)" }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}>
             <Box>
-              <Typography variant="subtitle2">Lối đi nhanh</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Lối đi nhanh</Typography>
               <Typography variant="body2" color="text.secondary">
                 Đi thẳng tới danh sách bot, cấu hình module hoặc nhật ký vận hành.
               </Typography>

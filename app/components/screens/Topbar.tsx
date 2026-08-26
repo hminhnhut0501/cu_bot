@@ -119,7 +119,7 @@ export default function Topbar(props: TopbarProps) {
       breadcrumbs={scopeBreadcrumb(groups, selectedScope)}
       tone={currentTone}
       actions={
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" }, width: { xs: "100%", md: "auto" } }}>
           {props.showTaskData && (props.moduleWorkbenchActive || props.setupWorkbench || props.activeLayer === "bot" || props.activeLayer === "group") ? (
             <MuiButton
               variant="outlined"
@@ -147,7 +147,7 @@ export default function Topbar(props: TopbarProps) {
                 ),
               },
             }}
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: { xs: "100%", sm: 220 } }}
           />
 
           <IconButton onClick={() => loadRows(search)} title="Tải lại">
@@ -199,10 +199,10 @@ export default function Topbar(props: TopbarProps) {
         spacing={1.5}
         sx={{ alignItems: { md: "center" }, flexWrap: "wrap" }}
       >
-          <TextField
-            select
-            size="small"
-            label="Bot"
+        <TextField
+          select
+          size="small"
+          label="Bot"
             value={activeBotKey || selectedBot || ""}
             slotProps={{
               select: {
@@ -261,7 +261,7 @@ export default function Topbar(props: TopbarProps) {
             })}
         </TextField>
 
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
           Runtime: {envStatus?.runtimeMode || "fallback"}
         </Typography>
       </Stack>

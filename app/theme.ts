@@ -5,23 +5,23 @@ import { alpha, createTheme, type ThemeOptions } from "@mui/material/styles";
 export type ThemeMode = "light" | "dark";
 
 const lightColors = {
-  bg: "#f6f7fb",
-  bgTint: "#f3f7ff",
+  bg: "#f5f7fb",
+  bgTint: "#eef4ff",
   paper: "#ffffff",
   surface: "#f4f7fb",
   surfaceMuted: "#f8fafc",
-  surfaceVariant: "#e8edf7",
-  surfaceContainerLow: "#f9fbff",
-  surfaceContainer: "#f4f7fb",
-  surfaceContainerHigh: "#eef2f9",
-  line: "#dde4ef",
-  lineSoft: "#edf1f7",
+  surfaceVariant: "#e7edf6",
+  surfaceContainerLow: "#fbfcff",
+  surfaceContainer: "#f5f7fb",
+  surfaceContainerHigh: "#eef3fa",
+  line: "#d6deea",
+  lineSoft: "#edf1f6",
   text: "#0f172a",
   textMuted: "#475569",
   textSubtle: "#64748b",
   primary: "#0f766e",
-  primaryDark: "#115e59",
-  primarySoft: "#ccfbf1",
+  primaryDark: "#0e5f5a",
+  primarySoft: "#dbfffb",
   primaryOnSoft: "#0f766e",
   secondary: "#4f46e5",
   secondarySoft: "#e0e7ff",
@@ -47,23 +47,23 @@ const lightColors = {
 } as const;
 
 const darkColors = {
-  bg: "#0b1020",
+  bg: "#090d18",
   bgTint: "#0f172a",
   paper: "#111827",
-  surface: "#111827",
+  surface: "#101828",
   surfaceMuted: "#0f172a",
   surfaceVariant: "#1f2937",
   surfaceContainerLow: "#111827",
-  surfaceContainer: "#131b2d",
-  surfaceContainerHigh: "#172033",
-  line: "#263246",
-  lineSoft: "#1c2435",
+  surfaceContainer: "#131a2c",
+  surfaceContainerHigh: "#172136",
+  line: "#223042",
+  lineSoft: "#1b2536",
   text: "#e5eefb",
   textMuted: "#c4d0e3",
   textSubtle: "#94a3b8",
-  primary: "#2dd4bf",
+  primary: "#34d3c0",
   primaryDark: "#14b8a6",
-  primarySoft: "#113530",
+  primarySoft: "#123f39",
   primaryOnSoft: "#5eead4",
   secondary: "#818cf8",
   secondarySoft: "#1e2456",
@@ -160,7 +160,7 @@ const sharedTokens = {
   spacing: (n: number) => `${n * 4}px`,
   font: {
     family:
-      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      'Inter, "Satoshi", "Avenir Next", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
     mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
   },
 } as const;
@@ -284,27 +284,27 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
     shape: {
       borderRadius: sharedTokens.radius.md,
     },
-    typography: {
+      typography: {
       fontFamily: sharedTokens.font.family,
       fontSize: 14,
       htmlFontSize: 16,
-      h1: { fontWeight: 700, fontSize: "2rem", lineHeight: 1.2, letterSpacing: "-0.02em" },
-      h2: { fontWeight: 700, fontSize: "1.5rem", lineHeight: 1.25, letterSpacing: "-0.015em" },
-      h3: { fontWeight: 700, fontSize: "1.25rem", lineHeight: 1.3, letterSpacing: "-0.01em" },
-      h4: { fontWeight: 700, fontSize: "1.125rem", lineHeight: 1.35 },
-      h5: { fontWeight: 600, fontSize: "1rem", lineHeight: 1.4 },
-      h6: { fontWeight: 600, fontSize: "0.9375rem", lineHeight: 1.4 },
-      subtitle1: { fontWeight: 600, fontSize: "0.9375rem", lineHeight: 1.45 },
-      subtitle2: { fontWeight: 600, fontSize: "0.8125rem", lineHeight: 1.4 },
-      body1: { fontWeight: 400, fontSize: "0.875rem", lineHeight: 1.55 },
-      body2: { fontWeight: 400, fontSize: "0.8125rem", lineHeight: 1.55 },
-      button: { fontWeight: 600, fontSize: "0.8125rem", lineHeight: 1.4, textTransform: "none", letterSpacing: 0 },
-      caption: { fontWeight: 400, fontSize: "0.75rem", lineHeight: 1.4, color: colors.textMuted },
+      h1: { fontWeight: 800, fontSize: "2rem", lineHeight: 1.15, letterSpacing: "-0.035em" },
+      h2: { fontWeight: 800, fontSize: "1.5rem", lineHeight: 1.2, letterSpacing: "-0.03em" },
+      h3: { fontWeight: 800, fontSize: "1.25rem", lineHeight: 1.25, letterSpacing: "-0.02em" },
+      h4: { fontWeight: 750, fontSize: "1.125rem", lineHeight: 1.3, letterSpacing: "-0.015em" },
+      h5: { fontWeight: 750, fontSize: "1rem", lineHeight: 1.35, letterSpacing: "-0.015em" },
+      h6: { fontWeight: 700, fontSize: "0.9375rem", lineHeight: 1.35, letterSpacing: "-0.01em" },
+      subtitle1: { fontWeight: 650, fontSize: "0.9375rem", lineHeight: 1.4, letterSpacing: "-0.01em" },
+      subtitle2: { fontWeight: 650, fontSize: "0.8125rem", lineHeight: 1.35, letterSpacing: "-0.005em" },
+      body1: { fontWeight: 400, fontSize: "0.875rem", lineHeight: 1.6, letterSpacing: "-0.004em" },
+      body2: { fontWeight: 400, fontSize: "0.8125rem", lineHeight: 1.55, letterSpacing: "-0.003em" },
+      button: { fontWeight: 650, fontSize: "0.8125rem", lineHeight: 1.35, textTransform: "none", letterSpacing: "-0.005em" },
+      caption: { fontWeight: 400, fontSize: "0.75rem", lineHeight: 1.35, color: colors.textMuted, letterSpacing: "-0.002em" },
       overline: {
-        fontWeight: 600,
+        fontWeight: 700,
         fontSize: "0.6875rem",
         lineHeight: 1.4,
-        letterSpacing: "0.08em",
+        letterSpacing: "0.11em",
         textTransform: "uppercase",
       },
     },
@@ -319,6 +319,9 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             backgroundColor: colors.bg,
             color: colors.text,
             fontFamily: sharedTokens.font.family,
+            backgroundImage: mode === "dark"
+              ? "radial-gradient(circle at top left, rgba(52, 211, 192, 0.07), transparent 26%), radial-gradient(circle at top right, rgba(129, 140, 248, 0.06), transparent 24%)"
+              : "radial-gradient(circle at top left, rgba(15, 118, 110, 0.06), transparent 26%), radial-gradient(circle at top right, rgba(79, 70, 229, 0.05), transparent 24%)",
           },
           "*::selection": {
             backgroundColor: alpha(colors.primary, mode === "dark" ? 0.32 : 0.2),
@@ -399,9 +402,16 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
         styleOverrides: {
           root: {
             border: `1px solid ${colors.line}`,
-            borderRadius: 16,
+            borderRadius: 18,
             backgroundColor: colors.surfaceContainerLow,
             backgroundImage: "none",
+          },
+        },
+      },
+      MuiTypography: {
+        styleOverrides: {
+          root: {
+            letterSpacing: "-0.01em",
           },
         },
       },
@@ -499,15 +509,16 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
           root: {
             borderBottom: `1px solid ${colors.lineSoft}`,
             fontSize: "0.8125rem",
-            padding: "10px 12px",
+            padding: "11px 14px",
+            letterSpacing: "-0.01em",
           },
           head: {
             backgroundColor: colors.surfaceMuted,
             color: colors.textMuted,
-            fontWeight: 600,
+            fontWeight: 700,
             fontSize: "0.75rem",
             textTransform: "uppercase",
-            letterSpacing: "0.04em",
+            letterSpacing: "0.10em",
           },
         },
       },
@@ -515,7 +526,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
         styleOverrides: {
           root: {
             "&:last-child .MuiTableCell-body": { borderBottom: "none" },
-            "&:hover": { backgroundColor: colors.surfaceMuted },
+            "&:hover": { backgroundColor: alpha(colors.primary, mode === "dark" ? 0.07 : 0.03) },
           },
         },
       },
@@ -624,6 +635,16 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
         styleOverrides: {
           root: {
             borderRadius: sharedTokens.radius.sm,
+            marginBottom: 4,
+            paddingTop: 10,
+            paddingBottom: 10,
+            paddingLeft: 12,
+            paddingRight: 12,
+            transition: "background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease",
+            "&:hover": {
+              backgroundColor: alpha(colors.primary, mode === "dark" ? 0.08 : 0.04),
+              transform: "translateY(-1px)",
+            },
             "&.Mui-selected": {
               backgroundColor: alpha(colors.primary, mode === "dark" ? 0.18 : 0.08),
               color: colors.primary,

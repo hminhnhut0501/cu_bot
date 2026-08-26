@@ -260,14 +260,18 @@ export default function ScamInbox({
                 backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.04), transparent 24%)",
               }}
             >
-              <Stack spacing={1}>
-                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <Box>
-                    <Typography variant="overline" sx={{ color: "text.secondary", display: "block" }}>Queue</Typography>
-                    <Typography variant="subtitle2">Danh sách report</Typography>
-                  </Box>
-                  <Chip size="small" variant="outlined" label={`${filteredReports.length} mục`} />
-                </Stack>
+                <Stack spacing={1}>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block", letterSpacing: "0.12em", fontWeight: 800 }}>
+                        Queue
+                      </Typography>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
+                        Danh sách report
+                      </Typography>
+                    </Box>
+                    <Chip size="small" variant="outlined" label={`${filteredReports.length} mục`} />
+                  </Stack>
                 <Divider />
                 <Stack spacing={1} sx={{ maxHeight: 470, overflow: "auto", pr: 0.5 }}>
                   {filteredReports.length ? filteredReports.map((row) => {
@@ -279,31 +283,40 @@ export default function ScamInbox({
                         key={row.id}
                         variant="outlined"
                         onClick={() => setSelectedId(row.id)}
-                        sx={{
-                          p: 1.5,
-                          cursor: "pointer",
-                          borderColor: active ? "primary.main" : "divider",
-                          bgcolor: active ? "rgba(15, 118, 110, 0.06)" : "background.default",
+                          sx={{
+                            p: 1.5,
+                            cursor: "pointer",
+                            borderColor: active ? "primary.main" : "divider",
+                            bgcolor: active ? "rgba(15, 118, 110, 0.06)" : "background.default",
+                            borderTop: "1px solid",
+                            borderTopColor: active ? "primary.main" : "divider",
+                            backgroundImage: active ? "linear-gradient(180deg, rgba(15, 118, 110, 0.06), transparent 100%)" : "none",
+                            transition: "transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+                            "&:hover": {
+                              transform: "translateY(-1px)",
+                              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.05)",
+                              borderColor: "primary.main",
+                          },
                         }}
                       >
-                        <Stack spacing={1}>
-                          <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography variant="subtitle2" noWrap>
-                                {row.target_username || row.target_uid || row.bank_account || row.target_name || "Report không rõ đích"}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" noWrap>
-                                {row.group_name || "Không có group"} · {row.reporter_username || row.reporter_user_id || "ẩn danh"}
-                              </Typography>
-                            </Box>
-                            <Chip size="small" color={badgeTone(String(row.status || "pending")) as any} label={String(row.status || "pending")} />
-                          </Stack>
+                          <Stack spacing={1}>
+                            <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
+                                  {row.target_username || row.target_uid || row.bank_account || row.target_name || "Report không rõ đích"}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" noWrap>
+                                  {row.group_name || "Không có group"} · {row.reporter_username || row.reporter_user_id || "ẩn danh"}
+                                </Typography>
+                              </Box>
+                              <Chip size="small" color={badgeTone(String(row.status || "pending")) as any} label={String(row.status || "pending")} />
+                            </Stack>
                           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                             <Chip size="small" variant="outlined" icon={<Hash size={14} />} label={row.bank_account || "No bank"} />
                             <Chip size="small" variant="outlined" icon={<Banknote size={14} />} label={score.label} color={score.tone as any} />
                             <Chip size="small" variant="outlined" icon={<ImageIcon size={14} />} label={`${attachments || 0} file`} />
                           </Stack>
-                          <Typography variant="body2" color="text.secondary" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.65 }}>
                             {row.reason || row.evidence_text || "Chưa có mô tả chi tiết."}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
@@ -325,23 +338,25 @@ export default function ScamInbox({
               </Stack>
             </Paper>
 
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 1.5,
-                bgcolor: "background.paper",
-                backgroundImage: selected ? "linear-gradient(180deg, rgba(37, 99, 235, 0.05), transparent 26%)" : "none",
-              }}
-            >
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  bgcolor: "background.paper",
+                  backgroundImage: selected ? "linear-gradient(180deg, rgba(37, 99, 235, 0.05), transparent 26%)" : "none",
+                }}
+              >
               {selected ? (
                 <Stack spacing={1.5}>
                   <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block" }}>Detail panel</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block", letterSpacing: "0.12em", fontWeight: 800 }}>
+                        Detail panel
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
                         {selected.target_username || selected.target_uid || selected.bank_account || "Chi tiết report"}
                       </Typography>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 680 }}>
                         {selected.target_name || selected.scammer_name || "Chưa rõ tên"} · {selected.group_name || "Chưa có group"}
                       </Typography>
                     </Box>
@@ -354,38 +369,50 @@ export default function ScamInbox({
                   <Divider />
 
                   <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Typography variant="caption" color="text.secondary">Người báo cáo</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{selected.reporter_username || selected.reporter_user_id || "Chưa rõ"}</Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+                        Người báo cáo
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.reporter_username || selected.reporter_user_id || "Chưa rõ"}</Typography>
                       <Typography variant="caption" color="text.secondary">{selected.reporter_chat_id || "private chat"}</Typography>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Typography variant="caption" color="text.secondary">Đối tượng</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{selected.target_uid || "-"}</Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+                        Đối tượng
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.target_uid || "-"}</Typography>
                       <Typography variant="caption" color="text.secondary">{selected.bank_account || "-"} · {selected.phone || "-"}</Typography>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Typography variant="caption" color="text.secondary">Nhóm / Admin</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{selected.group_name || "-"}</Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+                        Nhóm / Admin
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.group_name || "-"}</Typography>
                       <Typography variant="caption" color="text.secondary">{selected.admin_name || "-"}</Typography>
                     </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                      <Typography variant="caption" color="text.secondary">Dấu thời gian</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{formatDate(selected.created_at)}</Typography>
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+                        Dấu thời gian
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{formatDate(selected.created_at)}</Typography>
                       <Typography variant="caption" color="text.secondary">{selected.reviewed_at ? `Duyệt: ${formatDate(selected.reviewed_at)}` : "Chưa duyệt"}</Typography>
                     </Paper>
                   </Box>
 
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
                     <Stack spacing={0.75}>
-                      <Typography variant="subtitle2">Bằng chứng / mô tả</Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                        Bằng chứng / mô tả
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.75, color: "text.primary" }}>
                         {selected.evidence_text || selected.reason || "Chưa có mô tả."}
                       </Typography>
                       {truthy(selected.notes) ? (
                         <>
                           <Divider />
-                          <Typography variant="caption" color="text.secondary">Ghi chú</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
+                            Ghi chú
+                          </Typography>
                           <Typography variant="body2">{selected.notes}</Typography>
                         </>
                       ) : null}
@@ -400,7 +427,9 @@ export default function ScamInbox({
                         <>
                           <Divider sx={{ my: 1 }} />
                           <Stack spacing={1}>
-                            <Typography variant="subtitle2">Preview attachment</Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                              Preview attachment
+                            </Typography>
                             <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                               {selectedAttachments.slice(0, 6).map((file: any, index: number) => (
                                 <Paper
@@ -412,7 +441,9 @@ export default function ScamInbox({
                                     p: 1,
                                     cursor: "pointer",
                                     bgcolor: "background.paper",
-                                    "&:hover": { borderColor: "primary.main" },
+                                    backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.75), transparent 100%)",
+                                    transition: "transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
+                                    "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)", boxShadow: "0 10px 22px rgba(15, 23, 42, 0.05)" },
                                   }}
                                 >
                                   <Stack spacing={0.75}>
@@ -428,7 +459,7 @@ export default function ScamInbox({
                                         <ImageIcon size={24} />
                                       )}
                                     </Box>
-                                    <Typography variant="caption" noWrap sx={{ fontWeight: 700 }}>
+                                    <Typography variant="caption" noWrap sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
                                       {file.media_type || "file"}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary" noWrap>
@@ -445,13 +476,15 @@ export default function ScamInbox({
                         <>
                           <Divider sx={{ my: 1 }} />
                           <Stack spacing={1}>
-                            <Typography variant="subtitle2">Broadcast log gần nhất</Typography>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                            Broadcast log gần nhất
+                          </Typography>
                             <Stack spacing={1}>
                               {broadcastRows.map((row) => (
-                                <Paper key={row.id} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
+                                <Paper key={row.id} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.75), transparent 100%)" }}>
                                   <Stack spacing={0.5}>
                                     <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
-                                      <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }} noWrap>
                                         {row.broadcast_type || "broadcast"} · {row.status || "pending"}
                                       </Typography>
                                       <Chip size="small" label={row.target_chat_id || "no target"} variant="outlined" />
@@ -490,21 +523,23 @@ export default function ScamInbox({
                     </MuiButton>
                   </Stack>
 
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.72), transparent 100%)" }}>
                     <Stack spacing={1}>
-                      <Typography variant="subtitle2">Checklist duyệt nhanh</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
+                        Checklist duyệt nhanh
+                      </Typography>
                       <Stack spacing={0.75}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Check size={16} />
-                          <Typography variant="body2">Có UID / username / bank account để tra cứu</Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Có UID / username / bank account để tra cứu</Typography>
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Check size={16} />
-                          <Typography variant="body2">Có bằng chứng bill / ảnh group / note</Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Có bằng chứng bill / ảnh group / note</Typography>
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Check size={16} />
-                          <Typography variant="body2">Nếu report trùng, đánh dấu duplicate trước khi confirm</Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Nếu report trùng, đánh dấu duplicate trước khi confirm</Typography>
                         </Box>
                       </Stack>
                     </Stack>

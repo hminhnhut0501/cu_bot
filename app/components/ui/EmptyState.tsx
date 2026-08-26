@@ -31,7 +31,7 @@ export default function EmptyState({
     <Box
       sx={{
         textAlign: "center",
-        py: 5,
+        py: 5.5,
         px: 3,
         color: "text.secondary",
         display: "flex",
@@ -42,24 +42,26 @@ export default function EmptyState({
     >
       <Box
         sx={{
-          width: 44,
-          height: 44,
+          width: 52,
+          height: 52,
           borderRadius: "50%",
           display: "grid",
           placeItems: "center",
-          backgroundColor: "background.default",
-          color: "text.secondary",
+          backgroundColor: "background.paper",
+          color: "primary.main",
           border: "1px solid",
           borderColor: "divider",
+          backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.82), rgba(15, 118, 110, 0.03))",
+          boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
         }}
       >
-        {icon ?? <Inbox size={20} />}
+        {icon ?? <Inbox size={21} />}
       </Box>
-      <Typography variant="subtitle2" color="text.primary">
+      <Typography variant="subtitle1" color="text.primary" sx={{ fontWeight: 800, letterSpacing: "-0.025em" }}>
         {title}
       </Typography>
       {body ? (
-        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420, lineHeight: 1.7 }}>
           {body}
         </Typography>
       ) : null}
@@ -80,6 +82,7 @@ export default function EmptyState({
               color: "text.secondary",
               pl: 3,
               position: "relative",
+              lineHeight: 1.6,
             },
             "& li::before": {
               content: 'counter(empty-step) ". "',
@@ -96,7 +99,7 @@ export default function EmptyState({
         </Stack>
       ) : null}
       {actionLabel && onAction ? (
-        <Button variant="outlined" size="small" onClick={onAction} sx={{ mt: 1 }}>
+        <Button variant="outlined" size="small" onClick={onAction} sx={{ mt: 1, borderRadius: 999, px: 1.75, textTransform: "none", fontWeight: 700 }}>
           {actionLabel}
         </Button>
       ) : null}
