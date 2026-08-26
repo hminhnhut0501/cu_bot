@@ -2,10 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { SectionPage } from '../_components/section-page';
 import { listGroups, summarizeAudit } from '@/lib/group-bot/admin-service';
+import { GroupScope } from '../_components/group-scope';
 
-export default async function AuditPage() {
+export default async function AuditPage({ searchParams }: { searchParams?: Promise<{ group_id?: string }> }) {
+  const selectedGroupId = (await searchParams)?.group_id ?? '';
   const { data: groups } = await listGroups();
-  const group = groups?.[0] ?? null;
+  const group = groups?.find((item) => item.id === selectedGroupId) ?? groups?.[0] ?? null;
   const sinceAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const summary = group ? await summarizeAudit(group.id, sinceAt) : { data: null };
   const audit = summary.data;
@@ -13,6 +15,7 @@ export default async function AuditPage() {
   return (
     <SectionPage title="Nhật ký" description={group ? `Audit live của ${group.title}` : 'Chưa có group nào.'}>
       <div className="section-stack">
+        <GroupScope groups={groups ?? []} selectedGroupId={group?.id ?? ''} actionPath="/admin/group-bot/audit" />
         <article className="overview-card">
           <h3>Audit summary</h3>
           {audit ? (

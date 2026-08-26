@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 const cards = [
+  { href: '/admin/group-bot/groups/new', title: 'Thêm group / bot', desc: 'Tạo mới và gắn group/channel.' },
   { href: '/admin/group-bot/members', title: 'Thành viên', desc: 'Danh sách, blacklist, cài đặt, lịch sử.' },
   { href: '/admin/group-bot/moderation/settings', title: 'Kiểm duyệt', desc: 'Cài đặt kiểm duyệt, welcome, spam, rules.' },
   { href: '/admin/group-bot/audit', title: 'Nhật ký', desc: 'Lọc sự kiện, truy vết thay đổi.' },

@@ -211,6 +211,14 @@ h1,h2,h3,p { margin-top:0; }
   grid-template-columns:1fr;
   gap:16px;
 }
+.group-scope-form {
+  display:flex;
+  gap:12px;
+  align-items:end;
+}
+.group-scope-form select {
+  width:100%;
+}
 .toolbar {
   padding:14px;
   background:rgba(255,255,255,.9);
