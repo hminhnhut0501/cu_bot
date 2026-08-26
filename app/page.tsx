@@ -447,7 +447,7 @@ const CORE_LAYERS = [
     key: "logs",
     title: "Logs",
     shortTitle: "Logs",
-    desc: "Rà soát sự cố, hành động kiểm duyệt và các thay đổi vận hành đáng chú ý.",
+    desc: "Sự cố và kiểm duyệt.",
     icon: Activity,
     tone: "main",
     tables: ["audit_logs", "scam_reports"],
@@ -5578,11 +5578,6 @@ export default function HomePage() {
                     {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
                   </IconButton>
                 </Stack>
-                {!sidebarCollapsed ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Sidebar thu gọn giúp ưu tiên nội dung chính và giảm nhiễu khi quét màn hình.
-                  </Typography>
-                ) : null}
               </Stack>
             </Paper>
             <Stack spacing={1.5} component="nav" sx={{ flex: 1 }}>
@@ -5637,11 +5632,6 @@ export default function HomePage() {
                 </Stack>
               ))}
             </Stack>
-            {!sidebarCollapsed ? (
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                <Typography variant="caption" color="text.secondary">Sidebar chỉ giữ các khu vực chính. Module ít dùng sẽ nằm trong nhóm phụ để giảm nhiễu.</Typography>
-              </Paper>
-            ) : null}
           </Stack>
         </Drawer>
 
@@ -5743,7 +5733,7 @@ export default function HomePage() {
           <Section
             eyebrow="Overview"
             title="Tổng quan vận hành"
-            subtitle="Một màn hình gọn để đọc trạng thái, xem việc cần làm và đi vào module đúng chỗ."
+            subtitle="Trạng thái, việc cần xử lý, lối vào module."
             tone="main"
           >
             <Stack spacing={2}>
@@ -5765,8 +5755,8 @@ export default function HomePage() {
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
                         {healthSummary.pendingScamReports || healthSummary.pendingChannelPosts || healthSummary.failedChannelPosts
-                          ? `Còn ${healthSummary.pendingScamReports + healthSummary.pendingChannelPosts + healthSummary.failedChannelPosts} mục cần xem lại trước khi đóng ca.`
-                          : "Không thấy backlog nổi bật trong bot và module hiện tại."}
+                          ? `Còn ${healthSummary.pendingScamReports + healthSummary.pendingChannelPosts + healthSummary.failedChannelPosts} mục cần xử lý.`
+                          : "Không có backlog nổi bật."}
                       </Typography>
                     </Box>
                     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" }, width: { xs: "100%", md: "auto" } }}>
@@ -7323,7 +7313,7 @@ export default function HomePage() {
         >
           <WorkbenchList
             sectionTitle={TABLE_TASK_LABELS[table.key] || table.label}
-            sectionSubtitle={scanMode === "scan" ? "Chỉ hiện trạng thái chính trong danh sách hiện tại." : "Hiện thêm ngữ cảnh, metadata và hành động liên quan."}
+            sectionSubtitle={scanMode === "scan" ? "Chỉ hiện trạng thái chính." : "Kèm ngữ cảnh và hành động."}
             visibleRows={visibleRows}
             loading={loading}
             scanMode={scanMode}
