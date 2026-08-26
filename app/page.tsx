@@ -2757,6 +2757,7 @@ export default function HomePage() {
     unblacklist: "Gỡ blacklist",
     kick: "Kick",
   };
+  const isBlacklistAction = systemBlacklistActive && memberActionDraft.action === "blacklist";
   const memberStatusBadgeLabel = (row: Row) => {
     const status = memberStatusOf(row);
     if (status === "muted" || status === "restricted") return "muted";
@@ -3813,7 +3814,7 @@ export default function HomePage() {
         username: memberActionDraft.username.replace(/^@/, "").trim(),
         display_name: memberActionDraft.display_name.trim(),
         reason: memberActionDraft.reason.trim(),
-        duration_seconds: Number(memberActionDraft.duration_seconds || 0),
+        duration_seconds: isBlacklistAction ? 0 : Number(memberActionDraft.duration_seconds || 0),
       };
       const result = await api("/api/members/action", {
         method: "POST",
@@ -3846,6 +3847,7 @@ export default function HomePage() {
       const systemRow = resultRows.find((item: Row) => String(item.bot_key || "") === "*" && String(item.chat_id || "") === "*");
       const appliedRow = systemBlacklistActive ? (systemRow || result?.row) : result?.row;
       setSearch("");
+      setMemberPage(1);
       setMemberTab(memberTabForAction[memberActionDraft.action] || "observed");
       applyMemberActionResult(appliedRow, memberActionDraft.action);
       setToast({
@@ -3858,6 +3860,41 @@ export default function HomePage() {
               : "Telegram unban OK nhưng không tìm thấy state ban tương ứng trong database.")
             : `${memberActionLabel[memberActionDraft.action]} đã ghi nhận.`,
       });
+      if (appliedRow) {
+        setMemberOverview((current) => {
+          const base: MemberOverview = current || { summary: {}, members: [], active: [], muted: [], banned: [], blacklisted: [], logs: [] };
+          const userId = String(appliedRow.user_id || appliedRow.target_user_id || "").trim();
+          const removeByUser = (rows: Row[] = []) => rows.filter((item) => String(item.user_id || item.target_user_id || "").trim() !== userId);
+          const nextRow = {
+            ...appliedRow,
+            status: memberActionDraft.action === "blacklist" ? "blacklisted" : memberActionDraft.action === "unblacklist" ? "normal" : appliedRow.status,
+            member_status: memberActionDraft.action === "blacklist" ? "blacklisted" : memberActionDraft.action === "unblacklist" ? "normal" : appliedRow.member_status || appliedRow.status,
+          };
+          const next: MemberOverview = {
+            ...base,
+            active: removeByUser(base.active),
+            muted: removeByUser(base.muted),
+            banned: removeByUser(base.banned),
+            blacklisted: removeByUser(base.blacklisted),
+            members: removeByUser(base.members),
+            logs: base.logs || [],
+          };
+          if (memberActionDraft.action === "blacklist") {
+            next.blacklisted = [nextRow, ...(next.blacklisted || [])];
+            next.members = [nextRow, ...(next.members || [])];
+          } else if (memberActionDraft.action === "unblacklist") {
+            next.members = [nextRow, ...(next.members || [])];
+          }
+          next.summary = {
+            ...(base.summary || {}),
+            muted: next.muted?.length || 0,
+            banned: next.banned?.length || 0,
+            blacklisted: next.blacklisted?.length || 0,
+            visibleMembers: next.members?.length || 0,
+          };
+          return next;
+        });
+      }
       await Promise.all([loadMemberOverview(""), loadLookups()]);
       applyMemberActionResult(appliedRow, memberActionDraft.action);
     } catch (err) {
@@ -7962,9 +7999,7 @@ export default function HomePage() {
               {memberActionFeedback ? (
                 <Alert severity={memberActionFeedback.type}>{memberActionFeedback.message}</Alert>
               ) : null}
-              <Alert severity="warning">
-                Thao tác ở đây chạy thật. Riêng blacklist sẽ luôn lưu vào danh sách chặn; nếu Telegram không ban được ngay, bot vẫn tự chặn khi user join lại.
-              </Alert>
+              <Alert severity="warning">Blacklist sẽ được lưu ngay cả khi Telegram xử lý chậm.</Alert>
               <TextField
                 label="Telegram user_id"
                 value={memberActionDraft.user_id}
@@ -7985,34 +8020,42 @@ export default function HomePage() {
                 onChange={(event) => setMemberActionDraft((current) => ({ ...current, display_name: event.target.value }))}
                 fullWidth
               />
-              <Select
-                value={memberActionDraft.action}
-                onChange={(event) => setMemberActionDraft((current) => ({ ...current, action: event.target.value as MemberActionType }))}
-                fullWidth
-              >
-                <MenuItem value="mute">Cấm chat</MenuItem>
-                <MenuItem value="unmute">Mở chat</MenuItem>
-                <MenuItem value="ban">Ban</MenuItem>
-                <MenuItem value="unban">Gỡ ban</MenuItem>
-                <MenuItem value="kick">Kick</MenuItem>
-                {systemBlacklistActive ? <MenuItem value="blacklist">Thêm blacklist</MenuItem> : null}
-                {systemBlacklistActive ? <MenuItem value="unblacklist">Gỡ blacklist</MenuItem> : null}
-              </Select>
-              <TextField
-                label="Thời lượng mute (giây)"
-                type="number"
-                value={memberActionDraft.duration_seconds}
-                onChange={(event) => setMemberActionDraft((current) => ({ ...current, duration_seconds: Number(event.target.value || 0) }))}
-                fullWidth
-              />
-              <TextField
-                label="Lý do"
-                value={memberActionDraft.reason}
-                onChange={(event) => setMemberActionDraft((current) => ({ ...current, reason: event.target.value }))}
-                fullWidth
-                multiline
-                minRows={2}
-              />
+              {!isBlacklistAction ? (
+                <>
+                  <TextField
+                    label="Action"
+                    select
+                    value={memberActionDraft.action}
+                    onChange={(event) => setMemberActionDraft((current) => ({ ...current, action: event.target.value as MemberActionType }))}
+                    fullWidth
+                  >
+                    <MenuItem value="mute">Cấm chat</MenuItem>
+                    <MenuItem value="unmute">Mở chat</MenuItem>
+                    <MenuItem value="ban">Ban</MenuItem>
+                    <MenuItem value="unban">Gỡ ban</MenuItem>
+                    <MenuItem value="kick">Kick</MenuItem>
+                    {systemBlacklistActive ? <MenuItem value="blacklist">Thêm blacklist</MenuItem> : null}
+                    {systemBlacklistActive ? <MenuItem value="unblacklist">Gỡ blacklist</MenuItem> : null}
+                  </TextField>
+                  <TextField
+                    label="Thời lượng mute (giây)"
+                    type="number"
+                    value={memberActionDraft.duration_seconds}
+                    onChange={(event) => setMemberActionDraft((current) => ({ ...current, duration_seconds: Number(event.target.value) }))}
+                    fullWidth
+                  />
+                </>
+              ) : null}
+              {!isBlacklistAction ? (
+                <TextField
+                  label="Lý do"
+                  value={memberActionDraft.reason}
+                  onChange={(event) => setMemberActionDraft((current) => ({ ...current, reason: event.target.value }))}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                />
+              ) : null}
             </Stack>
           </DialogContent>
           <DialogActions>
