@@ -5570,7 +5570,7 @@ export default function HomePage() {
                     {!sidebarCollapsed ? (
                       <Box sx={{ minWidth: 0 }}>
                         <Typography variant="subtitle1" sx={{ lineHeight: 1.1, fontWeight: 800 }}>Cu Bot OS</Typography>
-                        <Typography variant="caption" color="text.secondary">Telegram operations center</Typography>
+                        <Typography variant="caption" color="text.secondary">Ops center</Typography>
                       </Box>
                     ) : null}
                   </Stack>
@@ -6218,12 +6218,12 @@ export default function HomePage() {
             <Stack spacing={2}>
               <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
                 <Box>
-                  <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2 }}>{systemBlacklistActive ? "System blacklist" : "Member workspace"}</Typography>
+                  <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2 }}>{systemBlacklistActive ? "Blacklist" : "Members"}</Typography>
                   <Typography variant="h5">{systemBlacklistActive ? "Blacklist toàn hệ thống" : "Dashboard quản lý thành viên"}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {systemBlacklistActive
-                      ? "Áp dụng cho tất cả bot và mọi group/channel bot đang làm admin. User bị blacklist sẽ bị ban ngay khi join."
-                      : "Theo dõi Member observed, Member moderated và Member left theo scope đang chọn. Search và filter áp dụng ngay trên danh sách hiện tại."}
+                      ? "Áp dụng cho tất cả bot và group đang quản lý."
+                      : "Theo dõi observed, moderated và left theo scope."}
                   </Typography>
                 </Box>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: { xs: "flex-start", lg: "flex-end" } }}>
@@ -7622,9 +7622,7 @@ export default function HomePage() {
               <Box sx={{ display: "grid", gap: 2 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
                   <Box>
-                    <Typography variant="overline" color="text.secondary">
-                      Buồng điều khiển vận hành
-                    </Typography>
+                      <Typography variant="overline" color="text.secondary">Control room</Typography>
                     <Chip label={healthState(selected).label} color="primary" variant="outlined" sx={{ ml: 1 }} />
                   </Box>
                   <Box sx={{ display: "flex", gap: 1 }}>
@@ -7639,7 +7637,7 @@ export default function HomePage() {
                 </Box>
                 <Typography variant="h5">{titleFor(selected, table)}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Chưa có mô tả."}
+                  {readOnlyTable ? auditLogSummary(selected) : previewText(selected, table) || "Không có nội dung."}
                 </Typography>
                 {table.key === "scam_reports" ? (
                   <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.05), transparent 36%)" }}>

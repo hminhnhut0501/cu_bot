@@ -139,7 +139,7 @@ export function AutomationScreen(props: {
       <Stack spacing={2}>
         <WorkspacePanel
           title={c.schedule}
-          subtitle="Đi từ chọn group, pool nội dung, video đến cấu hình lịch gửi ngay trong cùng một workspace."
+          subtitle="Chọn group, pool và lịch gửi."
           tabs={props.tabs}
           activeTab={props.activeTab}
           onChangeTab={props.onChangeTab}
@@ -411,7 +411,7 @@ export function ModerationScreen(props: {
 
         <WorkspacePanel
           title="Workspace kiểm duyệt"
-          subtitle="Đi giữa preset, blacklist, allowlist và cấu hình chung ngay trong cùng một block điều hướng."
+          subtitle="Preset, blacklist, allowlist và cấu hình chung."
           tabs={props.tabs}
           activeTab={props.activeWorkspaceTab}
           onChangeTab={props.onChangeWorkspaceTab}
@@ -470,7 +470,7 @@ export function GiveawayScreen(props: {
   };
   const getEntryCount = (campaignId: string) => props.giveawayEntries.filter((row) => String(row.giveaway_id || "") === String(campaignId)).length;
   return (
-    <Section eyebrow="MODULE" title="Giveaway" subtitle="Tạo campaign giveaway, mẫu tin tham gia và công bố người thắng." tone="fun">
+    <Section eyebrow="Module" title="Giveaway" subtitle="Campaign, tin tham gia, kết quả." tone="fun">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(217, 70, 239, 0.04), transparent 56%)" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
@@ -486,7 +486,7 @@ export function GiveawayScreen(props: {
             <Stack spacing={1.25}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Campaign giveaway</Typography>
               <Typography variant="body2" color="text.secondary">
-                Tạo campaign từ popup, gồm phần thưởng, số người thắng, mẫu tin mời tham gia và mẫu công bố kết quả.
+                Tạo campaign từ popup.
               </Typography>
               <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={!props.moduleEnabled || !props.selectedScope}>
                 Tạo campaign
@@ -500,7 +500,7 @@ export function GiveawayScreen(props: {
             <Stack spacing={1.5}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Danh sách campaign</Typography>
               <Typography variant="body2" color="text.secondary">
-                Xem nhanh campaign, số người tham gia, và thao tác quay hoặc đóng ngay trên từng card.
+                Xem campaign và thao tác ngay trên card.
               </Typography>
               <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", xl: "repeat(2, minmax(0, 1fr))" } }}>
                 {props.campaigns.length ? props.campaigns.map((campaign) => {
@@ -524,7 +524,7 @@ export function GiveawayScreen(props: {
                           {campaign.require_keyword ? <Chip size="small" variant="outlined" label={`Từ khóa: ${campaign.require_keyword}`} /> : null}
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.65 }}>
-                          {campaign.description || "Chưa có mô tả."}
+                          {campaign.description || "Không có nội dung."}
                         </Typography>
                         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
                           <MuiButton variant="outlined" onClick={() => props.onOpenEntries(String(campaign.id))}>
@@ -699,14 +699,14 @@ export function ShareUnlockScreen(props: {
   } as const;
 
   return (
-    <Section eyebrow="MODULE" title="Mở khóa bằng chia sẻ" subtitle="Mời đủ số người qua link riêng của từng user, bot mới mở khóa link thưởng." tone="fun">
+    <Section eyebrow="Module" title="Mở khóa bằng chia sẻ" subtitle="Link riêng, referral, mở khóa thưởng." tone="fun">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(135deg, rgba(79, 70, 229, 0.04), transparent 56%)" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Bật module Share Unlock</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
-                Bot tạo invite link riêng, đếm referral hợp lệ, và tự gửi phần thưởng khi đủ điều kiện.
+                Bot tạo link riêng và đếm referral.
               </Typography>
             </Box>
             <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
@@ -763,7 +763,7 @@ export function ShareUnlockScreen(props: {
                           <Chip size="small" variant="outlined" label={`Thưởng: ${campaign.unlock_target_type || "invite_link"}`} />
                         </Stack>
                         <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40, lineHeight: 1.65 }}>
-                          {campaign.description || "Chưa có mô tả."}
+                          {campaign.description || "Không có nội dung."}
                         </Typography>
                         <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper" }}>
                           <Stack spacing={1}>
@@ -853,7 +853,7 @@ export function ShareUnlockScreen(props: {
                 />
                 <Paper variant="outlined" sx={{ p: 1.75, bgcolor: "background.paper" }}>
                   <Stack spacing={1}>
-                    <Typography variant="overline" color="primary">Lệnh user sẽ dùng</Typography>
+                    <Typography variant="overline" color="primary">Lệnh</Typography>
                     <Typography variant="body2"><code>/shareunlock &lt;campaign_id&gt;</code></Typography>
                     <Typography variant="caption" color="text.secondary">
                       Sau khi lưu campaign, user dùng lệnh này trong chat để bot tạo link riêng.
@@ -862,7 +862,7 @@ export function ShareUnlockScreen(props: {
                 </Paper>
                 <Paper variant="outlined" sx={telegramCardSx}>
                   <Stack spacing={1}>
-                    <Typography variant="overline" sx={{ color: "#f472b6" }}>Telegram preview</Typography>
+                    <Typography variant="overline" sx={{ color: "#f472b6" }}>Preview</Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: "#f8fafc" }}>
                       {title || "Campaign mở khóa"}
                     </Typography>
@@ -879,7 +879,7 @@ export function ShareUnlockScreen(props: {
                 </Paper>
                 <Paper variant="outlined" sx={telegramCardSx}>
                   <Stack spacing={1}>
-                    <Typography variant="overline" sx={{ color: "#f472b6" }}>Telegram preview</Typography>
+                    <Typography variant="overline" sx={{ color: "#f472b6" }}>Preview</Typography>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: "#f8fafc" }}>
                       Mở khóa thành công
                     </Typography>
@@ -970,14 +970,14 @@ export function AutoReplyScreen(props: {
   }, [props.createDraft, props.createOpen]);
 
   return (
-    <Section eyebrow="MODULE" title="Auto reply" subtitle="Tạo câu trả lời tự động theo trigger, sau đó chỉnh popup riêng cho rõ ràng." tone="content">
+    <Section eyebrow="Module" title="Auto reply" subtitle="Tạo rule theo trigger." tone="content">
       <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
         <Stack spacing={2}>
           <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật Auto reply</Typography>
               <Typography variant="body2" color="text.secondary">
-                Chỉ phản hồi đúng trigger đã khai báo, ưu tiên `smart` để giảm trả lời bừa.
+                Ưu tiên `smart` để giảm trả lời bừa.
               </Typography>
             </Box>
             <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
@@ -995,7 +995,7 @@ export function AutoReplyScreen(props: {
               <Box>
                 <Typography variant="subtitle2">Câu trả lời tự động</Typography>
               <Typography variant="body2" color="text.secondary">
-                Mở popup riêng để tạo rule mới, không dùng form chung.
+                Mở popup riêng để tạo rule mới.
               </Typography>
             </Box>
               <MuiButton variant="contained" onClick={props.onOpenCreate} disabled={!props.moduleEnabled}>
@@ -1222,7 +1222,7 @@ export function ScamScreen(props: {
     <Section
       eyebrow={c.eyebrow}
       title={c.title}
-      subtitle="Điểm vào nhanh để nhìn queue scam, rồi mở đúng inbox duyệt."
+      subtitle="Queue scam và inbox duyệt."
       tone="scam"
       actions={
         <Paper variant="outlined" sx={{ px: 2, py: 1, bgcolor: "background.default" }}>
@@ -1327,7 +1327,7 @@ export function BotScreen(props: {
 }) {
   const c = UI_COPY.workbench.bot;
   return (
-    <Section eyebrow={c.eyebrow} title={c.title} subtitle="Điểm khởi đầu để kiểm tra bot, scope và các điều kiện vận hành." tone="main">
+    <Section eyebrow={c.eyebrow} title={c.title} subtitle="Kiểm tra bot, scope và điều kiện." tone="main">
       <Stack spacing={2}>
         <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" } }}>
           {props.setupChecklist.map((item) => (
@@ -1346,7 +1346,7 @@ export function BotScreen(props: {
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Lối đi nhanh</Typography>
               <Typography variant="body2" color="text.secondary">
-                Đi thẳng tới danh sách bot, cấu hình module hoặc nhật ký vận hành.
+                Đi tới bot, module hoặc logs.
               </Typography>
             </Box>
             <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
@@ -1378,7 +1378,7 @@ export function GroupScreen(props: {
     <Section
       eyebrow={c.eyebrow}
       title={c.title}
-      subtitle="Quản lý group, phạm vi bot và các điều kiện để bot vận hành đúng chỗ."
+      subtitle="Quản lý group và phạm vi bot."
       tone="content"
     >
       <Stack spacing={2}>
@@ -1427,7 +1427,7 @@ export function GroupScreen(props: {
 
         <WorkspacePanel
           title="Workspace group"
-          subtitle="Đi giữa danh sách group, allowlist, admin và member role mà không tách tabs khỏi phần detail phía dưới."
+          subtitle="Danh sách group, allowlist, admin và role."
           tabs={props.tabs}
           activeTab={props.activeTab}
           onChangeTab={props.onChangeTab}

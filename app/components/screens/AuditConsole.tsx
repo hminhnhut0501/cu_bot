@@ -16,9 +16,9 @@ export type AuditStats = {
 export default function AuditConsole({ auditStats }: { auditStats: AuditStats }) {
   return (
     <Section
-      eyebrow="Operational audit"
+      eyebrow="Audit"
       title="Nhật ký"
-      subtitle="Xem log mới nhất."
+      subtitle="Log mới nhất."
       tone="analytics"
       icon={<Activity size={20} />}
     >

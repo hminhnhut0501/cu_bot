@@ -123,7 +123,7 @@ export default function MetricsDashboard({
       <Section
         eyebrow="Dashboard vận hành"
         title="Thống kê thật từ nhật ký bot"
-        subtitle="Aggregate trực tiếp từ audit_logs và các bảng vận hành hiện có. Mốc ngày/tháng/năm dùng giờ Việt Nam."
+        subtitle="Số liệu trực tiếp từ audit_logs."
         tone="analytics"
         icon={<BarChart3 size={20} />}
         actions={analyticsLoading ? <Chip size="small" label="Đang cập nhật" /> : <Chip size="small" label={`TZ: ${analyticsSummary?.timezone || "Asia/Ho_Chi_Minh"}`} />}
@@ -205,7 +205,7 @@ export default function MetricsDashboard({
     <Section
       eyebrow="Dashboard vận hành"
       title="Số liệu & chỉ số"
-      subtitle="Dữ liệu lấy từ bảng bot_metrics trong Supabase."
+      subtitle="Dữ liệu từ bot_metrics."
       tone="analytics"
       icon={<BarChart3 size={20} />}
     >

@@ -317,7 +317,7 @@ export default function ScamInbox({
                             <Chip size="small" variant="outlined" icon={<ImageIcon size={14} />} label={`${attachments || 0} file`} />
                           </Stack>
                           <Typography variant="body2" color="text.secondary" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.65 }}>
-                            {row.reason || row.evidence_text || "Chưa có mô tả chi tiết."}
+                            {row.reason || row.evidence_text || "Không có nội dung."}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {formatDate(row.created_at)}
@@ -405,7 +405,7 @@ export default function ScamInbox({
                         Bằng chứng / mô tả
                       </Typography>
                       <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.75, color: "text.primary" }}>
-                        {selected.evidence_text || selected.reason || "Chưa có mô tả."}
+                        {selected.evidence_text || selected.reason || "Không có nội dung."}
                       </Typography>
                       {truthy(selected.notes) ? (
                         <>
