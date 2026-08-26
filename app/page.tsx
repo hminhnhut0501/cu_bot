@@ -5583,7 +5583,7 @@ export default function HomePage() {
             <Stack spacing={1.5} component="nav" sx={{ flex: 1 }}>
               {[
                 ["Tổng quan", CORE_LAYERS.filter((layer) => layer.navSection === "Tổng quan")],
-                ["Vận hành", CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành").filter((layer) => ["bot", "group", "logs"].includes(layer.key))],
+                ["Vận hành", CORE_LAYERS.filter((layer) => layer.navSection === "Vận hành").filter((layer) => ["bot", "group", "modules", "logs", "analytics", "members", "blacklist"].includes(layer.key))],
                 ["Modules", allModuleLayers.filter((layer) => ["moderation", "automation", "welcome", "auto_reply", "anti_scam", "channel_publisher", "share_unlock"].includes(layer.moduleKey || ""))],
                 ["Khác", advancedLayer ? [advancedLayer] : []]
               ].map(([title, layers]) => (
