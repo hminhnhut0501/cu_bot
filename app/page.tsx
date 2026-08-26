@@ -200,7 +200,7 @@ type DeleteFailureAlert = {
 
 type ChannelPostTab = "queue" | "scheduled" | "sent" | "deleted" | "failed";
 type ChannelButtonDraft = { label: string; url: string; row: number };
-type MemberWorkspaceTab = "observed" | "moderated" | "left";
+type MemberWorkspaceTab = "observed" | "moderated" | "blacklist" | "left";
 type MemberActionType = "mute" | "ban" | "unmute" | "unban" | "blacklist" | "unblacklist" | "kick";
 type MemberOverview = {
   date?: string;
@@ -2661,30 +2661,35 @@ export default function HomePage() {
   const memberPagination = memberOverview?.pagination || {};
   const memberRowsByTab: Record<MemberWorkspaceTab, Row[]> = {
     observed: memberOverview?.active || [],
-    moderated: [...(memberOverview?.muted || []), ...(memberOverview?.banned || []), ...(memberOverview?.blacklisted || [])],
+    moderated: [...(memberOverview?.muted || []), ...(memberOverview?.banned || [])],
+    blacklist: memberOverview?.blacklisted || [],
     left: memberOverview?.logs || [],
   };
   const memberLaneCount = {
     observed: memberRowsByTab.observed.length,
     moderated: memberRowsByTab.moderated.length,
+    blacklist: memberRowsByTab.blacklist.length,
     left: memberRowsByTab.left.length,
   };
-  const memberAllRows = [...memberRowsByTab.observed, ...memberRowsByTab.moderated, ...memberRowsByTab.left];
+  const memberAllRows = [...memberRowsByTab.observed, ...memberRowsByTab.moderated, ...memberRowsByTab.blacklist, ...memberRowsByTab.left];
   const systemBlacklistRows = memberOverview?.blacklisted || [];
   const systemBlacklistLogs = memberRowsByTab.left.filter((row) => String(row.action || "").toLowerCase().includes("blacklist"));
   const memberTabLabel = (key: MemberWorkspaceTab) => {
     if (key === "observed") return `Member observed (${memberLaneCount.observed})`;
     if (key === "moderated") return `Member moderated (${memberLaneCount.moderated})`;
+    if (key === "blacklist") return `Blacklist (${memberLaneCount.blacklist})`;
     return `Member left (${memberLaneCount.left})`;
   };
   const memberTabItems: Array<{ key: MemberWorkspaceTab; label: string }> = [
     { key: "observed", label: memberTabLabel("observed") },
     { key: "moderated", label: memberTabLabel("moderated") },
+    { key: "blacklist", label: memberTabLabel("blacklist") },
     { key: "left", label: memberTabLabel("left") },
   ];
   const memberStatsCards: Array<{ label: string; value: number; Icon: typeof Activity; color: "success" | "warning" | "error" | "info" }> = [
     { label: "Member observed", value: memberLaneCount.observed, Icon: Activity, color: "success" },
     { label: "Member moderated", value: memberLaneCount.moderated, Icon: MessageSquare, color: "warning" },
+    { label: "Blacklist", value: memberLaneCount.blacklist, Icon: ShieldCheck, color: "error" },
     { label: "Member left", value: memberLaneCount.left, Icon: LogOut, color: "info" },
   ];
   const systemBlacklistStats: Array<{ label: string; value: string | number; Icon: typeof Activity; color: "error" | "warning" | "info" }> = [
@@ -2775,7 +2780,7 @@ export default function HomePage() {
   const memberTabForAction: Partial<Record<MemberActionType, MemberWorkspaceTab>> = {
     mute: "moderated",
     ban: "moderated",
-    blacklist: "moderated",
+    blacklist: "blacklist",
     unmute: "observed",
     unban: "observed",
     unblacklist: "observed",
@@ -2828,6 +2833,7 @@ export default function HomePage() {
   const memberLaneRowsFor = (lane: MemberWorkspaceTab) => {
     if (lane === "observed") return memberRowsByTab.observed;
     if (lane === "moderated") return memberRowsByTab.moderated;
+    if (lane === "blacklist") return memberRowsByTab.blacklist;
     return memberRowsByTab.left;
   };
   const timelineToneForSource = (source?: string) => {
