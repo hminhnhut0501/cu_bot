@@ -258,6 +258,10 @@ emoji ghép (gia đình, màu da, cờ) tính là một, custom emoji cũng đư
 Chỉ xóa và ghi nhận vi phạm `emoji_spam`, không tự thêm cảnh cáo/ban.
 Các miễn trừ admin và tự động chuyển tiếp hiện có vẫn áp dụng.
 
+Trong Admin CP, chọn bot → **Kiểm duyệt tự động → Spam, cảnh báo & ban**.
+Mục **Spam nhiều emoji** có công tắc bật/tắt và ô sửa số emoji tối đa;
+mục **Tin có nút bấm** có công tắc và hành động xử lý.
+
 Cấu hình theo bot trong `module_settings`, dòng `module_key=moderation`,
 **ghép thêm** vào JSON `settings` (giữ các khóa hiện có):
 

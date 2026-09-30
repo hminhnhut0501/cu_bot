@@ -262,6 +262,7 @@ const drawerCollapsedWidth = 88;
 
 const defaultBoolean = new Set(["enabled", "daily_enabled", "delete_system_messages", "delete_forwarded_messages", "allow_forward_messages", "allow_automatic_forwards"]);
 const CONFIG_BOOLEAN_KEYS = new Set([
+  "emoji_spam_enabled",
   "moderation_enabled",
   "delete_system_messages",
   "delete_forwarded_messages",
@@ -310,6 +311,8 @@ const CONFIG_SELECT_OPTIONS: Record<string, { value: string; label: string }[]> 
   ]
 };
 const CONFIG_DEFAULT_VALUES: Record<string, string> = {
+  emoji_spam_enabled: "true",
+  emoji_spam_max_count: "5",
   moderation_enabled: "true",
   delete_system_messages: "true",
   delete_forwarded_messages: "true",
@@ -589,6 +592,8 @@ const CONFIG_LABELS: Record<string, string> = {
   media_spam_window_seconds: "Khung thời gian media spam",
   media_spam_action: "Xử lý media spam",
   duplicate_message_enabled: "Chặn tin/sticker lặp lại",
+  emoji_spam_enabled: "Chặn spam nhiều emoji",
+  emoji_spam_max_count: "Số emoji tối đa trong một tin",
   duplicate_message_max_count: "Số lần lặp tối đa",
   duplicate_message_window_seconds: "Thời gian kiểm tra lặp",
   duplicate_message_action: "Xử lý khi bị lặp",
@@ -646,7 +651,7 @@ const CONFIG_SECTIONS = [
     desc: "Quy định bot sẽ warn, mute, kick hoặc ban thế nào khi phát hiện spam/vi phạm.",
     icon: SlidersHorizontal,
     tone: "security",
-    keys: ["spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
+    keys: ["emoji_spam_enabled", "emoji_spam_max_count", "delete_inline_keyboard_messages", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "violation_delete_retry_seconds"]
   },
   {
     title: "Mẫu tin kiểm duyệt",
@@ -700,7 +705,7 @@ const MODULE_HUBS = [
     icon: ShieldCheck,
     tone: "security",
     tables: ["groups", "keywords", "domain_blacklist", "link_shorteners", "bot_allowlist", "config"],
-    configKeys: ["moderation_enabled", "delete_system_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "allow_forward_messages", "forward_allowed_sources", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds", "scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
+    configKeys: ["emoji_spam_enabled", "emoji_spam_max_count", "moderation_enabled", "delete_system_messages", "allow_automatic_forwards", "delete_inline_keyboard_messages", "delete_messages_from_bots", "remove_unknown_bots", "exempt_admins", "allow_forward_messages", "forward_allowed_sources", "forward_allowed_content_types", "forward_spam_max_messages", "forward_spam_window_seconds", "forward_violation_restrict_after", "forward_violation_ban_after", "spam_max_messages", "spam_window_seconds", "spam_action", "spam_restrict_seconds", "forward_action", "inline_keyboard_action", "ban_after_warnings", "ban_seconds", "warning_text", "forward_warning_reason", "forward_warning_text", "spam_restrict_text", "warning_notice_delete_seconds", "forward_warning_delete_seconds", "spam_notice_delete_seconds", "violation_delete_retry_seconds", "duplicate_message_enabled", "duplicate_message_max_count", "duplicate_message_window_seconds", "duplicate_message_action", "duplicate_message_reason", "media_spam_max_messages", "media_spam_window_seconds", "media_spam_action", "scan_bio_links", "bio_link_delete_message", "bio_link_restrict_seconds", "bio_scan_cache_seconds", "bio_link_warning_text", "bio_link_notice_delete_seconds", "scan_hidden_links", "scan_text_link", "scan_text_mention", "allow_in_group_mentions", "hidden_link_action", "text_link_action", "text_mention_action", "hidden_link_reason", "hidden_link_delete_notice_seconds"]
   },
   {
     key: "menu_policy",
@@ -871,6 +876,8 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   media_spam_window_seconds: "Khung thời gian tính media spam, đơn vị giây.",
   media_spam_action: "Hành động khi user spam media: delete/warn/restrict/ban.",
   duplicate_message_enabled: "Bật để bot phát hiện user gửi cùng một tin nhắn hoặc cùng một sticker nhiều lần.",
+  emoji_spam_enabled: "Xóa tin thường, forward và caption vượt ngưỡng emoji; kiểm tra cả tin chỉnh sửa. Giữ miễn trừ admin hiện có.",
+  emoji_spam_max_count: "Mặc định 5: từ 6 emoji sẽ bị xóa. Emoji lặp tính từng lần; emoji ghép tính một. 0 chặn mọi tin có emoji.",
   duplicate_message_max_count: "Số lần trùng nội dung/sticker được phép trong khung thời gian trước khi xử lý.",
   duplicate_message_window_seconds: "Khung thời gian tính lặp. Ví dụ 600 giây là 10 phút.",
   duplicate_message_action: "Hành động khi user lặp nội dung quá mức. Nên dùng warn để cảnh báo và tự xóa tin vi phạm.",
@@ -3055,7 +3062,7 @@ export default function HomePage() {
   const ActiveConfigIcon = activeConfigSection?.icon;
   const moderationConfigRowMap = useMemo(() => {
     const map = new Map<string, Row>();
-    if (activeConfigSection?.title === "Thiết lập dùng chung" || activeConfigSection?.title === "Forward nâng cao") {
+    if (activeConfigSection) {
       for (const row of activeConfigSection.rows) {
         map.set(String(row.key || ""), row);
       }
@@ -3159,6 +3166,20 @@ export default function HomePage() {
     }
   ], []);
   const spamConfigBlocks = useMemo(() => [
+    {
+      key: "emoji",
+      title: "Spam nhiều emoji",
+      desc: "Xóa tin hoặc forward vượt số emoji cho phép, kể cả caption và tin chỉnh sửa.",
+      toggleKey: "emoji_spam_enabled",
+      keys: ["emoji_spam_enabled", "emoji_spam_max_count"]
+    },
+    {
+      key: "buttons",
+      title: "Tin có nút bấm",
+      desc: "Chặn inline button, kể cả nút màu xanh và nút được thêm khi chỉnh sửa tin.",
+      toggleKey: "delete_inline_keyboard_messages",
+      keys: ["delete_inline_keyboard_messages", "inline_keyboard_action"]
+    },
     {
       key: "spam",
       title: "Spam thường",
@@ -4388,6 +4409,10 @@ export default function HomePage() {
         const key = String(values.key || row.key || "").trim();
         if (!key) {
           throw new Error("Thiếu key cấu hình moderation.");
+        }
+        if (key === "emoji_spam_max_count" &&
+            (String(values.value ?? "").trim() === "" || !Number.isSafeInteger(Number(values.value)) || Number(values.value) < 0)) {
+          throw new Error("Ngưỡng emoji phải là số nguyên từ 0 trở lên.");
         }
         const moderationRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "moderation");
         const nextSettings = {
