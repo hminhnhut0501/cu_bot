@@ -3,3 +3,4 @@ Flask
 schedule
 requests
 pytz
+emoji>=2.15,<3

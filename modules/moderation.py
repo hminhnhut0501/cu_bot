@@ -9,6 +9,7 @@ from functools import wraps
 from urllib.parse import urlparse
 
 import telebot
+import emoji
 from telebot.util import content_type_service
 
 from core.utils import as_bool, as_int, normalize_id, normalize_text
@@ -68,6 +69,8 @@ MESSAGE_CONTENT_TYPES = [
 
 class ModerationModule(BotModule):
     MODULE_SETTING_KEYS = {
+        "emoji_spam_enabled",
+        "emoji_spam_max_count",
         "moderation_enabled",
         "delete_system_messages",
         "delete_forwarded_messages",
@@ -156,6 +159,21 @@ class ModerationModule(BotModule):
             func=lambda message: not self.is_command_message(message),
             content_types=MESSAGE_CONTENT_TYPES,
         )(self.active(self.handle_group_message))
+        self.bot.edited_message_handler(content_types=MESSAGE_CONTENT_TYPES)(
+            self.active(self.handle_edited_group_message)
+        )
+
+    def handle_edited_group_message(self, message):
+        # Recheck buttons on edits without counting an edit as another spam message.
+        if not self.moderation_enabled(message.chat.id):
+            return
+        if self.is_automatic_forward_allowed(message) or self.is_anonymous_admin_message(message):
+            return
+        user = getattr(message, "from_user", None)
+        if user and self.admin_exempt(message.chat.id, user.id):
+            return
+        if not self.detect_emoji_spam(message):
+            self.detect_inline_keyboard(message)
 
     def admin_only(self, handler):
         @wraps(handler)
@@ -404,6 +422,10 @@ class ModerationModule(BotModule):
         if from_user and self.admin_exempt(message.chat.id, from_user.id):
             self.mark_member_activity(message)
             return
+        if self.detect_emoji_spam(message):
+            return
+        if self.detect_inline_keyboard(message):
+            return
         if from_user and self.handle_verification_answer(message):
             return
         if not from_user:
@@ -447,8 +469,6 @@ class ModerationModule(BotModule):
         if self.detect_forbidden_keyword(message):
             return
         if self.detect_forward(message):
-            return
-        if self.detect_inline_keyboard(message):
             return
 
     def mark_member_activity(self, message):
@@ -1045,14 +1065,54 @@ class ModerationModule(BotModule):
     def is_automatic_forward_allowed(self, message):
         return bool(getattr(message, "is_automatic_forward", False)) and self.setting_bool(message.chat.id, "allow_automatic_forwards", True)
 
+    @staticmethod
+    def count_message_emojis(message):
+        count = 0
+        for field, entity_field in (("text", "entities"), ("caption", "caption_entities")):
+            text = getattr(message, field, None) or ""
+            # Telegram entity offsets are UTF-16 code units, not Python indices.
+            encoded = bytearray(text.encode("utf-16-le"))
+            spans = set()
+            for entity in getattr(message, entity_field, None) or []:
+                if getattr(entity, "type", None) == "custom_emoji":
+                    start, length = entity.offset, entity.length
+                    if start >= 0 and length > 0 and (start + length) * 2 <= len(encoded):
+                        spans.add((start, length))
+            for start, length in spans:
+                encoded[start * 2:(start + length) * 2] = b" \x00" * length
+            count += len(spans) + sum(1 for _ in emoji.analyze(
+                encoded.decode("utf-16-le"), join_emoji=True
+            ))
+        return count
+
+    def detect_emoji_spam(self, message):
+        if not self.setting_bool(message.chat.id, "emoji_spam_enabled", True):
+            return False
+        limit = self.setting_int(message.chat.id, "emoji_spam_max_count", 5)
+        if limit < 0:
+            return False
+        count = self.count_message_emojis(message)
+        if count <= limit:
+            return False
+        self.delete_violation_message(
+            message, "emoji_spam", reason_label=f"Spam emoji ({count}/{limit})",
+            emoji_count=count, emoji_limit=limit,
+        )
+        return True
+
     def detect_inline_keyboard(self, message):
         if not self.setting_bool(message.chat.id, "delete_inline_keyboard_messages", True):
             return False
         markup = getattr(message, "reply_markup", None)
-        if not markup or not getattr(markup, "keyboard", None) and not getattr(markup, "inline_keyboard", None):
+        buttons = markup.get("inline_keyboard") if isinstance(markup, dict) else (
+            getattr(markup, "keyboard", None) or getattr(markup, "inline_keyboard", None)
+        )
+        if not buttons or not any(buttons):
             return False
         self.delete_violation_message(message, "inline_keyboard", reason_label="Tin nhắn có nút bấm")
-        self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.", trigger="inline_keyboard")
+        user = getattr(message, "from_user", None)
+        if user and not getattr(user, "is_bot", False) and not getattr(message, "sender_chat", None):
+            self.apply_action(message, self.setting(message.chat.id, "inline_keyboard_action", "warn"), "Không được gửi bài có nút bấm.", trigger="inline_keyboard")
         return True
 
     def detect_bio_link(self, chat_id, user, force=False, notify=True):

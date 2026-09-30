@@ -249,3 +249,24 @@ python bot.py
 ```
 
 The keep-alive HTTP endpoint listens on `PORT` or `KEEP_ALIVE_PORT`, default `8080`.
+
+### Chặn spam nhiều emoji
+
+Mặc định xóa tin có **trên 5 emoji** (6 trở lên), gồm tin chuyển tiếp,
+caption ảnh/video và tin chỉnh sửa. Emoji lặp lại được tính từng lần;
+emoji ghép (gia đình, màu da, cờ) tính là một, custom emoji cũng được tính.
+Chỉ xóa và ghi nhận vi phạm `emoji_spam`, không tự thêm cảnh cáo/ban.
+Các miễn trừ admin và tự động chuyển tiếp hiện có vẫn áp dụng.
+
+Cấu hình theo bot trong `module_settings`, dòng `module_key=moderation`,
+**ghép thêm** vào JSON `settings` (giữ các khóa hiện có):
+
+```json
+{"emoji_spam_enabled": true, "emoji_spam_max_count": 5}
+```
+
+Có thể thay `5` bằng ngưỡng mong muốn; `0` chặn mọi tin có emoji.
+Đặt `emoji_spam_enabled=false` để tắt. Nếu không có hai khóa trong module,
+bot đọc các khóa cùng tên trong bảng `config` của bot rồi dùng mặc định.
+Không cần thêm cột database. Cấu hình cập nhật theo chu kỳ cache hoặc `/reload`.
+Triển khai lại worker với `requirements.txt` mới trước khi dùng tính năng.
