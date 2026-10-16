@@ -142,6 +142,12 @@ class ModerationModule(BotModule):
         return default
 
     def register(self):
+        # Older TeleBot versions retain rich_message in JSON but set content_type=None.
+        for register in (self.bot.message_handler, self.bot.edited_message_handler):
+            register(func=lambda message: self.rich_payload(message) is not None,
+                     content_types=[None, "rich_message", *MESSAGE_CONTENT_TYPES])(
+                self.active(self.handle_rich_message)
+            )
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.active(self.handle_service_message))
         self.bot.my_chat_member_handler()(self.active(self.handle_my_chat_member))
         self.bot.message_handler(commands=["policy", "rules", "quydinh", "noiquy"])(self.active(self.handle_policy))
@@ -174,6 +180,58 @@ class ModerationModule(BotModule):
             return
         if not self.detect_emoji_spam(message):
             self.detect_inline_keyboard(message)
+
+    @staticmethod
+    def rich_payload(message):
+        raw = getattr(message, "json", None)
+        if isinstance(raw, dict) and "rich_message" in raw:
+            return raw["rich_message"]
+        value = getattr(message, "rich_message", None)
+        return value.to_dict() if hasattr(value, "to_dict") else value
+
+    @staticmethod
+    def rich_has_buttons(payload):
+        pending = [payload]
+        while pending:
+            node = pending.pop()
+            if isinstance(node, dict):
+                if node.get("type") == "button" and node.get("button"):
+                    return True
+                if node.get("type") == "buttons" and node.get("buttons"):
+                    return True
+                pending.extend(node.values())
+            elif isinstance(node, list):
+                pending.extend(node)
+        return False
+
+    def handle_rich_message(self, message):
+        if not self.rich_has_buttons(self.rich_payload(message)):
+            return self.continue_handling()
+        chat_id = message.chat.id
+        if getattr(message.chat, "type", "") not in {"group", "supergroup"}:
+            return self.continue_handling()
+        if not self.moderation_enabled(chat_id) or not self.setting_bool(chat_id, "delete_inline_keyboard_messages", True):
+            return self.continue_handling()
+        if self.is_anonymous_admin_message(message) or self.is_automatic_forward_allowed(message):
+            return self.continue_handling()
+        user = getattr(message, "from_user", None)
+        sender = getattr(message, "sender_chat", None)
+        # Do not mistake Telegram's synthetic sender user for the channel owner.
+        if not sender and user and self.is_admin(chat_id, user.id):
+            return self.continue_handling()
+        self.delete_violation_message(message, "rich_message_buttons", reason_label="Spam nút trong Rich Message")
+        if sender:
+            try:
+                self.bot.ban_chat_sender_chat(chat_id, sender.id)
+                self.audit(chat_id, "ban_sender_chat", details=self.audit_details(
+                    sender_chat_id=sender.id, trigger="rich_message_buttons"))
+            except Exception as exc:
+                LOGGER.warning("Cannot ban rich-message sender chat %s in %s: %s", sender.id, chat_id, exc)
+        elif user:
+            self.ban_user(chat_id, user.id, reason="Spam nút trong Rich Message",
+                          trigger="rich_message_buttons", permanent=True)
+        else:
+            LOGGER.warning("Rich-message spam deleted but sender unavailable in chat %s", chat_id)
 
     def admin_only(self, handler):
         @wraps(handler)
@@ -1474,9 +1532,9 @@ class ModerationModule(BotModule):
         )
         return count
 
-    def ban_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule", warning_count=None, warning_limit=None):
+    def ban_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule", warning_count=None, warning_limit=None, permanent=False):
         try:
-            seconds = self.setting_int(chat_id, "ban_seconds", 0)
+            seconds = 0 if permanent else self.setting_int(chat_id, "ban_seconds", 0)
             until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
             self.bot.ban_chat_member(chat_id, user_id, until_date=until_date)
             self.state.reset_warnings(chat_id, user_id)

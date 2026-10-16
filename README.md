@@ -274,3 +274,15 @@ Có thể thay `5` bằng ngưỡng mong muốn; `0` chặn mọi tin có emoji.
 bot đọc các khóa cùng tên trong bảng `config` của bot rồi dùng mặc định.
 Không cần thêm cột database. Cấu hình cập nhật theo chu kỳ cache hoặc `/reload`.
 Triển khai lại worker với `requirements.txt` mới trước khi dùng tính năng.
+
+### Rich Message có nút
+
+Khi `delete_inline_keyboard_messages=true`, bot quét `rich_message` từ JSON gốc
+và tìm `RichBlockButtons` / `RichTextButton` trong các block lồng nhau.
+Tin mới và tin chỉnh sửa trong group/supergroup đều được xử lý, kể cả thư viện
+chưa nhận dạng content type. Xóa tin rồi ban người gửi vĩnh viễn, bỏ qua
+`ban_seconds` và hành động cảnh cáo của nút inline thường. Nếu gửi với
+`sender_chat`, chặn kênh gửi bằng `banChatSenderChat`, không ban user giả.
+Admin, admin ẩn danh và automatic forward được cho phép vẫn được miễn trừ.
+Không áp dụng lên bài gốc trong channel hoặc tin nhắn riêng.
+Tài liệu: https://core.telegram.org/bots/api#richmessage

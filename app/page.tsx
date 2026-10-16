@@ -852,7 +852,7 @@ const CONFIG_DESCRIPTIONS: Record<string, string> = {
   hidden_link_reason: "Lý do nội bộ gắn vào audit cho link ẩn hoặc mention ngoài scope.",
   hidden_link_delete_notice_seconds: "Sau bao lâu bot tự xóa thông báo link ẩn.",
   allow_automatic_forwards: "Cho phép giữ lại tin auto-forward từ channel liên kết vào group.",
-  delete_inline_keyboard_messages: "Chặn bài có nút bấm inline đáng ngờ.",
+  delete_inline_keyboard_messages: "Chặn nút inline và nút trong Rich Message. Rich Message có nút: xóa tin và ban vĩnh viễn người gửi.",
   delete_messages_from_bots: "Xóa tin do bot lạ gửi vào group.",
   remove_unknown_bots: "Tự kick bot không nằm trong danh sách cho phép.",
   exempt_admins: "Bỏ qua admin khi kiểm duyệt spam/keyword/link.",
@@ -3176,7 +3176,7 @@ export default function HomePage() {
     {
       key: "buttons",
       title: "Tin có nút bấm",
-      desc: "Chặn inline button, kể cả nút màu xanh và nút được thêm khi chỉnh sửa tin.",
+      desc: "Nút inline dùng hành động bên dưới. Rich Message có nút luôn bị xóa và ban vĩnh viễn người gửi; gồm cả tin chỉnh sửa.",
       toggleKey: "delete_inline_keyboard_messages",
       keys: ["delete_inline_keyboard_messages", "inline_keyboard_action"]
     },
