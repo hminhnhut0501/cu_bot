@@ -3106,10 +3106,20 @@ export default function HomePage() {
       }
       return;
     }
-    await saveTableRowValues("module_settings", row, {
-      ...row,
-      enabled: row.enabled === false
-    });
+    const nextEnabled = row.enabled === false;
+    const previousLookups = lookups;
+    setLookups((current) => ({
+      ...current,
+      moduleSettings: current.moduleSettings.map((mr) => (mr.id === row.id ? { ...mr, enabled: nextEnabled } : mr)),
+    }));
+    try {
+      await saveTableRowValues("module_settings", row, {
+        ...row,
+        enabled: nextEnabled
+      });
+    } catch (err) {
+      setLookups(previousLookups);
+    }
   }
 
   async function toggleConfigValue(row: Row) {
@@ -3125,7 +3135,42 @@ export default function HomePage() {
     if (Object.keys(configUpdates).length) {
       updates.__configUpdates = configUpdates;
     }
-    await saveRowValues(row, updates);
+
+    // --- OPTIMISTIC UI: switch flips immediately without network latency ---
+    const prevRows = rows;
+    const previousLookups = lookups;
+    setRows((current) =>
+      current.map((r) => {
+        if (r.id === row.id || (r.key && r.key === row.key)) {
+          return { ...r, value: nextValue };
+        }
+        if (r.key && configUpdates[r.key as string] !== undefined) {
+          return { ...r, value: configUpdates[r.key as string] as string };
+        }
+        return r;
+      })
+    );
+    setLookups((current) => ({
+      ...current,
+      moduleSettings: current.moduleSettings.map((mr) => {
+        if (String(mr.module_key || "").toLowerCase() === "moderation") {
+          const s = readSettingsObject(mr.settings);
+          return {
+            ...mr,
+            settings: { ...s, [row.key as string]: nextValue, ...configUpdates },
+          };
+        }
+        return mr;
+      }),
+    }));
+
+    try {
+      await saveRowValues(row, updates);
+    } catch (err) {
+      // Rollback on network/validation failure
+      setRows(prevRows);
+      setLookups(previousLookups);
+    }
   }
 
   async function setForwardMode(mode: "block" | "controlled" | "allow") {
@@ -3135,13 +3180,47 @@ export default function HomePage() {
     }
     const nextAllow = mode === "controlled";
     const nextDelete = mode === "block";
-    await saveRowValues(allowRow, {
-      ...allowRow,
-      value: String(nextAllow),
-      __configUpdates: {
-        delete_forwarded_messages: String(nextDelete),
-      },
-    } as Row);
+
+    // --- OPTIMISTIC UI: forward mode card highlights immediately ---
+    const previousLookups = lookups;
+    const prevRows = rows;
+    setLookups((current) => ({
+      ...current,
+      moduleSettings: current.moduleSettings.map((mr) => {
+        if (String(mr.module_key || "").toLowerCase() === "moderation") {
+          const s = readSettingsObject(mr.settings);
+          return {
+            ...mr,
+            settings: {
+              ...s,
+              allow_forward_messages: String(nextAllow),
+              delete_forwarded_messages: String(nextDelete),
+            },
+          };
+        }
+        return mr;
+      }),
+    }));
+    setRows((current) =>
+      current.map((r) => {
+        if (r.key === "allow_forward_messages") return { ...r, value: String(nextAllow) };
+        if (r.key === "delete_forwarded_messages") return { ...r, value: String(nextDelete) };
+        return r;
+      })
+    );
+
+    try {
+      await saveRowValues(allowRow, {
+        ...allowRow,
+        value: String(nextAllow),
+        __configUpdates: {
+          delete_forwarded_messages: String(nextDelete),
+        },
+      } as Row);
+    } catch (err) {
+      setLookups(previousLookups);
+      setRows(prevRows);
+    }
   }
 
   async function remove(row: Row) {
