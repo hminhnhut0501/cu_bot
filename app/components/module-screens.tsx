@@ -1,8 +1,11 @@
+import TelegramPhoneSimulator from "./ui/TelegramPhoneSimulator";
 import {
   Box,
   Button as MuiButton,
   Chip,
   Dialog,
+  Divider,
+  Grid,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -187,174 +190,225 @@ export function WelcomeScreen(props: {
   onTestRuntime: () => void;
   tabLabel?: string;
 }) {
-  const [createOpen, setCreateOpen] = useState(false);
   const c = {
-    eyebrow: "MODULE",
-    title: "Welcome",
-    body: "Chào thành viên mới khi họ vừa join group. Một công tắc ở ngoài để bật/tắt, nội dung chỉnh trong popup."
+    eyebrow: "ONBOARDING STUDIO",
+    title: "Chào mừng & Xác thực thành viên",
+    body: "Thiết lập tin nhắn chào mừng, nút inline và thời gian tự xóa kèm xem trước Telegram thời gian thực."
   };
+
+  const timerPresets = [0, 15, 30, 60, 180, 300];
+
   return (
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 2,
-          bgcolor: "background.default",
-          backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.04), transparent 56%)",
-        }}
-      >
-        <Stack spacing={2}>
-          {props.tabLabel ? (
-            <WorkspacePanel
-              title="Welcome runtime"
-              subtitle={`Giữ cấu hình, preview và test runtime cho group đang xem: ${props.selectedGroupName || props.selectedGroupId || "chưa chọn group"}.`}
-              tabs={[{ key: "module_settings", label: props.tabLabel }]}
-              activeTab="module_settings"
-              onChangeTab={() => {}}
-              statusChips={(
-                <>
-                  <Chip size="small" color={props.moduleEnabled && props.welcomeEnabled ? "success" : "default"} label={props.moduleEnabled && props.welcomeEnabled ? "Đang chạy" : "Chưa chạy"} />
-                  <Chip size="small" variant="outlined" label={props.hasSavedConfig ? "Đã có cấu hình" : "Chưa lưu cấu hình"} />
-                  <Chip size="small" variant="outlined" label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Không tự xóa"} />
-                  <Chip size="small" variant="outlined" label={`Group: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn"}`} />
-                </>
-              )}
-            />
-          ) : null}
-          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Bật chào thành viên mới</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>
-                Công tắc này điều khiển trạng thái Welcome của group đang xem. Nội dung sửa trong popup bên dưới.
-              </Typography>
-            </Box>
-            <Switch
-              checked={props.welcomeEnabled}
-              onChange={(_, checked) => props.onToggleWelcome(checked)}
-              disabled={props.saving}
-            />
-          </Box>
-
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-            <Stack spacing={1.5}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+      <Grid container spacing={2.5}>
+        {/* Left Column: Configuration Controls */}
+        <Grid size={{ xs: 12, lg: 7 }}>
+          <Stack spacing={2}>
+            {/* Group Scope & Master Switch */}
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", borderRadius: 2.5 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Tin chào</Typography>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      {props.selectedGroupName || props.selectedGroupId || "Chưa chọn Group"}
+                    </Typography>
+                    <Chip
+                      size="small"
+                      color={props.welcomeEnabled ? "success" : "default"}
+                      label={props.welcomeEnabled ? "Đang bật" : "Đang tắt"}
+                    />
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
-                    Mẫu tin, nút inline và thời gian tự xóa sẽ chỉnh trong popup.
+                    {props.selectedGroupId ? `Group ID: ${props.selectedGroupId}` : "Hãy chọn group ở thanh trên để cấu hình riêng cho group đó."}
                   </Typography>
                 </Box>
-                  <MuiButton variant="contained" onClick={() => setCreateOpen(true)} disabled={props.saving}>
-                  {props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}
-                </MuiButton>
-              </Box>
-              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                <Stack spacing={0.75}>
-                  <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: "0.08em" }}>Preview nhanh</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                    {props.welcomeText || "Chưa có mẫu tin chào."}
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {props.welcomeEnabled ? "BẬT CHÀO MỪNG" : "TẮT CHÀO MỪNG"}
                   </Typography>
+                  <Switch
+                    checked={props.welcomeEnabled}
+                    onChange={(_, checked) => props.onToggleWelcome(checked)}
+                    disabled={props.saving || !props.selectedGroupId}
+                  />
                 </Stack>
-              </Paper>
-            </Stack>
-          </Paper>
+              </Stack>
+            </Paper>
 
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-            <Stack spacing={1.5}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+            {/* Message Composer Card */}
+            <Paper variant="outlined" sx={{ p: 2.5, bgcolor: "background.paper", borderRadius: 2.5 }}>
+              <Stack spacing={2}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Kiểm tra runtime Welcome</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Gửi thử đúng mẫu Welcome vào group đang xem để kiểm tra quyền bot và runtime.
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Nội dung tin nhắn chào mừng
                   </Typography>
-                  <Typography variant="caption" color="warning.main" sx={{ display: "block", mt: 0.5 }}>
-                    Nút test này gửi trực tiếp từ Control Panel qua Telegram API, không đi qua Render runtime.
+                  <Typography variant="body2" color="text.secondary">
+                    Hỗ trợ định dạng HTML/Markdown và các placeholder cá nhân hóa.
                   </Typography>
                 </Box>
-                <MuiButton
-                  variant="contained"
-                  startIcon={<FlaskConical size={16} />}
-                  onClick={props.onTestRuntime}
-                  disabled={props.testing || props.saving || !props.selectedGroupId}
-                >
-                  {props.testing ? "Đang gửi test..." : "Gửi test Welcome"}
-                </MuiButton>
-              </Box>
 
-              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                <Chip size="small" variant="outlined" label={`Đang xem: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn group"}`} />
-                <Chip size="small" color={props.runtimeLastEventAt ? "info" : "default"} label={props.runtimeLastEventAt ? `Đã nhận event: ${props.runtimeLastEventAt}` : "Chưa nhận event"} />
-                <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi thành công: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
-                <Chip size="small" color={props.runtimeLastErrorAt ? "warning" : "default"} label={props.runtimeLastErrorAt ? `Lỗi gần nhất: ${props.runtimeLastErrorAt}` : "Chưa có lỗi runtime"} />
-                {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} /> : null}
-                {props.runtimeDeleteStatus ? <Chip size="small" variant="outlined" label={props.runtimeDeleteStatus} /> : null}
-                {props.runtimeLastEventSource === "member_state" ? (
-                  <Chip size="small" color="warning" variant="outlined" label="Join event đã nhận qua member-state, service message có thể đã bị xóa" />
-                ) : null}
+                <TextField
+                  multiline
+                  minRows={6}
+                  fullWidth
+                  value={props.welcomeText}
+                  onChange={(event) => props.onChangeText(event.target.value)}
+                  placeholder="Chào {user} đã đến với {group}! Vui lòng bấm vào nút quy định bên dưới để tìm hiểu nội quy nhóm nhé..."
+                  disabled={props.saving}
+                />
+
+                {/* Placeholder Quick Insert Chips */}
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, fontWeight: 700, textTransform: "uppercase" }}>
+                    Biến thay thế nhanh (bấm để chèn):
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {[
+                      { tag: "{user}", label: "{user} (Tên thành viên)" },
+                      { tag: "{group}", label: "{group} (Tên nhóm)" },
+                      { tag: "{user_id}", label: "{user_id} (ID Telegram)" },
+                      { tag: "{group_id}", label: "{group_id} (ID Nhóm)" },
+                    ].map((item) => (
+                      <Chip
+                        key={item.tag}
+                        size="small"
+                        variant="outlined"
+                        label={item.label}
+                        onClick={() => props.onChangeText(`${props.welcomeText} ${item.tag}`.trim())}
+                        sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Divider sx={{ my: 0.5 }} />
+
+                {/* Auto Delete Timer */}
+                <Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Thời gian tự xóa tin nhắn
+                    </Typography>
+                    <Chip
+                      size="small"
+                      color={props.welcomeDeleteSeconds > 0 ? "warning" : "default"}
+                      label={props.welcomeDeleteSeconds > 0 ? `Tự xóa sau ${props.welcomeDeleteSeconds}s` : "Giữ vĩnh viễn"}
+                    />
+                  </Box>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5, mb: 1.5 }}>
+                    {timerPresets.map((sec) => (
+                      <Chip
+                        key={sec}
+                        size="small"
+                        color={props.welcomeDeleteSeconds === sec ? "primary" : "default"}
+                        variant={props.welcomeDeleteSeconds === sec ? "filled" : "outlined"}
+                        label={sec === 0 ? "Không xóa" : `${sec} giây`}
+                        onClick={() => props.onChangeDeleteSeconds(String(sec))}
+                        sx={{ cursor: "pointer" }}
+                      />
+                    ))}
+                  </Stack>
+                  <TextField
+                    type="number"
+                    size="small"
+                    label="Tùy chỉnh số giây tự xóa"
+                    value={props.welcomeDeleteSeconds}
+                    onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
+                    helperText="Đặt 0 nếu muốn tin chào mừng giữ lại vĩnh viễn trong nhóm."
+                    sx={{ maxWidth: 260 }}
+                  />
+                </Box>
+              </Stack>
+            </Paper>
+
+            {/* Inline Buttons Builder Card */}
+            <Paper variant="outlined" sx={{ p: 2.5, bgcolor: "background.paper", borderRadius: 2.5 }}>
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    Nút bấm liên kết (Inline Buttons)
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Mỗi dòng là một nút bấm theo định dạng: <code>Tên nút | Đường dẫn liên kết</code>
+                  </Typography>
+                </Box>
+                <TextField
+                  multiline
+                  minRows={3}
+                  fullWidth
+                  value={props.welcomeButtonsText}
+                  onChange={(event) => props.onChangeButtonsText(event.target.value)}
+                  placeholder="📖 Xem Quy Định | https://t.me/your_rules_channel\n🌐 Kênh Thông Báo | https://t.me/your_announcements"
+                  disabled={props.saving}
+                />
+              </Stack>
+            </Paper>
+
+            {/* Action Bar & Testing */}
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", borderRadius: 2.5 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}>
+                <Stack direction="row" spacing={1}>
+                  <MuiButton
+                    variant="contained"
+                    size="large"
+                    startIcon={<Check size={18} />}
+                    onClick={props.onSave}
+                    disabled={props.saving || !props.selectedGroupId}
+                  >
+                    {props.saving ? "Đang lưu..." : "Lưu cấu hình"}
+                  </MuiButton>
+                  <MuiButton
+                    variant="outlined"
+                    size="large"
+                    startIcon={<FlaskConical size={18} />}
+                    onClick={props.onTestRuntime}
+                    disabled={props.testing || props.saving || !props.selectedGroupId}
+                  >
+                    {props.testing ? "Đang gửi..." : "Gửi test vào group"}
+                  </MuiButton>
+                </Stack>
+                {props.hasSavedConfig ? (
+                  <Chip size="small" color="success" variant="outlined" label="✓ Đã lưu cấu hình" />
+                ) : (
+                  <Chip size="small" color="warning" variant="outlined" label="Chưa lưu thay đổi" />
+                )}
               </Stack>
 
-              {props.runtimeLastErrorMessage ? (
-                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                  <Typography variant="caption" color="text.secondary">Lỗi gần nhất</Typography>
-                  <Typography variant="body2">{props.runtimeLastErrorMessage}</Typography>
-                </Paper>
-              ) : null}
-            </Stack>
-          </Paper>
-        </Stack>
-      </Paper>
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>{props.hasSavedConfig ? "Sửa Welcome" : "Tạo Welcome"}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={1.5} sx={{ pt: 1 }}>
-            <TextField
-              multiline
-              minRows={5}
-              fullWidth
-              label="Mẫu tin chào"
-              value={props.welcomeText}
-              disabled={props.saving}
-              onChange={(event) => props.onChangeText(event.target.value)}
-              helperText="Placeholder: {user}, {group}, {group_id}, {user_id}"
-            />
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {user}`.trim())} disabled={props.saving}>
-                Chèn {'{user}'}
-              </MuiButton>
-              <MuiButton size="small" variant="outlined" onClick={() => props.onChangeText(`${props.welcomeText} {group}`.trim())} disabled={props.saving}>
-                Chèn {'{group}'}
-              </MuiButton>
-            </Box>
-            <TextField
-              type="number"
-              fullWidth
-              label="Tự xóa sau (giây)"
-              value={props.welcomeDeleteSeconds}
-              disabled={props.saving}
-              onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
-              helperText="0 = không tự xóa"
-            />
-            <TextField
-              multiline
-              minRows={3}
-              fullWidth
-              label="Nút inline"
-              value={props.welcomeButtonsText}
-              disabled={props.saving}
-              onChange={(event) => props.onChangeButtonsText(event.target.value)}
-              helperText="Mỗi dòng: Tên nút | https://link"
-            />
+              {/* Runtime Diagnostics */}
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
+                <Chip size="small" variant="outlined" label={`Group: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn"}`} />
+                <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi OK: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
+                {props.runtimeLastErrorAt ? <Chip size="small" color="error" label={`Lỗi: ${props.runtimeLastErrorMessage || props.runtimeLastErrorAt}`} /> : null}
+                {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} /> : null}
+              </Stack>
+            </Paper>
           </Stack>
-        </DialogContent>
-        <DialogActions>
-              <MuiButton variant="outlined" onClick={() => setCreateOpen(false)}>Hủy</MuiButton>
-          <MuiButton variant="contained" onClick={props.onSave} disabled={props.saving}>Lưu</MuiButton>
-        </DialogActions>
-      </Dialog>
+        </Grid>
+
+        {/* Right Column: Live Telegram Phone Simulator */}
+        <Grid size={{ xs: 12, lg: 5 }}>
+          <Box sx={{ position: { lg: "sticky" }, top: { lg: 24 } }}>
+            <Box sx={{ mb: 1.5, textAlign: "center" }}>
+              <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.2, fontWeight: 700 }}>
+                📱 Xem trước thực tế trên Telegram
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                Thay đổi ở cột bên trái sẽ cập nhật ngay tại đây
+              </Typography>
+            </Box>
+            <TelegramPhoneSimulator
+              groupName={props.selectedGroupName || props.selectedGroupId || "Cộng Đồng Telegram"}
+              messageText={props.welcomeText}
+              buttonsText={props.welcomeButtonsText}
+              deleteAfterSeconds={props.welcomeDeleteSeconds}
+              sampleUser="@alex_member"
+            />
+          </Box>
+        </Grid>
+      </Grid>
     </Section>
   );
 }
-
 export function ModerationScreen(props: {
   selectedGroupProtection: ProtectionState;
   moderationPolicySummary: SummaryItem[];
