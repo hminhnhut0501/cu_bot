@@ -4,6 +4,7 @@ import {
   Box,
   Button as MuiButton,
   Checkbox,
+  Chip,
   FormControlLabel,
   FormGroup,
   MenuItem,
@@ -190,39 +191,42 @@ export default function ConfigEditor({
           </Paper>
         ) : editorKind === "select" ? (
           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
-            <Stack spacing={1}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Chọn giá trị cố định</Typography>
-              <TextField
-                select
-                size="small"
-                value={String(draft.value ?? "")}
-                slotProps={{
-                  select: {
-                    MenuProps: {
-                      disablePortal: true,
-                      slotProps: {
-                        paper: {
-                          sx: { maxHeight: 320, zIndex: 2000 },
-                        },
-                      },
-                    },
-                  },
-                }}
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  setDraft((current) => ({ ...current, value: event.target.value }))
-                }
-              >
-                {configSelectOptions(String(draft.key || "")).map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Chọn hành động xử lý</Typography>
+              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                {configSelectOptions(String(draft.key || "")).map((option) => {
+                  const isSelected = String(draft.value) === option.value;
+                  const actionColorMap: Record<string, "warning" | "info" | "secondary" | "error" | "default"> = {
+                    warn: "warning",
+                    delete: "info",
+                    restrict: "secondary",
+                    mute: "warning",
+                    kick: "error",
+                    ban: "error",
+                  };
+                  const color = actionColorMap[option.value] || "primary";
+                  return (
+                    <Chip
+                      key={option.value}
+                      label={option.label}
+                      clickable
+                      color={isSelected ? color : "default"}
+                      variant={isSelected ? "filled" : "outlined"}
+                      onClick={() => setDraft((c) => ({ ...c, value: option.value }))}
+                      sx={{
+                        fontWeight: isSelected ? 700 : 500,
+                        py: 2,
+                        borderRadius: 1.5,
+                      }}
+                    />
+                  );
+                })}
+              </Box>
             </Stack>
           </Paper>
         ) : editorKind === "number" ? (
           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
-            <Stack spacing={1}>
+            <Stack spacing={1.5}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Nhập giá trị số</Typography>
               <TextField
                 type="number"
@@ -233,11 +237,65 @@ export default function ConfigEditor({
                 }
                 helperText={fieldUnitHint({ key: String(draft.key || ""), label: "", type: "number" })}
               />
+
+              {(() => {
+                const key = String(draft.key || "");
+                let numberPresets: Array<{ label: string; value: number }> = [];
+                if (key.endsWith("_seconds") || key === "ban_seconds") {
+                  numberPresets = [
+                    { label: "30 giây", value: 30 },
+                    { label: "1 phút", value: 60 },
+                    { label: "5 phút", value: 300 },
+                    { label: "15 phút", value: 900 },
+                    { label: "1 giờ", value: 3600 },
+                    { label: "1 ngày", value: 86400 },
+                    { label: "7 ngày", value: 604800 },
+                    { label: "Vĩnh viễn (0)", value: 0 },
+                  ];
+                } else if (key === "ban_after_warnings" || key.includes("warning")) {
+                  numberPresets = [
+                    { label: "1 lần", value: 1 },
+                    { label: "2 lần", value: 2 },
+                    { label: "3 lần (chuẩn)", value: 3 },
+                    { label: "5 lần", value: 5 },
+                  ];
+                } else if (key.endsWith("_messages") || key.endsWith("_count")) {
+                  numberPresets = [
+                    { label: "3 tin", value: 3 },
+                    { label: "5 tin (chuẩn)", value: 5 },
+                    { label: "10 tin", value: 10 },
+                    { label: "20 tin", value: 20 },
+                  ];
+                }
+
+                if (!numberPresets.length) return null;
+
+                return (
+                  <Stack spacing={0.75}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                      Mức gợi ý thiết lập nhanh:
+                    </Typography>
+                    <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                      {numberPresets.map((preset) => (
+                        <Chip
+                          key={preset.label}
+                          label={preset.label}
+                          size="small"
+                          clickable
+                          variant={Number(draft.value) === preset.value ? "filled" : "outlined"}
+                          color={Number(draft.value) === preset.value ? "primary" : "default"}
+                          onClick={() => setDraft((c) => ({ ...c, value: preset.value }))}
+                        />
+                      ))}
+                    </Stack>
+                  </Stack>
+                );
+              })()}
             </Stack>
           </Paper>
         ) : (
           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
-            <Stack spacing={0.75}>
+            <Stack spacing={1}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>Nhập nội dung / giá trị</Typography>
               <TextField
                 multiline
@@ -248,9 +306,29 @@ export default function ConfigEditor({
                 }
               />
               {placeholders.length ? (
-                <Typography variant="caption" color="text.secondary">
-                  Placeholder: {placeholders.join(" · ")}
-                </Typography>
+                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                    Nhấp để chèn biến nội dung:
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {placeholders.map((ph) => (
+                      <Chip
+                        key={ph}
+                        label={ph}
+                        size="small"
+                        variant="outlined"
+                        clickable
+                        onClick={() => {
+                          setDraft((c) => ({
+                            ...c,
+                            value: (c.value ? `${c.value} ` : "") + ph,
+                          }));
+                        }}
+                        sx={{ fontFamily: "monospace", fontSize: 11 }}
+                      />
+                    ))}
+                  </Stack>
+                </Stack>
               ) : null}
             </Stack>
           </Paper>

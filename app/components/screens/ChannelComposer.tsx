@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { CalendarClock, Eye, Plus, Save, Send, Trash2, X } from "lucide-react";
 import type { ChangeEvent } from "react";
+import TelegramPhoneSimulator from "@/app/components/ui/TelegramPhoneSimulator";
 
 export type ChannelComposerDraft = {
   id?: string | number;
@@ -278,67 +279,72 @@ export default function ChannelComposer(props: ChannelComposerProps) {
               />
             </Stack>
 
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)" }}>
-              <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                  <Eye size={17} />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>Xem trước Telegram</Typography>
-                </Stack>
-                <Box
-                  sx={{
-                    border: "1px solid",
-                    borderColor: "divider",
-                    borderRadius: 1,
-                    p: 1.5,
-                    bgcolor: "background.paper",
-                    backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.88), transparent 100%)",
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>{props.composer.title || "Bài đăng mới"}</Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5, lineHeight: 1.7 }}>
-                    {props.composer.content || "Nội dung bài đăng sẽ xuất hiện tại đây."}
-                  </Typography>
-                  <Stack spacing={0.5} sx={{ mt: 1 }}>
-                    {Array.from(new Set(props.buttons.map((button) => button.row)))
-                      .sort()
-                      .map((row) => (
-                        <Stack key={row} direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                          {props.buttons
-                            .filter((button) => button.row === row && button.label)
-                            .map((button, index) => (
-                              <Box
-                                key={`${row}-${index}`}
-                                sx={{
-                                  px: 1.25,
-                                  py: 0.5,
-                                  border: "1px solid",
-                                  borderColor: "divider",
-                                  borderRadius: 999,
-                                  fontSize: 12,
-                                }}
-                              >
-                                {button.label}
-                              </Box>
-                            ))}
-                        </Stack>
-                      ))}
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                bgcolor: "background.default",
+                backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.78), transparent 100%)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <Stack spacing={1.5} sx={{ width: "100%", alignItems: "center" }}>
+                <Stack direction="row" spacing={1} sx={{ width: "100%", alignItems: "center", justifyContent: "space-between" }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Eye size={17} />
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
+                      Xem trước Telegram Real-time
+                    </Typography>
                   </Stack>
-                </Box>
-                <Stack spacing={0.5}>
+                  <Typography variant="caption" color="text.secondary">
+                    Khung chuẩn di động iOS / Android
+                  </Typography>
+                </Stack>
+
+                {(() => {
+                  const targetGroup = props.groups.find(
+                    (g) => (g.group_id || g.chat_id) === props.composer.target_chat_id
+                  );
+                  const chatTitle = targetGroup?.group_name || props.composer.target_chat_id || "Kênh thông báo";
+                  const botObj = props.bots.find(
+                    (b) => b.bot_key === (props.composer.bot_key || props.selectedBot)
+                  );
+                  const senderName = botObj?.name || props.composer.bot_key || "Channel Bot";
+                  const messageText = props.composer.title
+                    ? `📢 **${props.composer.title}**\n\n${props.composer.content || ""}`
+                    : props.composer.content || "Soạn nội dung bài đăng ở cột trái để xem trước trên giao diện Telegram...";
+
+                  return (
+                    <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                      <TelegramPhoneSimulator
+                        groupName={chatTitle}
+                        botName={senderName}
+                        botUsername={props.composer.bot_key ? `@${props.composer.bot_key}` : "@cubot"}
+                        messageText={messageText}
+                        buttons={props.buttons.filter((b) => b.label.trim())}
+                        deleteAfterSeconds={props.composer.delete_at ? 3600 : undefined}
+                      />
+                    </Box>
+                  );
+                })()}
+
+                <Stack spacing={0.75} sx={{ width: "100%", mt: 1, p: 1.5, bgcolor: "background.paper", borderRadius: 1.5, border: "1px solid", borderColor: "divider" }}>
                   <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                    <Send size={14} />
+                    <Send size={14} color="#0284c7" />
                     <Typography variant="caption" color="text.secondary">
                       {props.composer.scheduled_at
-                        ? `Gửi lúc ${props.composer.scheduled_at.replace("T", " ")} GMT+7`
-                        : "Gửi ngay khi bấm nút"}
+                        ? `Lên lịch gửi lúc ${props.composer.scheduled_at.replace("T", " ")} GMT+7`
+                        : "Chế độ: Đăng ngay lập tức"}
                     </Typography>
                   </Stack>
                   <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                    <Trash2 size={14} />
+                    <Trash2 size={14} color="#e11d48" />
                     <Typography variant="caption" color="text.secondary">
                       {props.composer.delete_at
-                        ? `Xóa lúc ${props.composer.delete_at.replace("T", " ")} GMT+7`
-                        : "Không tự xóa"}
+                        ? `Tự động xóa tin lúc ${props.composer.delete_at.replace("T", " ")} GMT+7`
+                        : "Không kích hoạt tự xóa"}
                     </Typography>
                   </Stack>
                 </Stack>

@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Button as MuiButton, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { Check, Database, Loader2, MoonStar, MoreHorizontal, Plus, RefreshCcw, Search, Send, SunMedium, Trash2, X } from "lucide-react";
+import { Check, Command, Database, Loader2, MoonStar, MoreHorizontal, Plus, RefreshCcw, Search, Send, SunMedium, Trash2, X } from "lucide-react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
 
 import PageHeader from "@/app/components/ui/PageHeader";
@@ -176,7 +176,14 @@ export default function Topbar(props: TopbarProps) {
             )
           ) : null}
 
-          <MuiButton variant="outlined" onClick={openCommand}>Command</MuiButton>
+          <MuiButton
+            variant="outlined"
+            onClick={openCommand}
+            startIcon={<Command size={14} />}
+            sx={{ textTransform: "none", px: 1.25 }}
+          >
+            Lệnh nhanh <Box component="span" sx={{ ml: 0.75, px: 0.6, py: 0.1, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.72rem", fontWeight: 700, border: "1px solid", borderColor: "divider" }}>⌘K</Box>
+          </MuiButton>
 
           <IconButton onClick={toggleThemeMode} title={themeMode === "dark" ? "Chuyển sang light theme" : "Chuyển sang dark theme"}>
             {themeMode === "dark" ? <SunMedium size={17} /> : <MoonStar size={17} />}
