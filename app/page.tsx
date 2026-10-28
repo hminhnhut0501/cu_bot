@@ -92,6 +92,7 @@ import MemberDetailDrawer from "./components/screens/MemberDetailDrawer";
 import MemberActionDialog from "./components/screens/MemberActionDialog";
 import ChannelPublisherConsole from "./components/screens/ChannelPublisherConsole";
 import OverviewDashboardView from "./components/screens/OverviewDashboardView";
+import ModerationStudio from "./components/screens/ModerationStudio";
 import Banners from "./components/screens/Banners";
 import WorkbenchList from "./components/screens/WorkbenchList";
 import ConfigEditor, { type ConfigEditorDraft } from "./components/screens/ConfigEditor";
@@ -3928,26 +3929,22 @@ export default function HomePage() {
         ) : null}
 
         {activeLayer.startsWith("module:") && activeModuleHub.key === "moderation" ? (
-          <ModerationScreen
-            selectedGroupProtection={selectedScopeProtection}
-            moderationPolicySummary={moderationPolicySummary}
-            startGroupProtectionFlow={startGroupProtectionFlow}
-            openTaskData={openTaskData}
-            goToInsight={goToInsight}
-            activeTab={activeConfigTab}
-            setActiveTab={(tab) => {
-              setActiveConfigTab(tab);
-              if (tab === "Thiết lập dùng chung") {
-                setSelected(null);
-                setDraft({});
-              }
-            }}
-            tabs={activeModuleHub.tables.map((key) => ({
-              key,
-              label: TABLE_TASK_LABELS[key] || meta?.tables.find((tableItem) => tableItem.key === key)?.label || key,
-            }))}
-            activeWorkspaceTab={activeKey}
-            onChangeWorkspaceTab={(tab) => openModuleConfigure(activeModuleHub.key, tab)}
+          <ModerationStudio
+            moderationConfigRowMap={moderationConfigRowMap}
+            saving={saving}
+            toggleConfigValue={toggleConfigValue}
+            selected={selected}
+            draft={draft}
+            setDraft={setDraft}
+            startEdit={startEdit}
+            closeFocusedPanel={closeFocusedPanel}
+            save={save}
+            forwardMode={forwardMode}
+            setForwardMode={setForwardMode}
+            selectedGroupName={selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}
+            selectedBotKey={activeBotKey || selectedBot || "main"}
+            onOpenTaskData={openTaskData}
+            activeConfigSection={activeConfigSection}
           />
         ) : null}
 
@@ -4148,7 +4145,7 @@ export default function HomePage() {
                 }}
               />
 
-            {activeConfigSection ? (
+            {activeConfigSection && activeLayer !== "module:moderation" ? (
               <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
                 <Stack spacing={2}>
                 <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
