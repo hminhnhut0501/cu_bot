@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   InputAdornment,
   LinearProgress,
   MenuItem,
@@ -44,6 +45,9 @@ import {
   Play,
   RotateCcw,
   Radio,
+  Trash2,
+  ExternalLink,
+  Code2,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { UI_COPY } from "@/lib/uiCopy";
@@ -541,6 +545,46 @@ export function WelcomeScreen(props: {
 
   const timerPresets = [0, 15, 30, 60, 180, 300];
 
+  const [buttonMode, setButtonMode] = useState<"visual" | "code">("visual");
+  const [newBtnLabel, setNewBtnLabel] = useState("");
+  const [newBtnUrl, setNewBtnUrl] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+
+  // Parse raw text into structured buttons
+  const parsedButtons = (props.welcomeButtonsText || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split("|").map((p) => p.trim());
+      return { label: parts[0] || "", url: parts[1] || "" };
+    })
+    .filter((b) => b.label);
+
+  const updateButtonsList = (newList: Array<{ label: string; url: string }>) => {
+    const text = newList.map((b) => `${b.label} | ${b.url}`).join("\n");
+    props.onChangeButtonsText(text);
+  };
+
+  const handleAddButton = () => {
+    if (!newBtnLabel.trim() || !newBtnUrl.trim()) return;
+    const next = [...parsedButtons, { label: newBtnLabel.trim(), url: newBtnUrl.trim() }];
+    updateButtonsList(next);
+    setNewBtnLabel("");
+    setNewBtnUrl("");
+    setIsAdding(false);
+  };
+
+  const handleDeleteButton = (index: number) => {
+    const next = parsedButtons.filter((_, idx) => idx !== index);
+    updateButtonsList(next);
+  };
+
+  const handleAddPreset = (label: string, url: string) => {
+    const next = [...parsedButtons, { label, url }];
+    updateButtonsList(next);
+  };
+
   return (
     <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="main">
       <Grid container spacing={2.5}>
@@ -590,6 +634,32 @@ export function WelcomeScreen(props: {
                   </Typography>
                 </Box>
 
+                {/* Quick Variable Picker Toolbar */}
+                <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: "action.hover", border: "1px dashed", borderColor: "divider" }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, fontWeight: 700, textTransform: "uppercase" }}>
+                    Biến thay thế nhanh (bấm để chèn vào vị trí):
+                  </Typography>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                    {[
+                      { tag: "{user}", label: "{user} (Tên hiển thị)" },
+                      { tag: "{group}", label: "{group} (Tên nhóm)" },
+                      { tag: "{user_id}", label: "{user_id} (ID Telegram)" },
+                      { tag: "{group_id}", label: "{group_id} (ID Nhóm)" },
+                      { tag: "{mention}", label: "{mention} (Tag trực tiếp)" },
+                    ].map((item) => (
+                      <Chip
+                        key={item.tag}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        label={item.label}
+                        onClick={() => props.onChangeText(`${props.welcomeText} ${item.tag}`.trim())}
+                        sx={{ cursor: "pointer", borderRadius: 1, height: 24, fontSize: 11 }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
                 <TextField
                   multiline
                   minRows={6}
@@ -598,31 +668,8 @@ export function WelcomeScreen(props: {
                   onChange={(event) => props.onChangeText(event.target.value)}
                   placeholder="Chào {user} đã đến với {group}! Vui lòng bấm vào nút quy định bên dưới để tìm hiểu nội quy nhóm nhé..."
                   disabled={props.saving}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
                 />
-
-                {/* Placeholder Quick Insert Chips */}
-                <Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75, fontWeight: 700, textTransform: "uppercase" }}>
-                    Biến thay thế nhanh (bấm để chèn):
-                  </Typography>
-                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                    {[
-                      { tag: "{user}", label: "{user} (Tên thành viên)" },
-                      { tag: "{group}", label: "{group} (Tên nhóm)" },
-                      { tag: "{user_id}", label: "{user_id} (ID Telegram)" },
-                      { tag: "{group_id}", label: "{group_id} (ID Nhóm)" },
-                    ].map((item) => (
-                      <Chip
-                        key={item.tag}
-                        size="small"
-                        variant="outlined"
-                        label={item.label}
-                        onClick={() => props.onChangeText(`${props.welcomeText} ${item.tag}`.trim())}
-                        sx={{ cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
-                      />
-                    ))}
-                  </Stack>
-                </Box>
 
                 <Divider sx={{ my: 0.5 }} />
 
@@ -647,7 +694,7 @@ export function WelcomeScreen(props: {
                         variant={props.welcomeDeleteSeconds === sec ? "filled" : "outlined"}
                         label={sec === 0 ? "Không xóa" : `${sec} giây`}
                         onClick={() => props.onChangeDeleteSeconds(String(sec))}
-                        sx={{ cursor: "pointer" }}
+                        sx={{ cursor: "pointer", borderRadius: 1 }}
                       />
                     ))}
                   </Stack>
@@ -658,32 +705,176 @@ export function WelcomeScreen(props: {
                     value={props.welcomeDeleteSeconds}
                     onChange={(event) => props.onChangeDeleteSeconds(event.target.value)}
                     helperText="Đặt 0 nếu muốn tin chào mừng giữ lại vĩnh viễn trong nhóm."
-                    sx={{ maxWidth: 260 }}
+                    sx={{ maxWidth: 260, "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
                   />
                 </Box>
               </Stack>
             </Paper>
 
-            {/* Inline Buttons Builder Card */}
+            {/* Visual Inline Buttons Builder Card */}
             <Paper variant="outlined" sx={{ p: 2.5, bgcolor: "background.paper", borderRadius: 2.5 }}>
-              <Stack spacing={1.5}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    Nút bấm liên kết (Inline Buttons)
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Mỗi dòng là một nút bấm theo định dạng: <code>Tên nút | Đường dẫn liên kết</code>
-                  </Typography>
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                      Nút Bấm Liên Kết (Visual Inline Button Builder)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Thêm nút bấm dạng link đính kèm dưới tin nhắn chào mừng
+                    </Typography>
+                  </Box>
+
+                  <Stack direction="row" spacing={0.5}>
+                    <MuiButton
+                      size="small"
+                      variant={buttonMode === "visual" ? "contained" : "outlined"}
+                      onClick={() => setButtonMode("visual")}
+                      sx={{ textTransform: "none", height: 26, fontSize: 11, borderRadius: 1 }}
+                    >
+                      Trực quan
+                    </MuiButton>
+                    <MuiButton
+                      size="small"
+                      variant={buttonMode === "code" ? "contained" : "outlined"}
+                      onClick={() => setButtonMode("code")}
+                      startIcon={<Code2 size={12} />}
+                      sx={{ textTransform: "none", height: 26, fontSize: 11, borderRadius: 1 }}
+                    >
+                      Mã nguồn (Text)
+                    </MuiButton>
+                  </Stack>
                 </Box>
-                <TextField
-                  multiline
-                  minRows={3}
-                  fullWidth
-                  value={props.welcomeButtonsText}
-                  onChange={(event) => props.onChangeButtonsText(event.target.value)}
-                  placeholder="📖 Xem Quy Định | https://t.me/your_rules_channel\n🌐 Kênh Thông Báo | https://t.me/your_announcements"
-                  disabled={props.saving}
-                />
+
+                {buttonMode === "visual" ? (
+                  <Stack spacing={1.5}>
+                    {/* List of Configured Buttons */}
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                      {parsedButtons.length > 0 ? (
+                        parsedButtons.map((btn, index) => (
+                          <Paper
+                            key={index}
+                            variant="outlined"
+                            sx={{
+                              p: 1.25,
+                              borderRadius: 1.5,
+                              bgcolor: "action.hover",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 1.5,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
+                                {btn.label}
+                              </Typography>
+                              <Typography variant="caption" color="primary.main" noWrap sx={{ display: "block" }}>
+                                {btn.url}
+                              </Typography>
+                            </Box>
+
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteButton(index)}
+                              sx={{ border: "1px solid", borderColor: "divider", borderRadius: 1 }}
+                            >
+                              <Trash2 size={13} />
+                            </IconButton>
+                          </Paper>
+                        ))
+                      ) : (
+                        <Box sx={{ p: 2, textAlign: "center", bgcolor: "action.hover", borderRadius: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Chưa có nút bấm nào. Bấm nút bên dưới hoặc chọn mẫu nhanh để thêm.
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Quick Presets */}
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontWeight: 600 }}>
+                        Mẫu nút thông dụng (Click để thêm nhanh):
+                      </Typography>
+                      <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.5 }}>
+                        {[
+                          { label: "📖 Xem Quy Định", url: "https://t.me/your_rules" },
+                          { label: "🌐 Kênh Thông Báo", url: "https://t.me/your_channel" },
+                          { label: "💬 Chat Với Admin", url: "https://t.me/your_support" },
+                          { label: "🎁 Nhận Thưởng", url: "https://t.me/your_airdrop" },
+                        ].map((preset) => (
+                          <Chip
+                            key={preset.label}
+                            size="small"
+                            variant="outlined"
+                            label={preset.label}
+                            onClick={() => handleAddPreset(preset.label, preset.url)}
+                            sx={{ cursor: "pointer", borderRadius: 1, height: 24, fontSize: 11 }}
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+
+                    {/* Add Custom Button Form */}
+                    {isAdding ? (
+                      <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "background.paper", display: "flex", flexDirection: "column", gap: 1 }}>
+                        <TextField
+                          size="small"
+                          label="Tên hiển thị trên nút"
+                          placeholder="Ví dụ: 📖 Quy Định Nhóm"
+                          value={newBtnLabel}
+                          onChange={(e) => setNewBtnLabel(e.target.value)}
+                          fullWidth
+                        />
+                        <TextField
+                          size="small"
+                          label="Đường dẫn liên kết (URL)"
+                          placeholder="https://t.me/..."
+                          value={newBtnUrl}
+                          onChange={(e) => setNewBtnUrl(e.target.value)}
+                          fullWidth
+                        />
+                        <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                          <MuiButton size="small" variant="outlined" onClick={() => setIsAdding(false)} sx={{ textTransform: "none", borderRadius: 1 }}>
+                            Hủy
+                          </MuiButton>
+                          <MuiButton
+                            size="small"
+                            variant="contained"
+                            disabled={!newBtnLabel.trim() || !newBtnUrl.trim()}
+                            onClick={handleAddButton}
+                            sx={{ textTransform: "none", borderRadius: 1 }}
+                          >
+                            Xác nhận thêm
+                          </MuiButton>
+                        </Stack>
+                      </Paper>
+                    ) : (
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Plus size={14} />}
+                        onClick={() => setIsAdding(true)}
+                        sx={{ textTransform: "none", borderRadius: 1.5, alignSelf: "flex-start" }}
+                      >
+                        Thêm nút mới
+                      </MuiButton>
+                    )}
+                  </Stack>
+                ) : (
+                  <TextField
+                    multiline
+                    minRows={4}
+                    fullWidth
+                    value={props.welcomeButtonsText}
+                    onChange={(event) => props.onChangeButtonsText(event.target.value)}
+                    placeholder="📖 Xem Quy Định | https://t.me/your_rules_channel\n🌐 Kênh Thông Báo | https://t.me/your_announcements"
+                    disabled={props.saving}
+                    helperText="Mỗi dòng là một nút bấm: Tên nút | Đường dẫn liên kết"
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
+                  />
+                )}
               </Stack>
             </Paper>
 
@@ -697,6 +888,7 @@ export function WelcomeScreen(props: {
                     startIcon={<Check size={18} />}
                     onClick={props.onSave}
                     disabled={props.saving || !props.selectedGroupId}
+                    sx={{ borderRadius: 1.5, textTransform: "none", fontWeight: 700 }}
                   >
                     {props.saving ? "Đang lưu..." : "Lưu cấu hình"}
                   </MuiButton>
@@ -706,23 +898,24 @@ export function WelcomeScreen(props: {
                     startIcon={<FlaskConical size={18} />}
                     onClick={props.onTestRuntime}
                     disabled={props.testing || props.saving || !props.selectedGroupId}
+                    sx={{ borderRadius: 1.5, textTransform: "none" }}
                   >
                     {props.testing ? "Đang gửi..." : "Gửi test vào group"}
                   </MuiButton>
                 </Stack>
                 {props.hasSavedConfig ? (
-                  <Chip size="small" color="success" variant="outlined" label="✓ Đã lưu cấu hình" />
+                  <Chip size="small" color="success" variant="outlined" label="✓ Đã lưu cấu hình" sx={{ borderRadius: 1, fontWeight: 700 }} />
                 ) : (
-                  <Chip size="small" color="warning" variant="outlined" label="Chưa lưu thay đổi" />
+                  <Chip size="small" color="warning" variant="outlined" label="Chưa lưu thay đổi" sx={{ borderRadius: 1 }} />
                 )}
               </Stack>
 
               {/* Runtime Diagnostics */}
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
-                <Chip size="small" variant="outlined" label={`Group: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn"}`} />
-                <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi OK: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} />
-                {props.runtimeLastErrorAt ? <Chip size="small" color="error" label={`Lỗi: ${props.runtimeLastErrorMessage || props.runtimeLastErrorAt}`} /> : null}
-                {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} /> : null}
+                <Chip size="small" variant="outlined" label={`Group: ${props.selectedGroupName || props.selectedGroupId || "Chưa chọn"}`} sx={{ borderRadius: 1 }} />
+                <Chip size="small" color={props.runtimeLastSuccessAt ? "success" : "default"} label={props.runtimeLastSuccessAt ? `Gửi OK: ${props.runtimeLastSuccessAt}` : "Chưa gửi thành công"} sx={{ borderRadius: 1 }} />
+                {props.runtimeLastErrorAt ? <Chip size="small" color="error" label={`Lỗi: ${props.runtimeLastErrorMessage || props.runtimeLastErrorAt}`} sx={{ borderRadius: 1 }} /> : null}
+                {props.runtimeLastTestAt ? <Chip size="small" variant="outlined" label={`Test gần nhất: ${props.runtimeLastTestAt}`} sx={{ borderRadius: 1 }} /> : null}
               </Stack>
             </Paper>
           </Stack>
