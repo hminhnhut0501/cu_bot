@@ -2,43 +2,49 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button as MuiButton,
   Chip,
-  Divider,
   Dialog,
   DialogContent,
   DialogTitle,
+  Divider,
+  IconButton,
+  InputAdornment,
+  LinearProgress,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowRight,
+  BadgeAlert,
   Banknote,
   Check,
   CheckCircle2,
-  ClipboardList,
+  Clock,
   Clock3,
-  Inbox,
-  Search,
-  ShieldCheck,
-  User,
-  X,
-  BadgeAlert,
+  ExternalLink,
+  Eye,
   Hash,
   Image as ImageIcon,
+  Inbox,
+  Maximize2,
   MessageSquareText,
-  CircleDashed,
-  Eye,
+  Radio,
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  User,
+  Users,
+  X,
 } from "lucide-react";
-
-import Section from "@/app/components/ui/Section";
-import StatCard from "@/app/components/ui/StatCard";
-import TabsBar from "@/app/components/ui/TabsBar";
-import EmptyState from "@/app/components/ui/EmptyState";
 
 export type ScamInboxStats = {
   pending: number;
@@ -75,19 +81,20 @@ function truthy(value: unknown) {
   return Boolean(value) && String(value).trim() !== "";
 }
 
-function badgeTone(status: string) {
+function badgeTone(status: string): "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" {
   if (status === "confirmed") return "success";
-  if (status === "rejected" || status === "duplicate") return "default";
+  if (status === "rejected") return "error";
+  if (status === "duplicate") return "default";
   if (status === "need_more_info") return "warning";
   return "warning";
 }
 
-function scoreLabel(row: ScamInboxRow) {
+function scoreInfo(row: ScamInboxRow) {
   const score = Number(row.scam_percent || row.confidence_score || 0);
-  if (score >= 90) return { label: `${score}%`, tone: "error" as const };
-  if (score >= 70) return { label: `${score}%`, tone: "warning" as const };
-  if (score >= 40) return { label: `${score}%`, tone: "info" as const };
-  return { label: `${score}%`, tone: "default" as const };
+  if (score >= 80) return { val: score, label: `${score}% Nguy cơ rất cao`, color: "#ef4444", barColor: "error" as const };
+  if (score >= 50) return { val: score, label: `${score}% Đang nghi vấn`, color: "#f59e0b", barColor: "warning" as const };
+  if (score >= 20) return { val: score, label: `${score}% Nguy cơ thấp`, color: "#0ea5e9", barColor: "info" as const };
+  return { val: score, label: `${score}% Chưa thẩm định`, color: "#94a3b8", barColor: "inherit" as const };
 }
 
 function attachmentFiles(row: ScamInboxRow) {
@@ -119,13 +126,14 @@ export default function ScamInbox({
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
-  const statusOptions: [ScamStatusFilter, string][] = [
-    ["pending", `Chờ duyệt (${scamInboxStats.pending})`],
-    ["need_more_info", "Cần bổ sung"],
-    ["confirmed", `Đã xác nhận (${scamInboxStats.confirmed})`],
-    ["rejected", `Từ chối (${scamInboxStats.rejected})`],
-    ["duplicate", "Trùng lặp"],
-    ["all", "Tất cả"],
+
+  const statusTabs: Array<{ key: ScamStatusFilter; label: string; count?: number }> = [
+    { key: "pending", label: "Chờ xét duyệt", count: scamInboxStats.pending },
+    { key: "need_more_info", label: "Cần bổ sung" },
+    { key: "confirmed", label: "Đã xác nhận", count: scamInboxStats.confirmed },
+    { key: "rejected", label: "Đã từ chối", count: scamInboxStats.rejected },
+    { key: "duplicate", label: "Báo cáo trùng" },
+    { key: "all", label: "Tất cả" },
   ];
 
   const filteredReports = useMemo(() => {
@@ -154,9 +162,12 @@ export default function ScamInbox({
     });
   }, [scamReports, search, statusFilter]);
 
-  const selected = useMemo(() => filteredReports.find((row) => String(row.id) === String(selectedId)) || filteredReports[0] || null, [filteredReports, selectedId]);
+  const selected = useMemo(
+    () => filteredReports.find((row) => String(row.id) === String(selectedId)) || filteredReports[0] || null,
+    [filteredReports, selectedId]
+  );
   const selectedAttachments = useMemo(() => (selected ? attachmentFiles(selected) : []), [selected]);
-  const broadcastRows = useMemo(() => scamBroadcasts.slice(0, 6), [scamBroadcasts]);
+  const broadcastRows = useMemo(() => scamBroadcasts.slice(0, 5), [scamBroadcasts]);
 
   useEffect(() => {
     if (!selected && filteredReports.length) {
@@ -183,408 +194,627 @@ export default function ScamInbox({
   }, [previewIndex, selectedAttachments]);
 
   return (
-    <Section
-      eyebrow="Phase 4 review inbox"
-      title="Duyệt report scam"
-      subtitle="Queue-first inbox để admin xem report, đối chiếu bằng chứng và xác nhận nhanh."
-      tone="scam"
-      icon={<Inbox size={20} />}
-      actions={
-        <Stack direction="row" spacing={1}>
-          <MuiButton variant="outlined" startIcon={<ClipboardList size={16} />} onClick={onOpenAllReports}>Mở bảng report</MuiButton>
-          <MuiButton variant="outlined" startIcon={<Inbox size={16} />} onClick={onOpenBroadcasts}>Broadcast log</MuiButton>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 1 }}>
+      {/* Header & Investigation Counter Bar */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", md: "center" },
+          gap: 1.5,
+          p: 2,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "rgba(225, 29, 72, 0.12)",
+              color: "#e11d48",
+            }}
+          >
+            <ShieldAlert size={20} />
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              Trung Tâm Thẩm Định Lừa Đảo (Scam Investigation)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Xem xét báo cáo, đối chiếu bằng chứng giao dịch và đồng bộ cảnh báo toàn mạng lưới
+            </Typography>
+          </Box>
         </Stack>
-      }
-      sx={{ mt: 2 }}
-    >
-      <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
-        <StatCard label="Chờ duyệt" value={scamInboxStats.pending} tone="warning" />
-        <StatCard label="Đã xác nhận" value={scamInboxStats.confirmed} tone="success" />
-        <StatCard label="Từ chối" value={scamInboxStats.rejected} tone="danger" />
-        <StatCard label="Đang xem" value={filteredReports.length} tone="info" />
+
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <MuiButton
+            variant="outlined"
+            size="small"
+            startIcon={<Radio size={14} />}
+            onClick={onOpenBroadcasts}
+            sx={{ textTransform: "none", borderRadius: 1.5 }}
+          >
+            Nhật ký phát sóng ({scamBroadcasts.length})
+          </MuiButton>
+          <MuiButton
+            variant="contained"
+            size="small"
+            color="primary"
+            startIcon={<ExternalLink size={14} />}
+            onClick={onOpenAllReports}
+            sx={{ textTransform: "none", borderRadius: 1.5, boxShadow: "none" }}
+          >
+            Bảng dữ liệu đầy đủ
+          </MuiButton>
+        </Stack>
       </Box>
 
+      {/* KPI Stat Cards */}
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" } }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "warning.main",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+            Chờ xét duyệt
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "warning.main" }}>
+            {scamInboxStats.pending}
+          </Typography>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "success.main",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+            Đã xác nhận lừa đảo
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "success.main" }}>
+            {scamInboxStats.confirmed}
+          </Typography>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "error.main",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+            Đã bác bỏ / Từ chối
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "error.main" }}>
+            {scamInboxStats.rejected}
+          </Typography>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "info.main",
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+            Khớp bộ lọc hiện tại
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "info.main" }}>
+            {filteredReports.length}
+          </Typography>
+        </Paper>
+      </Box>
+
+      {/* Filter and Tab Strip */}
       <Paper
         variant="outlined"
         sx={{
-          p: 2,
-          bgcolor: "background.default",
-          backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.05), transparent 42%)",
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: { xs: "column", lg: "row" },
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", lg: "center" },
+          gap: 1.5,
         }}
       >
-        <Stack spacing={2}>
-          <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} sx={{ alignItems: { xs: "stretch", lg: "center" }, justifyContent: "space-between" }}>
-            <Box sx={{ display: "grid", gap: 0.75, flex: 1, maxWidth: 720 }}>
-              <Typography variant="overline" sx={{ color: "text.secondary" }}>Filter bar</Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
-                <Search size={16} style={{ opacity: 0.7, flexShrink: 0 }} />
-                <TextField
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  size="small"
-                  placeholder="Tìm theo UID, username, SĐT, số tài khoản, group..."
-                  sx={{ flex: 1 }}
-                />
-              </Box>
-            </Box>
-            <TabsBar
-              tone="filled"
-              wrapped
-              scrollable
-              items={statusOptions.map(([key, label]) => ({ key, label }))}
-              value={statusFilter}
-              onChange={(value) => setStatusFilter(value as ScamStatusFilter)}
-              sx={{
-                minHeight: "unset",
-                "& .MuiTabs-flexContainer": {
-                  gap: 0.75,
-                },
-              }}
-            />
-          </Stack>
+        <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: { xs: 0.5, lg: 0 } }}>
+          {statusTabs.map((tab) => {
+            const active = statusFilter === tab.key;
+            return (
+              <Chip
+                key={tab.key}
+                label={tab.count !== undefined ? `${tab.label} (${tab.count})` : tab.label}
+                onClick={() => setStatusFilter(tab.key)}
+                color={active ? "primary" : "default"}
+                variant={active ? "filled" : "outlined"}
+                sx={{
+                  borderRadius: 1.5,
+                  fontWeight: active ? 700 : 500,
+                  cursor: "pointer",
+                }}
+              />
+            );
+          })}
+        </Stack>
 
-          <Box
+        <TextField
+          size="small"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Tìm theo UID, tên, SĐT, số tài khoản, group..."
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={15} style={{ color: "#94a3b8" }} />
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{ minWidth: { xs: "100%", lg: 320 }, "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
+        />
+      </Paper>
+
+      {/* Main Investigation Split Pane: Queue (Left) & Inspector (Right) */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "420px 1fr" },
+          gap: 2,
+          alignItems: "start",
+        }}
+      >
+        {/* Left: Queue List */}
+        <Paper
+          variant="outlined"
+          sx={{
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: 680,
+          }}
+        >
+          <Box sx={{ p: 1.5, bgcolor: "action.hover", borderBottom: "1px solid", borderColor: "divider" }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Hàng Đợi ({filteredReports.length})
+              </Typography>
+              <Chip size="small" label={statusFilter} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
+            </Stack>
+          </Box>
+
+          <Box sx={{ p: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
+            {filteredReports.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+                <Inbox size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                <Typography variant="body2">Không có báo cáo nào trong hàng đợi này</Typography>
+              </Box>
+            ) : (
+              filteredReports.map((row) => {
+                const active = String(selected?.id) === String(row.id);
+                const score = scoreInfo(row);
+                const attachmentsCount = Array.isArray(row.evidence_payload?.files)
+                  ? row.evidence_payload.files.length
+                  : Number(row.attachment_count || 0);
+
+                return (
+                  <Paper
+                    key={row.id}
+                    variant="outlined"
+                    onClick={() => setSelectedId(row.id)}
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 1.5,
+                      cursor: "pointer",
+                      border: "1px solid",
+                      borderColor: active ? "primary.main" : "divider",
+                      bgcolor: active ? "rgba(37, 99, 235, 0.05)" : "background.paper",
+                      transition: "all 0.15s ease",
+                      "&:hover": {
+                        borderColor: "primary.main",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      },
+                    }}
+                  >
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: active ? "primary.main" : "text.primary" }} noWrap>
+                            {row.target_username ? `@${row.target_username}` : row.target_uid || row.bank_account || "Chưa rõ đích"}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {row.target_name || row.scammer_name || "Chưa có tên hiển thị"}
+                          </Typography>
+                        </Box>
+                        <Chip
+                          size="small"
+                          color={badgeTone(String(row.status || "pending"))}
+                          label={String(row.status || "pending")}
+                          sx={{ height: 20, fontSize: 11, fontWeight: 600, borderRadius: 1 }}
+                        />
+                      </Stack>
+
+                      {/* Probability Score Bar */}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={score.val || 10}
+                          color={score.barColor}
+                          sx={{ flex: 1, height: 5, borderRadius: 1 }}
+                        />
+                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: 11, color: score.color }}>
+                          {score.val}%
+                        </Typography>
+                      </Box>
+
+                      {/* Meta chips */}
+                      <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                        {row.bank_account ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            icon={<Banknote size={11} />}
+                            label={row.bank_account}
+                            sx={{ height: 20, fontSize: 11, borderRadius: 1 }}
+                          />
+                        ) : null}
+                        {attachmentsCount > 0 ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            icon={<ImageIcon size={11} />}
+                            label={`${attachmentsCount} ảnh`}
+                            sx={{ height: 20, fontSize: 11, borderRadius: 1 }}
+                          />
+                        ) : null}
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
+                          {formatDate(row.created_at)}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                );
+              })
+            )}
+          </Box>
+        </Paper>
+
+        {/* Right: Detailed Dossier & Evidence Inspector */}
+        {selected ? (
+          <Paper
+            variant="outlined"
             sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", lg: "1.1fr 0.9fr" },
+              borderRadius: 2,
+              bgcolor: "background.paper",
+              p: 2.5,
+              display: "flex",
+              flexDirection: "column",
               gap: 2,
-              minHeight: 520,
             }}
           >
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 1.5,
-                bgcolor: "background.paper",
-                overflow: "hidden",
-                backgroundImage: "linear-gradient(180deg, rgba(225, 29, 72, 0.04), transparent 24%)",
-              }}
-            >
-                <Stack spacing={1}>
-                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <Box>
-                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block", letterSpacing: "0.12em", fontWeight: 800 }}>
-                        Queue
-                      </Typography>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
-                        Danh sách report
-                      </Typography>
-                    </Box>
-                    <Chip size="small" variant="outlined" label={`${filteredReports.length} mục`} />
-                  </Stack>
-                <Divider />
-                <Stack spacing={1} sx={{ maxHeight: 470, overflow: "auto", pr: 0.5 }}>
-                  {filteredReports.length ? filteredReports.map((row) => {
-                    const active = String(selected?.id) === String(row.id);
-                    const score = scoreLabel(row);
-                    const attachments = Array.isArray(row.evidence_payload?.files) ? row.evidence_payload.files.length : Number(row.attachment_count || 0);
-                    return (
-                      <Paper
-                        key={row.id}
-                        variant="outlined"
-                        onClick={() => setSelectedId(row.id)}
-                          sx={{
-                            p: 1.5,
-                            cursor: "pointer",
-                            borderColor: active ? "primary.main" : "divider",
-                            bgcolor: active ? "rgba(15, 118, 110, 0.06)" : "background.default",
-                            borderTop: "1px solid",
-                            borderTopColor: active ? "primary.main" : "divider",
-                            backgroundImage: active ? "linear-gradient(180deg, rgba(15, 118, 110, 0.06), transparent 100%)" : "none",
-                            transition: "transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-                            "&:hover": {
-                              transform: "translateY(-1px)",
-                              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.05)",
-                              borderColor: "primary.main",
-                          },
-                        }}
-                      >
-                          <Stack spacing={1}>
-                            <Stack direction="row" sx={{ justifyContent: "space-between", gap: 2 }}>
-                              <Box sx={{ minWidth: 0 }}>
-                                <Typography variant="subtitle2" noWrap sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
-                                  {row.target_username || row.target_uid || row.bank_account || row.target_name || "Report không rõ đích"}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" noWrap>
-                                  {row.group_name || "Không có group"} · {row.reporter_username || row.reporter_user_id || "ẩn danh"}
-                                </Typography>
-                              </Box>
-                              <Chip size="small" color={badgeTone(String(row.status || "pending")) as any} label={String(row.status || "pending")} />
-                            </Stack>
-                          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                            <Chip size="small" variant="outlined" icon={<Hash size={14} />} label={row.bank_account || "No bank"} />
-                            <Chip size="small" variant="outlined" icon={<Banknote size={14} />} label={score.label} color={score.tone as any} />
-                            <Chip size="small" variant="outlined" icon={<ImageIcon size={14} />} label={`${attachments || 0} file`} />
-                          </Stack>
-                          <Typography variant="body2" color="text.secondary" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.65 }}>
-                            {row.reason || row.evidence_text || "Không có nội dung."}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {formatDate(row.created_at)}
-                          </Typography>
-                        </Stack>
-                      </Paper>
-                    );
-                  }) : (
-                    <Paper variant="outlined" sx={{ bgcolor: "background.default" }}>
-                      <EmptyState
-                        title="Không có report phù hợp"
-                        body="Thử đổi bộ lọc hoặc tìm theo UID, SĐT, số tài khoản."
-                        icon={<CircleDashed size={22} />}
-                      />
-                    </Paper>
-                  )}
-                </Stack>
-              </Stack>
-            </Paper>
+            {/* Dossier Header */}
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}>
+              <Box>
+                <Typography variant="overline" color="error.main" sx={{ fontWeight: 800, letterSpacing: 1.2 }}>
+                  HỒ SƠ BÁO CÁO #{selected.id}
+                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                  {selected.target_username ? `@${selected.target_username}` : selected.target_uid || "Đối tượng nghi vấn"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Báo cáo từ nhóm: <strong>{selected.group_name || "Nhóm riêng lẻ"}</strong> · Người báo: <strong>{selected.reporter_username || selected.reporter_user_id || "Ẩn danh"}</strong>
+                </Typography>
+              </Box>
 
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Chip
+                  color={badgeTone(String(selected.status || "pending"))}
+                  label={String(selected.status || "pending").toUpperCase()}
+                  sx={{ fontWeight: 800, borderRadius: 1.5 }}
+                />
+              </Stack>
+            </Stack>
+
+            <Divider />
+
+            {/* Entity Dossier Grid */}
+            <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" } }}>
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Telegram UID
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
+                  {selected.target_uid || "Chưa xác định"}
+                </Typography>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Số tài khoản ngân hàng
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, fontFamily: "monospace", color: selected.bank_account ? "error.main" : "text.secondary" }}>
+                  {selected.bank_account || "Không có số TK"}
+                </Typography>
+              </Paper>
+
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Số điện thoại liên hệ
+                </Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
+                  {selected.phone || "Không có SĐT"}
+                </Typography>
+              </Paper>
+            </Box>
+
+            {/* Evidence & Statement Box */}
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                Nội dung báo cáo & Bằng chứng vi phạm:
+              </Typography>
               <Paper
                 variant="outlined"
                 sx={{
-                  p: 1.5,
-                  bgcolor: "background.paper",
-                  backgroundImage: selected ? "linear-gradient(180deg, rgba(37, 99, 235, 0.05), transparent 26%)" : "none",
+                  p: 2,
+                  borderRadius: 1.5,
+                  bgcolor: "rgba(241, 245, 249, 0.5)",
+                  borderLeft: "4px solid",
+                  borderLeftColor: "error.main",
+                  lineHeight: 1.7,
+                  whiteSpace: "pre-wrap",
                 }}
               >
-              {selected ? (
-                <Stack spacing={1.5}>
-                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="overline" sx={{ color: "text.secondary", display: "block", letterSpacing: "0.12em", fontWeight: 800 }}>
-                        Detail panel
-                      </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
-                        {selected.target_username || selected.target_uid || selected.bank_account || "Chi tiết report"}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 680 }}>
-                        {selected.target_name || selected.scammer_name || "Chưa rõ tên"} · {selected.group_name || "Chưa có group"}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <Chip size="small" color={badgeTone(String(selected.status || "pending")) as any} label={String(selected.status || "pending")} />
-                      <Chip size="small" variant="outlined" color={scoreLabel(selected).tone as any} label={`${scoreLabel(selected).label} scam`} />
-                    </Stack>
-                  </Stack>
+                {selected.evidence_text || selected.reason || "Không có bản tường trình chi tiết."}
+              </Paper>
+            </Box>
 
-                  <Divider />
-
-                  <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                        Người báo cáo
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.reporter_username || selected.reporter_user_id || "Chưa rõ"}</Typography>
-                      <Typography variant="caption" color="text.secondary">{selected.reporter_chat_id || "private chat"}</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                        Đối tượng
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.target_uid || "-"}</Typography>
-                      <Typography variant="caption" color="text.secondary">{selected.bank_account || "-"} · {selected.phone || "-"}</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                        Nhóm / Admin
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{selected.group_name || "-"}</Typography>
-                      <Typography variant="caption" color="text.secondary">{selected.admin_name || "-"}</Typography>
-                    </Paper>
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                        Dấu thời gian
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>{formatDate(selected.created_at)}</Typography>
-                      <Typography variant="caption" color="text.secondary">{selected.reviewed_at ? `Duyệt: ${formatDate(selected.reviewed_at)}` : "Chưa duyệt"}</Typography>
-                    </Paper>
-                  </Box>
-
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.7), transparent 100%)" }}>
-                    <Stack spacing={0.75}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
-                        Bằng chứng / mô tả
-                      </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.75, color: "text.primary" }}>
-                        {selected.evidence_text || selected.reason || "Không có nội dung."}
-                      </Typography>
-                      {truthy(selected.notes) ? (
-                        <>
-                          <Divider />
-                          <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
-                            Ghi chú
-                          </Typography>
-                          <Typography variant="body2">{selected.notes}</Typography>
-                        </>
-                      ) : null}
-                      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                        <Chip size="small" icon={<MessageSquareText size={14} />} label={`Report #${selected.id}`} />
-                        {attachmentFiles(selected).length || Number(selected.attachment_count || 0) ? (
-                          <Chip size="small" icon={<ImageIcon size={14} />} label={`${Number(selected.attachment_count || 0)} attachment`} />
-                        ) : null}
-                        {truthy(selected.source_chat_id) ? <Chip size="small" variant="outlined" label={`src chat ${selected.source_chat_id}`} /> : null}
-                      </Stack>
-                      {selectedAttachments.length ? (
-                        <>
-                          <Divider sx={{ my: 1 }} />
-                          <Stack spacing={1}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
-                              Preview attachment
-                            </Typography>
-                            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                              {selectedAttachments.slice(0, 6).map((file: any, index: number) => (
-                                <Paper
-                                  key={`${file.telegram_file_id || index}`}
-                                  variant="outlined"
-                                  onClick={() => setPreviewIndex(index)}
-                                  sx={{
-                                    width: 132,
-                                    p: 1,
-                                    cursor: "pointer",
-                                    bgcolor: "background.paper",
-                                    backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.75), transparent 100%)",
-                                    transition: "transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease",
-                                    "&:hover": { borderColor: "primary.main", transform: "translateY(-1px)", boxShadow: "0 10px 22px rgba(15, 23, 42, 0.05)" },
-                                  }}
-                                >
-                                  <Stack spacing={0.75}>
-                                    <Box sx={{ height: 84, borderRadius: 1, bgcolor: "rgba(15, 118, 110, 0.08)", display: "grid", placeItems: "center" }}>
-                                      {attachmentPreviewUrl(file) ? (
-                                        <Box
-                                          component="img"
-                                          src={attachmentPreviewUrl(file)}
-                                          alt={file.file_name || file.telegram_file_id || "attachment"}
-                                          sx={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 1 }}
-                                        />
-                                      ) : (
-                                        <ImageIcon size={24} />
-                                      )}
-                                    </Box>
-                                    <Typography variant="caption" noWrap sx={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
-                                      {file.media_type || "file"}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" noWrap>
-                                      {file.file_name || file.telegram_file_id || `#${index + 1}`}
-                                    </Typography>
-                                  </Stack>
-                                </Paper>
-                              ))}
-                            </Stack>
-                          </Stack>
-                        </>
-                      ) : null}
-                      {broadcastRows.length ? (
-                        <>
-                          <Divider sx={{ my: 1 }} />
-                          <Stack spacing={1}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
-                            Broadcast log gần nhất
-                          </Typography>
-                            <Stack spacing={1}>
-                              {broadcastRows.map((row) => (
-                                <Paper key={row.id} variant="outlined" sx={{ p: 1.25, bgcolor: "background.paper", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.75), transparent 100%)" }}>
-                                  <Stack spacing={0.5}>
-                                    <Stack direction="row" sx={{ justifyContent: "space-between", gap: 1 }}>
-                                      <Typography variant="body2" sx={{ fontWeight: 700, letterSpacing: "-0.01em" }} noWrap>
-                                        {row.broadcast_type || "broadcast"} · {row.status || "pending"}
-                                      </Typography>
-                                      <Chip size="small" label={row.target_chat_id || "no target"} variant="outlined" />
-                                    </Stack>
-                                    <Typography variant="caption" color="text.secondary" noWrap>
-                                      {row.error || row.sent_at || formatDate(row.created_at)}
-                                    </Typography>
-                                  </Stack>
-                                </Paper>
-                              ))}
-                            </Stack>
-                          </Stack>
-                        </>
-                      ) : null}
-                    </Stack>
-                  </Paper>
-
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                    <MuiButton variant="contained" color="success" startIcon={<CheckCircle2 size={16} />} onClick={() => onConfirm(selected)}>
-                      Xác nhận
-                    </MuiButton>
-                    <MuiButton variant="outlined" color="warning" startIcon={<AlertTriangle size={16} />} onClick={() => onEdit(selected)}>
-                      Sửa trước khi duyệt
-                    </MuiButton>
-                    <MuiButton variant="outlined" color="secondary" startIcon={<BadgeAlert size={16} />} onClick={() => onDuplicate(selected)}>
-                      Đánh dấu trùng
-                    </MuiButton>
-                    <MuiButton variant="outlined" color="warning" startIcon={<Clock3 size={16} />} onClick={() => onNeedMoreInfo(selected)}>
-                      Cần bổ sung
-                    </MuiButton>
-                    <MuiButton variant="outlined" color="error" startIcon={<X size={16} />} onClick={() => onReject(selected)}>
-                      Từ chối
-                    </MuiButton>
-                    <MuiButton variant="text" startIcon={<ArrowRight size={16} />} onClick={() => onOpenReport(selected.id)}>
-                      Mở chi tiết
-                    </MuiButton>
-                  </Stack>
-
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", backgroundImage: "linear-gradient(180deg, rgba(255,255,255,0.72), transparent 100%)" }}>
-                    <Stack spacing={1}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "-0.01em" }}>
-                        Checklist duyệt nhanh
-                      </Typography>
-                      <Stack spacing={0.75}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Check size={16} />
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Có UID / username / bank account để tra cứu</Typography>
+            {/* Evidence Gallery / Attachments */}
+            {selectedAttachments.length > 0 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Ảnh chứng minh giao dịch ({selectedAttachments.length}):
+                </Typography>
+                <Stack direction="row" spacing={1.5} sx={{ overflowX: "auto", py: 0.5 }}>
+                  {selectedAttachments.map((file: any, index: number) => {
+                    const url = attachmentPreviewUrl(file);
+                    return (
+                      <Paper
+                        key={`${file.telegram_file_id || index}`}
+                        variant="outlined"
+                        onClick={() => setPreviewIndex(index)}
+                        sx={{
+                          width: 140,
+                          height: 120,
+                          borderRadius: 1.5,
+                          overflow: "hidden",
+                          cursor: "pointer",
+                          position: "relative",
+                          border: "1px solid",
+                          borderColor: "divider",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            borderColor: "primary.main",
+                            transform: "scale(1.02)",
+                          },
+                        }}
+                      >
+                        {url ? (
+                          <Box
+                            component="img"
+                            src={url}
+                            alt="bằng chứng"
+                            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <Box sx={{ height: "100%", display: "grid", placeItems: "center", bgcolor: "action.hover" }}>
+                            <ImageIcon size={24} style={{ opacity: 0.4 }} />
+                          </Box>
+                        )}
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            p: 0.5,
+                            bgcolor: "rgba(0,0,0,0.6)",
+                            color: "#fff",
+                            fontSize: 10,
+                            textAlign: "center",
+                          }}
+                        >
+                          Bằng chứng #{index + 1}
                         </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Check size={16} />
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Có bằng chứng bill / ảnh group / note</Typography>
-                        </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Check size={16} />
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>Nếu report trùng, đánh dấu duplicate trước khi confirm</Typography>
-                        </Box>
-                      </Stack>
-                    </Stack>
-                  </Paper>
+                      </Paper>
+                    );
+                  })}
                 </Stack>
-              ) : (
-                <Paper variant="outlined" sx={{ bgcolor: "background.default" }}>
-                  <EmptyState
-                    title="Chọn một report để xem chi tiết"
-                    body="Admin có thể lọc theo trạng thái, tìm nhanh bằng bất kỳ trường nào, rồi xác nhận ngay trong panel này."
-                    icon={<ShieldCheck size={28} />}
-                  />
-                </Paper>
-              )}
-            </Paper>
-          </Box>
-        </Stack>
-      </Paper>
+              </Box>
+            ) : null}
 
-      <Dialog open={previewOpen && Boolean(previewUrl)} onClose={() => { setPreviewOpen(false); setPreviewIndex(null); setPreviewUrl(""); }} maxWidth="md" fullWidth>
-        <DialogTitle>Preview attachment</DialogTitle>
+            {/* Broadcast history if any */}
+            {broadcastRows.length > 0 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+                  Lịch sử phát sóng cảnh báo gần nhất:
+                </Typography>
+                <Stack spacing={0.75}>
+                  {broadcastRows.map((b) => (
+                    <Box
+                      key={b.id}
+                      sx={{
+                        p: 1,
+                        borderRadius: 1,
+                        bgcolor: "action.hover",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                        {b.broadcast_type || "Cảnh báo toàn mạng"} · Nhóm đích: {b.target_chat_id || "Mọi nhóm"}
+                      </Typography>
+                      <Chip size="small" label={b.status || "sent"} color="success" variant="outlined" sx={{ height: 20, fontSize: 10 }} />
+                    </Box>
+                  ))}
+                </Stack>
+              </Box>
+            ) : null}
+
+            <Divider />
+
+            {/* Verdict Action Command Bar */}
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+              <MuiButton
+                variant="contained"
+                color="success"
+                startIcon={<CheckCircle2 size={16} />}
+                onClick={() => onConfirm(selected)}
+                sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+              >
+                Xác nhận Lừa Đảo
+              </MuiButton>
+              <MuiButton
+                variant="outlined"
+                color="warning"
+                startIcon={<AlertCircle size={16} />}
+                onClick={() => onEdit(selected)}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Sửa hồ sơ
+              </MuiButton>
+              <MuiButton
+                variant="outlined"
+                color="secondary"
+                startIcon={<BadgeAlert size={16} />}
+                onClick={() => onDuplicate(selected)}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Đánh dấu Trùng
+              </MuiButton>
+              <MuiButton
+                variant="outlined"
+                color="info"
+                startIcon={<Clock3 size={16} />}
+                onClick={() => onNeedMoreInfo(selected)}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Cần thêm bằng chứng
+              </MuiButton>
+              <MuiButton
+                variant="outlined"
+                color="error"
+                startIcon={<X size={16} />}
+                onClick={() => onReject(selected)}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Bác bỏ / Từ chối
+              </MuiButton>
+              <MuiButton
+                variant="text"
+                startIcon={<ExternalLink size={15} />}
+                onClick={() => onOpenReport(selected.id)}
+                sx={{ textTransform: "none", ml: "auto" }}
+              >
+                Mở chi tiết
+              </MuiButton>
+            </Stack>
+          </Paper>
+        ) : (
+          <Paper variant="outlined" sx={{ p: 6, borderRadius: 2, textAlign: "center", bgcolor: "background.paper" }}>
+            <ShieldCheck size={42} style={{ opacity: 0.3, marginBottom: 12 }} />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Chọn một báo cáo để bắt đầu thẩm định
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 460, mx: "auto", mt: 0.5 }}>
+              Hệ thống cho phép admin đọc nội dung tố cáo, phóng to ảnh hóa đơn/bill chuyển khoản và đưa ra phán quyết xử lý tức thì.
+            </Typography>
+          </Paper>
+        )}
+      </Box>
+
+      {/* Lightbox Dialog for Evidence Photos */}
+      <Dialog
+        open={previewOpen && Boolean(previewUrl)}
+        onClose={() => {
+          setPreviewOpen(false);
+          setPreviewIndex(null);
+          setPreviewUrl("");
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Kiểm tra bằng chứng ảnh #{previewIndex !== null ? previewIndex + 1 : ""}
+          </Typography>
+          <IconButton size="small" onClick={() => setPreviewOpen(false)}>
+            <X size={18} />
+          </IconButton>
+        </DialogTitle>
         <DialogContent>
           {previewIndex !== null && selectedAttachments[previewIndex] ? (
-            <Stack spacing={1.25}>
-              <Box sx={{ borderRadius: 2, overflow: "hidden", bgcolor: "rgba(15, 118, 110, 0.08)", minHeight: 240, display: "grid", placeItems: "center" }}>
+            <Stack spacing={1.5}>
+              <Box
+                sx={{
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  bgcolor: "#000",
+                  minHeight: 300,
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
                 {previewUrl ? (
-                  <Box component="img" src={previewUrl} alt="attachment preview" sx={{ width: "100%", maxHeight: 520, objectFit: "contain", display: "block" }} />
+                  <Box
+                    component="img"
+                    src={previewUrl}
+                    alt="attachment preview"
+                    sx={{ width: "100%", maxHeight: 560, objectFit: "contain", display: "block" }}
+                  />
                 ) : (
-                  <ImageIcon size={42} />
+                  <ImageIcon size={42} style={{ color: "#fff" }} />
                 )}
               </Box>
-              <Typography variant="subtitle2">{selectedAttachments[previewIndex].media_type || "file"}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {selectedAttachments[previewIndex].file_name || selectedAttachments[previewIndex].telegram_file_id || "No file id"}
-              </Typography>
-              <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
-                {selectedAttachments[previewIndex].caption || "Không có caption."}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ wordBreak: "break-all" }}>
-                {selectedAttachments[previewIndex].telegram_file_id || selectedAttachments[previewIndex].telegram_file_unique_id || ""}
+                File: {selectedAttachments[previewIndex].file_name || selectedAttachments[previewIndex].telegram_file_id || "Không tên"}
               </Typography>
             </Stack>
           ) : null}
         </DialogContent>
       </Dialog>
-    </Section>
+    </Box>
   );
 }

@@ -1,5 +1,6 @@
 import TelegramPhoneSimulator from "./ui/TelegramPhoneSimulator";
 import {
+  Alert,
   Box,
   Button as MuiButton,
   Chip,
@@ -9,12 +10,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  InputAdornment,
   LinearProgress,
   MenuItem,
   Paper,
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -29,6 +32,18 @@ import {
   Activity,
   Wrench,
   FlaskConical,
+  Calendar,
+  Clock,
+  Layers,
+  MessageSquare,
+  Video,
+  Send,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  RotateCcw,
+  Radio,
 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { UI_COPY } from "@/lib/uiCopy";
@@ -136,31 +151,359 @@ export function AutomationScreen(props: {
   activeTab: string;
   onChangeTab: (tab: string) => void;
 }) {
-  const c = UI_COPY.workbench.automation;
+  const windowStart = parseInt(props.scheduleSubject.daily_window_start || "09", 10) || 9;
+  const windowEnd = parseInt(props.scheduleSubject.daily_window_end || "21", 10) || 21;
+  const isReady = props.scheduleReadiness?.ready && props.scheduleIssues.length === 0;
+
   return (
-    <Section eyebrow={c.eyebrow} title={c.title} subtitle={c.body} tone="content">
-      <Stack spacing={2}>
-        <WorkspacePanel
-          title={c.schedule}
-          subtitle="Chọn group, pool và lịch gửi."
-          tabs={props.tabs}
-          activeTab={props.activeTab}
-          onChangeTab={props.onChangeTab}
-          actions={(
-            <MuiButton variant="contained" onClick={props.startScheduledMessageFlow}>
-              {props.lookupsGroupsLength ? c.setTime : c.addGroup}
-            </MuiButton>
-          )}
-          statusChips={(
-            <>
-              <Chip size="small" color={props.scheduleIssues.length ? "warning" : "success"} label={props.scheduleIssues.length ? `${props.scheduleIssues.length} mục cần xử lý` : c.scheduleReady} />
-              <Chip size="small" variant="outlined" label={`Đích: ${props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Toàn hệ thống"}`} />
-              <Chip size="small" variant="outlined" label={`Giờ: ${props.scheduleSubject.daily_window_start || "09:00"} - ${props.scheduleSubject.daily_window_end || "09:00"}`} />
-            </>
-          )}
-        />
-      </Stack>
-    </Section>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 1 }}>
+      {/* Studio Banner */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", md: "center" },
+          gap: 1.5,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "rgba(16, 185, 129, 0.12)",
+              color: "success.main",
+            }}
+          >
+            <Calendar size={20} />
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              Lịch Phát Sóng Tự Động (Broadcast Timeline Studio)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Định thời gian phát nội dung định kỳ từ kho tin nhắn và video vào các nhóm được chỉ định
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <Chip
+            size="small"
+            color={isReady ? "success" : "warning"}
+            icon={isReady ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
+            label={isReady ? "Lịch phát sẵn sàng" : `${props.scheduleIssues.length || 1} điểm cần hoàn thiện`}
+            sx={{ borderRadius: 1.5, fontWeight: 700 }}
+          />
+          <MuiButton
+            variant="contained"
+            size="small"
+            color="primary"
+            startIcon={<Clock size={14} />}
+            onClick={props.startScheduledMessageFlow}
+            sx={{ textTransform: "none", borderRadius: 1.5, boxShadow: "none" }}
+          >
+            {props.lookupsGroupsLength ? "Thiết lập lịch phát sóng" : "Thêm nhóm phát"}
+          </MuiButton>
+        </Stack>
+      </Paper>
+
+      {/* 24-Hour Visual Dispatch Timeline */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2.5,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: "column",
+          gap: 1.5,
+        }}
+      >
+        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Biểu Đồ Khung Giờ Phát Trong Ngày (24H Timeline)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Khung giờ kích hoạt hiện tại: <strong>{props.scheduleSubject.daily_window_start || "09:00"}</strong> đến <strong>{props.scheduleSubject.daily_window_end || "21:00"}</strong>
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "success.main" }} />
+              <Typography variant="caption" color="text.secondary">Đang phát sóng</Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Box sx={{ width: 10, height: 10, borderRadius: 0.5, bgcolor: "action.disabledBackground" }} />
+              <Typography variant="caption" color="text.secondary">Giờ nghỉ yên lặng</Typography>
+            </Box>
+          </Stack>
+        </Stack>
+
+        {/* Hour Segments Grid */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(24, 1fr)",
+            gap: 0.5,
+            pt: 1,
+            pb: 0.5,
+          }}
+        >
+          {Array.from({ length: 24 }).map((_, hour) => {
+            const isActive = hour >= windowStart && hour <= windowEnd;
+            return (
+              <Tooltip key={hour} title={`Khung ${hour}:00 - ${hour}:59 (${isActive ? "Phát sóng bật" : "Yên lặng"})`} arrow>
+                <Box
+                  sx={{
+                    height: 38,
+                    borderRadius: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    bgcolor: isActive ? "rgba(16, 185, 129, 0.15)" : "action.hover",
+                    border: "1px solid",
+                    borderColor: isActive ? "rgba(16, 185, 129, 0.4)" : "divider",
+                    transition: "all 0.15s ease",
+                    cursor: "pointer",
+                    "&:hover": {
+                      transform: "scale(1.08)",
+                      borderColor: "primary.main",
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: 10,
+                      fontWeight: isActive ? 800 : 500,
+                      color: isActive ? "success.dark" : "text.secondary",
+                    }}
+                  >
+                    {hour}h
+                  </Typography>
+                </Box>
+              </Tooltip>
+            );
+          })}
+        </Box>
+      </Paper>
+
+      {/* Content Pools & Readiness Split */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.8fr" }, gap: 2 }}>
+        {/* Left: Dual Content Pools */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {/* Message Pool Card */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: "background.paper",
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+            }}
+          >
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <MessageSquare size={18} style={{ color: "#2563eb" }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Kho Tin Nhắn Văn Bản (Message Pool)
+                </Typography>
+              </Stack>
+              <Chip
+                size="small"
+                label={`${props.scheduleMessagePreview.length} bài viết`}
+                variant="outlined"
+                sx={{ borderRadius: 1 }}
+              />
+            </Stack>
+
+            <Typography variant="body2" color="text.secondary">
+              Nguồn cấp tin tự động: <strong>{props.scheduleMessagePool || "Default Message Pool"}</strong>
+            </Typography>
+
+            {props.scheduleMessagePreview.length > 0 ? (
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  bgcolor: "rgba(37, 99, 235, 0.04)",
+                  border: "1px dashed",
+                  borderColor: "rgba(37, 99, 235, 0.25)",
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Tin mẫu trong kho:
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 0.5, fontStyle: "italic", color: "text.primary" }}>
+                  &ldquo;{String(props.scheduleMessagePreview[0]?.message || props.scheduleMessagePreview[0]?.content || "Tin nhắn tự động định kỳ...")}&rdquo;
+                </Typography>
+              </Box>
+            ) : null}
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <MuiButton
+                size="small"
+                variant="outlined"
+                startIcon={<MessageSquare size={13} />}
+                onClick={() => props.goToScheduleContent("messages")}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Quản lý kho tin nhắn
+              </MuiButton>
+            </Box>
+          </Paper>
+
+          {/* Video Message Pool Card */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              borderRadius: 2,
+              bgcolor: "background.paper",
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+            }}
+          >
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Video size={18} style={{ color: "#7c3aed" }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Kho Video / Media (Video Pool)
+                </Typography>
+              </Stack>
+              <Chip
+                size="small"
+                label={`${props.scheduleVideoPreview.length} media`}
+                variant="outlined"
+                sx={{ borderRadius: 1 }}
+              />
+            </Stack>
+
+            <Typography variant="body2" color="text.secondary">
+              Nguồn cấp video: <strong>{props.scheduleVideoPool || "Default Video Pool"}</strong>
+            </Typography>
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <MuiButton
+                size="small"
+                variant="outlined"
+                startIcon={<Video size={13} />}
+                onClick={() => props.goToScheduleContent("video_messages")}
+                sx={{ textTransform: "none", borderRadius: 1.5 }}
+              >
+                Quản lý kho video
+              </MuiButton>
+            </Box>
+          </Paper>
+        </Box>
+
+        {/* Right: Readiness Checklist & Group Context */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Kiểm Tra Điều Kiện Phát Sóng
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Hệ thống chỉ kích hoạt phát sóng khi toàn bộ các điều kiện sau được đáp ứng:
+            </Typography>
+          </Box>
+
+          <Stack spacing={1.5}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+              {props.scheduleReadiness?.hasBot ? (
+                <CheckCircle2 size={18} style={{ color: "#10b981", flexShrink: 0 }} />
+              ) : (
+                <AlertTriangle size={18} style={{ color: "#f59e0b", flexShrink: 0 }} />
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Bot thực thi đã sẵn sàng</Typography>
+                <Typography variant="caption" color="text.secondary">Bot quản lý kênh có quyền đăng bài</Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+              {props.scheduleReadiness?.hasGroup ? (
+                <CheckCircle2 size={18} style={{ color: "#10b981", flexShrink: 0 }} />
+              ) : (
+                <AlertTriangle size={18} style={{ color: "#f59e0b", flexShrink: 0 }} />
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Nhóm đích hợp lệ</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {props.scheduleSubject.group_name || props.scheduleSubject.group_id || props.selectedScope || "Chưa chọn nhóm phát"}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+              {props.scheduleReadiness?.hasMessagePool || props.scheduleReadiness?.hasVideoPool ? (
+                <CheckCircle2 size={18} style={{ color: "#10b981", flexShrink: 0 }} />
+              ) : (
+                <AlertTriangle size={18} style={{ color: "#f59e0b", flexShrink: 0 }} />
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>Kho nội dung có bài viết</Typography>
+                <Typography variant="caption" color="text.secondary">Tối thiểu 1 tin nhắn hoặc 1 video trong kho</Typography>
+              </Box>
+            </Box>
+          </Stack>
+
+          {props.scheduleIssues.length > 0 ? (
+            <Alert severity="warning" sx={{ borderRadius: 1.5, mt: 1 }}>
+              {props.scheduleIssues.join(". ")}
+            </Alert>
+          ) : null}
+
+          {/* Sub-table tabs */}
+          {props.tabs.length > 0 ? (
+            <Box sx={{ mt: "auto", pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: "block", mb: 1 }}>
+                Bảng Cấu Hình Con:
+              </Typography>
+              <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                {props.tabs.map((tab) => (
+                  <Chip
+                    key={tab.key}
+                    label={tab.label}
+                    size="small"
+                    variant={props.activeTab === tab.key ? "filled" : "outlined"}
+                    color={props.activeTab === tab.key ? "primary" : "default"}
+                    onClick={() => props.onChangeTab(tab.key)}
+                    sx={{ borderRadius: 1.5, cursor: "pointer" }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          ) : null}
+        </Paper>
+      </Box>
+    </Box>
   );
 }
 
@@ -1013,6 +1356,9 @@ export function AutoReplyScreen(props: {
   const [notes, setNotes] = useState(props.createDraft.notes);
   const [enabled, setEnabled] = useState(props.createDraft.enabled);
 
+  // Live simulator state
+  const [testInput, setTestInput] = useState("alo shop ơi");
+
   useEffect(() => {
     if (!props.createOpen) return;
     setTrigger(props.createDraft.trigger);
@@ -1023,244 +1369,502 @@ export function AutoReplyScreen(props: {
     setEnabled(props.createDraft.enabled);
   }, [props.createDraft, props.createOpen]);
 
+  // Evaluate testInput against rows
+  const simulatedMatch = (() => {
+    if (!testInput.trim()) return null;
+    const cleanInput = testInput.trim().toLowerCase();
+    const stripAccents = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    for (const r of props.rows) {
+      if (r.enabled === false) continue;
+      const trig = String(r.trigger || "").trim().toLowerCase();
+      if (!trig) continue;
+
+      let matched = false;
+      if (r.ignore_diacritics) {
+        if (stripAccents(cleanInput).includes(stripAccents(trig))) {
+          matched = true;
+        }
+      }
+
+      if (!matched) {
+        const mode = String(r.match || "smart");
+        if (mode === "exact") {
+          matched = cleanInput === trig;
+        } else if (mode === "contains") {
+          matched = cleanInput.includes(trig);
+        } else if (mode === "regex") {
+          try {
+            matched = new RegExp(trig, "i").test(cleanInput);
+          } catch {
+            matched = false;
+          }
+        } else {
+          // smart mode
+          const words = trig.split(/\s+/).filter(Boolean);
+          matched = words.length > 0 && words.every((w) => cleanInput.includes(w));
+        }
+      }
+
+      if (matched) {
+        return r;
+      }
+    }
+    return null;
+  })();
+
   return (
-    <Section eyebrow="Module" title="Auto reply" subtitle="Tạo rule theo trigger." tone="content">
-      <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-        <Stack spacing={2}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Bật Auto reply</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Ưu tiên `smart` để giảm trả lời bừa.
-              </Typography>
-            </Box>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 1 }}>
+      {/* Studio Header & Switch */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2,
+          borderRadius: 2,
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: { xs: "column", md: "row" },
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", md: "center" },
+          gap: 1.5,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              display: "grid",
+              placeItems: "center",
+              bgcolor: "rgba(37, 99, 235, 0.12)",
+              color: "primary.main",
+            }}
+          >
+            <Zap size={20} />
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              Xưởng Trả Lời Tự Động (Auto-Reply Chatbot Studio)
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Khớp từ khóa thông minh, hỗ trợ đa biến thể nội dung cho bot: <strong>{props.selectedBotName || "Bot hiện tại"}</strong>
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {props.moduleEnabled ? "Đang bật Auto-reply" : "Đang tắt"}
+            </Typography>
             <Switch checked={props.moduleEnabled} onChange={props.onToggleModule} disabled={props.saving} />
-          </Box>
-
-          <Box sx={{ display: "grid", gap: 1.25, gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" } }}>
-            <StatCard compact label="Tổng rule" value={props.stats.total} tone="primary" />
-            <StatCard compact label="Đang bật" value={props.stats.enabled} tone="success" />
-            <StatCard compact label="Smart" value={props.stats.smart} tone="info" />
-            <StatCard compact label="Trigger ngắn" value={props.stats.risky} tone="warning" />
-          </Box>
-
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" } }}>
-              <Box>
-                <Typography variant="subtitle2">Câu trả lời tự động</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Mở popup riêng để tạo rule mới.
-              </Typography>
-            </Box>
-              <MuiButton variant="contained" onClick={props.onOpenCreate} disabled={!props.moduleEnabled}>
-                Tạo câu trả lời tự động
-              </MuiButton>
-            </Stack>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-            <Stack spacing={1.25}>
-              <Typography variant="subtitle2">Danh sách rule</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Bot đang dùng bot: {props.selectedBotName || "Chưa chọn"}
-              </Typography>
-              <Box sx={{ display: "grid", gap: 1.1 }}>
-                {props.rows.length ? props.rows.map((row) => {
-                  const statusOn = row.enabled !== false;
-                  return (
-                    <Paper key={String(row.id || row.trigger)} variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", opacity: statusOn ? 1 : 0.72 }}>
-                      <Stack spacing={1}>
-                        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{String(row.trigger || "Chưa đặt trigger")}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              Match: {String(row.match || "smart")} · Bot: {String(row.bot_key || props.selectedBotName || "-")}
-                            </Typography>
-                            {row.ignore_diacritics ? (
-                              <Chip size="small" color="warning" variant="outlined" label="Bỏ dấu khi khớp" sx={{ mt: 0.75 }} />
-                            ) : null}
-                          </Box>
-                          <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-                            <Chip size="small" color={statusOn ? "success" : "default"} label={statusOn ? "Đang chạy" : "Đang tắt"} />
-                            <MuiButton
-                              size="small"
-                              variant="outlined"
-                              onClick={() => {
-                                props.onEditAutoReply(row);
-                              }}
-                            >
-                              Sửa
-                            </MuiButton>
-                            <MuiButton size="small" variant="text" color="error" onClick={() => props.onDeleteAutoReply(row)}>
-                              Xóa
-                            </MuiButton>
-                          </Stack>
-                        </Stack>
-                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
-                          {String(row.reply || "Chưa có nội dung trả lời.")}
-                        </Typography>
-                      </Stack>
-                    </Paper>
-                  );
-                }) : (
-                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default" }}>
-                    <Typography variant="body2" color="text.secondary">Chưa có auto reply nào. Tạo mới để bắt đầu.</Typography>
-                  </Paper>
-                )}
-              </Box>
-            </Stack>
-          </Paper>
+          </Stack>
+          <MuiButton
+            variant="contained"
+            size="small"
+            color="primary"
+            startIcon={<Plus size={15} />}
+            onClick={props.onOpenCreate}
+            disabled={!props.moduleEnabled}
+            sx={{ textTransform: "none", borderRadius: 1.5, boxShadow: "none" }}
+          >
+            Tạo quy tắc mới
+          </MuiButton>
         </Stack>
       </Paper>
 
-      <Dialog open={props.createOpen} onClose={props.onCloseCreate} fullWidth maxWidth="lg">
+      {/* Stats KPI Row */}
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" } }}>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Tổng số quy tắc</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>{props.stats.total}</Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Đang kích hoạt</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "success.main" }}>{props.stats.enabled}</Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Khớp thông minh (Smart)</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "primary.main" }}>{props.stats.smart}</Typography>
+        </Paper>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Trigger nhạy cảm</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: props.stats.risky ? "warning.main" : "text.secondary" }}>{props.stats.risky}</Typography>
+        </Paper>
+      </Box>
+
+      {/* Main Studio View: Simulator (Top/Side) & Rules Directory */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1.2fr 0.8fr" }, gap: 2, alignItems: "start" }}>
+        {/* Left: Rules Directory */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1.5,
+          }}
+        >
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              Danh Sách Quy Tắc ({props.rows.length})
+            </Typography>
+            <Chip size="small" label={`Bot: ${props.selectedBotName || "Toàn bộ"}`} variant="outlined" sx={{ borderRadius: 1 }} />
+          </Stack>
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
+            {props.rows.length ? (
+              props.rows.map((row) => {
+                const statusOn = row.enabled !== false;
+                return (
+                  <Paper
+                    key={String(row.id || row.trigger)}
+                    variant="outlined"
+                    sx={{
+                      p: 1.75,
+                      borderRadius: 1.5,
+                      border: "1px solid",
+                      borderColor: statusOn ? "divider" : "divider",
+                      bgcolor: statusOn ? "background.paper" : "action.hover",
+                      opacity: statusOn ? 1 : 0.65,
+                      transition: "all 0.15s ease",
+                      "&:hover": {
+                        borderColor: "primary.main",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      },
+                    }}
+                  >
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", gap: 1 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "primary.main" }}>
+                              {String(row.trigger || "Chưa đặt trigger")}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={`Kiểu: ${String(row.match || "smart")}`}
+                              sx={{ height: 22, fontSize: 11, borderRadius: 1 }}
+                            />
+                            {row.ignore_diacritics ? (
+                              <Chip
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                label="Bỏ dấu"
+                                sx={{ height: 22, fontSize: 11, borderRadius: 1 }}
+                              />
+                            ) : null}
+                          </Stack>
+                        </Box>
+
+                        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+                          <Chip
+                            size="small"
+                            color={statusOn ? "success" : "default"}
+                            label={statusOn ? "Hoạt động" : "Tắt"}
+                            sx={{ height: 22, fontSize: 11, fontWeight: 600, borderRadius: 1 }}
+                          />
+                          <MuiButton
+                            size="small"
+                            variant="outlined"
+                            onClick={() => props.onEditAutoReply(row)}
+                            sx={{ textTransform: "none", height: 26, borderRadius: 1 }}
+                          >
+                            Sửa
+                          </MuiButton>
+                          <MuiButton
+                            size="small"
+                            variant="text"
+                            color="error"
+                            onClick={() => props.onDeleteAutoReply(row)}
+                            sx={{ textTransform: "none", height: 26 }}
+                          >
+                            Xóa
+                          </MuiButton>
+                        </Stack>
+                      </Stack>
+
+                      {/* Reply Bubble */}
+                      <Box
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 1.5,
+                          bgcolor: "action.hover",
+                          borderLeft: "3px solid",
+                          borderLeftColor: "primary.main",
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {String(row.reply || "Chưa có nội dung trả lời.")}
+                      </Box>
+                    </Stack>
+                  </Paper>
+                );
+              })
+            ) : (
+              <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+                <Zap size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                <Typography variant="body2">Chưa có quy tắc tự động nào. Hãy tạo quy tắc mới.</Typography>
+              </Box>
+            )}
+          </Box>
+        </Paper>
+
+        {/* Right: Live Interactive Rule Matcher Simulator */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            position: { lg: "sticky" },
+            top: { lg: 80 },
+          }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: 1.5,
+                bgcolor: "rgba(16, 185, 129, 0.12)",
+                color: "success.main",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <FlaskConical size={16} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Thử Nghiệm Trả Lời Trực Tiếp (Live Sandbox)
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Gõ câu nói của thành viên để kiểm tra bot sẽ phản hồi thế nào
+              </Typography>
+            </Box>
+          </Stack>
+
+          <TextField
+            size="small"
+            value={testInput}
+            onChange={(e) => setTestInput(e.target.value)}
+            placeholder="Nhập câu tin nhắn để thử nghiệm..."
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MessageSquare size={15} style={{ color: "#94a3b8" }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
+          />
+
+          <Divider />
+
+          {/* Test Verdict & Chat Mockup */}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                Kết quả kiểm tra:
+              </Typography>
+              {simulatedMatch ? (
+                <Chip
+                  size="small"
+                  color="success"
+                  icon={<CheckCircle2 size={12} />}
+                  label={`Khớp quy tắc: "${simulatedMatch.trigger}"`}
+                  sx={{ height: 22, fontSize: 11, borderRadius: 1, fontWeight: 700 }}
+                />
+              ) : (
+                <Chip
+                  size="small"
+                  color="default"
+                  label="Không khớp quy tắc nào"
+                  sx={{ height: 22, fontSize: 11, borderRadius: 1 }}
+                />
+              )}
+            </Stack>
+
+            {/* Telegram Chat Simulation */}
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                bgcolor: "#0e1621",
+                color: "#fff",
+                display: "flex",
+                flexDirection: "column",
+                gap: 1.5,
+                minHeight: 160,
+              }}
+            >
+              {/* User speech */}
+              <Box sx={{ alignSelf: "flex-end", maxWidth: "80%" }}>
+                <Box
+                  sx={{
+                    bgcolor: "#2b5278",
+                    p: 1.25,
+                    borderRadius: "12px 12px 2px 12px",
+                    fontSize: 13,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: "#fff", fontSize: 13 }}>
+                    {testInput || "..."}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.6)", fontSize: 10, display: "block", textAlign: "right", mt: 0.25 }}>
+                    10:30
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Bot response */}
+              {simulatedMatch ? (
+                <Box sx={{ alignSelf: "flex-start", maxWidth: "85%" }}>
+                  <Box
+                    sx={{
+                      bgcolor: "#182533",
+                      p: 1.25,
+                      borderRadius: "12px 12px 12px 2px",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ color: "#64b5f6", fontWeight: 700, display: "block", mb: 0.25 }}>
+                      {props.selectedBotName || "CU Bot"}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "#fff", fontSize: 13, whiteSpace: "pre-wrap" }}>
+                      {String(simulatedMatch.reply || "...")}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.5)", fontSize: 10, display: "block", textAlign: "right", mt: 0.25 }}>
+                      10:30 ✓✓
+                    </Typography>
+                  </Box>
+                </Box>
+              ) : (
+                <Box sx={{ alignSelf: "flex-start", opacity: 0.5, fontStyle: "italic", fontSize: 12 }}>
+                  (Bot giữ im lặng vì không có từ khóa kích hoạt)
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Dialog for Creating & Editing Rule */}
+      <Dialog open={props.createOpen} onClose={props.onCloseCreate} fullWidth maxWidth="md">
         <DialogTitle sx={{ pb: 1.25 }}>
           <Stack spacing={0.5}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>
               {props.editingRuleId ? "Sửa câu trả lời tự động" : "Tạo câu trả lời tự động"}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Popup riêng cho từng rule, có preview để nhìn trước khi lưu.
+              Thiết lập từ khóa, kiểu khớp và phản hồi của bot
             </Typography>
           </Stack>
         </DialogTitle>
         <DialogContent dividers sx={{ bgcolor: "background.default" }}>
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", lg: "0.95fr 1.25fr" },
-              alignItems: "start",
-            }}
-          >
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper", position: "sticky", top: 16 }}>
-              <Stack spacing={1.5}>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Từ khóa kích hoạt (Trigger)"
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
+              placeholder="Ví dụ: giá, hướng dẫn, alo"
+              helperText="Từ hoặc cụm từ mà khi thành viên nhắn, bot sẽ phản hồi"
+              fullWidth
+            />
+            <TextField
+              select
+              label="Kiểu khớp (Match Mode)"
+              value={match}
+              onChange={(e) => setMatch(e.target.value)}
+              fullWidth
+            >
+              <MenuItem value="smart">Smart (Thông minh, khớp theo từ khóa linh hoạt)</MenuItem>
+              <MenuItem value="exact">Trùng khớp tuyệt đối (Chính xác 100% câu)</MenuItem>
+              <MenuItem value="contains">Có chứa cụm từ (Contains)</MenuItem>
+              <MenuItem value="regex">Regex biểu thức chính quy</MenuItem>
+            </TextField>
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
+              <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
                 <Box>
-                  <Typography variant="overline" color="text.secondary">Preview rule</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {trigger || "Chưa đặt trigger"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Bot: {props.selectedBotName || "Bot đang chọn"}
+                  <Typography variant="subtitle2">Bỏ qua dấu tiếng Việt khi khớp</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Cho phép khớp cả &ldquo;gia&rdquo; lẫn &ldquo;giá&rdquo;, &ldquo;alo&rdquo; lẫn &ldquo;alô&rdquo;
                   </Typography>
                 </Box>
-
-                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                  <Chip size="small" color={enabled ? "success" : "default"} label={enabled ? "Đang bật" : "Đang tắt"} />
-                  <Chip size="small" variant="outlined" label={`Match: ${match || "smart"}`} />
-                  <Chip size="small" color={ignoreDiacritics ? "warning" : "default"} label={ignoreDiacritics ? "Bỏ dấu" : "Giữ dấu"} />
-                  <Chip size="small" variant="outlined" label={`Rule ${props.editingRuleId ? "đang sửa" : "mới"}`} />
-                </Stack>
-
-                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                  <Stack spacing={0.75}>
-                    <Typography variant="caption" color="text.secondary">Preview trả lời</Typography>
-                    <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                      {reply || "Nội dung trả lời sẽ hiển thị ở đây."}
-                    </Typography>
-                  </Stack>
-                </Paper>
-
-                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                  <Stack spacing={0.75}>
-                    <Typography variant="caption" color="text.secondary">Ghi chú</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
-                      {notes || "Không có ghi chú."}
-                    </Typography>
-                  </Stack>
-                </Paper>
+                <Switch checked={ignoreDiacritics} onChange={(e) => setIgnoreDiacritics(e.target.checked)} />
               </Stack>
             </Paper>
-
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-              <Stack spacing={1.5}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2 }}>
-                  <Box>
-                    <Typography variant="subtitle2">Thiết lập rule</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Chỉnh trigger, kiểu khớp, bỏ dấu khi khớp và nội dung trả lời cho rule này.
-                    </Typography>
-                  </Box>
-                  <Paper variant="outlined" sx={{ px: 1.5, py: 1, bgcolor: "background.default" }}>
-                    <Typography variant="caption" color="text.secondary">Bot áp dụng</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                      {props.selectedBotName || "Bot đang chọn"}
-                    </Typography>
-                  </Paper>
+            <TextField
+              multiline
+              minRows={5}
+              label="Nội dung bot trả lời"
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              placeholder="Nhập nội dung tin nhắn bot sẽ gửi..."
+              helperText="Hỗ trợ các placeholder: {user}, {group}"
+              fullWidth
+            />
+            <TextField
+              label="Ghi chú nội bộ"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ghi chú mục đích sử dụng của rule này..."
+              fullWidth
+            />
+            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "background.paper" }}>
+              <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                <Box>
+                  <Typography variant="subtitle2">Kích hoạt quy tắc</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Bật quy tắc này hoạt động ngay sau khi lưu
+                  </Typography>
                 </Box>
-
-                <TextField label="Trigger" value={trigger} onChange={(e) => setTrigger(e.target.value)} helperText="Ví dụ: hello, support, giá." />
-                <TextField
-                  select
-                  label="Kiểu khớp"
-                  value={match}
-                  onChange={(e) => setMatch(e.target.value)}
-                  helperText="smart: hiểu theo ngữ cảnh, exact: trùng câu, contains: có chứa cụm từ, regex: nâng cao"
-                >
-                  <MenuItem value="smart">Smart (khuyên dùng)</MenuItem>
-                  <MenuItem value="exact">Trùng nguyên câu</MenuItem>
-                  <MenuItem value="contains">Có chứa cụm từ</MenuItem>
-                  <MenuItem value="regex">Regex</MenuItem>
-                </TextField>
-                <Paper variant="outlined" sx={{ p: 1.25, bgcolor: "background.default" }}>
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <Box>
-                      <Typography variant="subtitle2">Bỏ dấu khi khớp</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Bật nếu trigger cần khớp cả khi người dùng gõ khác dấu.
-                      </Typography>
-                    </Box>
-                    <Switch checked={ignoreDiacritics} onChange={(event) => setIgnoreDiacritics(event.target.checked)} />
-                  </Stack>
-                </Paper>
-                <TextField
-                  multiline
-                  minRows={6}
-                  label="Nội dung trả lời"
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  helperText="Có thể dùng nhiều dòng, / hoặc || để bot trả lời ngẫu nhiên."
-                />
-                <TextField multiline minRows={2} label="Ghi chú" value={notes} onChange={(e) => setNotes(e.target.value)} />
-
-                <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <Box>
-                      <Typography variant="subtitle2">Kích hoạt rule</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Bật ngay sau khi lưu.
-                      </Typography>
-                    </Box>
-                    <Switch checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-                  </Stack>
-                </Paper>
+                <Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
               </Stack>
             </Paper>
-          </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <MuiButton variant="outlined" onClick={props.onCloseCreate}>Hủy</MuiButton>
+        <DialogActions sx={{ p: 2 }}>
+          <MuiButton variant="outlined" onClick={props.onCloseCreate} sx={{ textTransform: "none", borderRadius: 1.5 }}>
+            Hủy
+          </MuiButton>
           <MuiButton
             variant="contained"
             onClick={() => {
-                props.onCreateAutoReply({
-                  bot_key: props.selectedBotKey || "main",
-                  trigger,
-                  match,
-                  ignore_diacritics: ignoreDiacritics,
-                  reply,
-                  enabled,
-                  notes,
-                });
+              props.onCreateAutoReply({
+                bot_key: props.selectedBotKey || "main",
+                trigger,
+                match,
+                ignore_diacritics: ignoreDiacritics,
+                reply,
+                enabled,
+                notes,
+              });
               props.onCloseCreate();
             }}
-            disabled={!props.moduleEnabled}
+            disabled={!props.moduleEnabled || !trigger.trim()}
+            sx={{ textTransform: "none", borderRadius: 1.5 }}
           >
-            {props.editingRuleId ? "Lưu thay đổi" : "Lưu auto reply"}
+            {props.editingRuleId ? "Lưu thay đổi" : "Lưu quy tắc"}
           </MuiButton>
         </DialogActions>
       </Dialog>
-    </Section>
+    </Box>
   );
 }
 
