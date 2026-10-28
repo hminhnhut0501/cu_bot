@@ -1,16 +1,25 @@
 import random
+import re
 import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
 TRUE_VALUES = {"1", "true", "yes", "on", "enabled", "y", "x"}
+ZERO_WIDTH_PATTERN = re.compile(r"[\u200B-\u200D\u2060\uFEFF\u00AD\u202A-\u202E]")
 
 
 def normalize_text(text):
-    normalized = unicodedata.normalize("NFD", text or "")
+    cleaned = ZERO_WIDTH_PATTERN.sub("", text or "")
+    normalized = unicodedata.normalize("NFD", cleaned)
     ascii_like = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
     return ascii_like.replace("đ", "d").replace("Đ", "D").lower().strip()
+
+
+def count_zero_width_chars(text):
+    if not text:
+        return 0
+    return len(ZERO_WIDTH_PATTERN.findall(str(text)))
 
 
 def as_bool(value, default=False):

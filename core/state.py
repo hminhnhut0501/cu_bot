@@ -19,6 +19,8 @@ class RuntimeState:
     auto_reply_user_cooldown: dict[tuple[int, int, str], float] = field(default_factory=dict)
     auto_reply_trigger_cooldown: dict[tuple[int, str], float] = field(default_factory=dict)
     recent_welcome_events: dict[tuple[int, int], float] = field(default_factory=dict)
+    member_join_times: dict[tuple[int, int], float] = field(default_factory=dict)
+    chat_join_windows: dict[int, deque] = field(default_factory=lambda: defaultdict(deque))
     lock: Lock = field(default_factory=Lock)
 
     def mark_activity(self, chat_id, user_id=None, username="", display_name=""):
@@ -161,3 +163,21 @@ class RuntimeState:
     def release_welcome(self, chat_id, user_id):
         with self.lock:
             self.recent_welcome_events.pop((int(chat_id), int(user_id)), None)
+
+    def record_member_join(self, chat_id, user_id, join_time=None):
+        with self.lock:
+            self.member_join_times[(int(chat_id), int(user_id))] = join_time or time()
+
+    def get_member_join_time(self, chat_id, user_id):
+        with self.lock:
+            return self.member_join_times.get((int(chat_id), int(user_id)))
+
+    def add_chat_join(self, chat_id, window_seconds=30):
+        key = int(chat_id)
+        current_time = time()
+        with self.lock:
+            window = self.chat_join_windows[key]
+            window.append(current_time)
+            while window and current_time - window[0] > window_seconds:
+                window.popleft()
+            return len(window)

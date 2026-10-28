@@ -6,13 +6,14 @@ import threading
 from datetime import datetime, timedelta
 from html import escape
 from functools import wraps
+from time import time
 from urllib.parse import urlparse
 
 import telebot
 import emoji
 from telebot.util import content_type_service
 
-from core.utils import as_bool, as_int, normalize_id, normalize_text
+from core.utils import as_bool, as_int, count_zero_width_chars, normalize_id, normalize_text
 from modules.base import BotModule
 
 try:
@@ -125,6 +126,16 @@ class ModerationModule(BotModule):
         "text_mention_action",
         "hidden_link_reason",
         "hidden_link_delete_notice_seconds",
+        "block_anonymous_channels",
+        "anonymous_channel_action",
+        "new_member_probation_seconds",
+        "new_member_restrict_media",
+        "anti_raid_enabled",
+        "anti_raid_threshold",
+        "anti_raid_window_seconds",
+        "anti_raid_action",
+        "block_zero_width_space",
+        "zero_width_threshold",
     }
 
     name = "moderation"
@@ -170,7 +181,7 @@ class ModerationModule(BotModule):
         )
 
     def handle_edited_group_message(self, message):
-        # Recheck buttons on edits without counting an edit as another spam message.
+        # Recheck buttons, zero-width, keywords and links on edits
         if not self.moderation_enabled(message.chat.id):
             return
         if self.is_automatic_forward_allowed(message) or self.is_anonymous_admin_message(message):
@@ -178,8 +189,15 @@ class ModerationModule(BotModule):
         user = getattr(message, "from_user", None)
         if user and self.admin_exempt(message.chat.id, user.id):
             return
+        if self.detect_anonymous_channel(message):
+            return
+        if self.detect_zero_width_bypass(message):
+            return
         if not self.detect_emoji_spam(message):
-            self.detect_inline_keyboard(message)
+            if not self.detect_inline_keyboard(message):
+                if not self.detect_hidden_links_and_mentions(message):
+                    if not self.detect_blacklisted_link(message):
+                        self.detect_forbidden_keyword(message)
 
     @staticmethod
     def rich_payload(message):
@@ -352,6 +370,21 @@ class ModerationModule(BotModule):
                 continue
             if self.admin_exempt(message.chat.id, getattr(user, "id", None)):
                 continue
+
+            # Record join time for New Member Probation
+            if hasattr(user, "id"):
+                self.state.record_member_join(message.chat.id, user.id)
+
+            # Check Anti-Raid / Join Burst
+            if self.setting_bool(message.chat.id, "anti_raid_enabled", True):
+                threshold = self.setting_int(message.chat.id, "anti_raid_threshold", 5)
+                window = self.setting_int(message.chat.id, "anti_raid_window_seconds", 30)
+                join_count = self.state.add_chat_join(message.chat.id, window)
+                if join_count >= threshold:
+                    LOGGER.warning("Anti-Raid triggered in chat %s: %s joins in %ss", message.chat.id, join_count, window)
+                    self.handle_raid_detected(message.chat.id, user)
+                    continue
+
             self.start_verification(message.chat.id, user)
             self.detect_bio_link(message.chat.id, user)
 
@@ -477,12 +510,18 @@ class ModerationModule(BotModule):
         if self.is_anonymous_admin_message(message):
             self.state.mark_activity(message.chat.id)
             return
+        if self.detect_anonymous_channel(message):
+            return
         if from_user and self.admin_exempt(message.chat.id, from_user.id):
             self.mark_member_activity(message)
             return
         if self.detect_emoji_spam(message):
             return
         if self.detect_inline_keyboard(message):
+            return
+        if self.detect_zero_width_bypass(message):
+            return
+        if from_user and self.detect_new_member_probation_violation(message):
             return
         if from_user and self.handle_verification_answer(message):
             return
@@ -564,6 +603,109 @@ class ModerationModule(BotModule):
         if not user_id or not self.setting_bool(chat_id, "exempt_admins", True):
             return False
         return self.is_admin(chat_id, user_id)
+
+    def detect_anonymous_channel(self, message):
+        sender_chat = getattr(message, "sender_chat", None)
+        if not sender_chat:
+            return False
+        # Anonymous admin of this exact group is allowed
+        if getattr(sender_chat, "id", None) == getattr(message.chat, "id", None):
+            return False
+        if not self.setting_bool(message.chat.id, "block_anonymous_channels", True):
+            return False
+
+        action = self.setting(message.chat.id, "anonymous_channel_action", "ban").strip().lower()
+        reason = "Chặn gửi tin dưới danh nghĩa Kênh nặc danh (Sender Chat)."
+        self.delete_violation_message(
+            message,
+            "anonymous_channel",
+            reason_label=reason,
+            sender_chat_id=sender_chat.id,
+            sender_chat_title=getattr(sender_chat, "title", ""),
+            sender_chat_username=getattr(sender_chat, "username", ""),
+            action=action,
+        )
+        if action == "ban":
+            try:
+                self.bot.ban_chat_sender_chat(message.chat.id, sender_chat.id)
+                LOGGER.info("Banned sender_chat %s in chat %s", sender_chat.id, message.chat.id)
+            except Exception as exc:
+                LOGGER.info("Cannot ban sender_chat %s in chat %s: %s", sender_chat.id, message.chat.id, exc)
+        return True
+
+    def detect_new_member_probation_violation(self, message):
+        user = getattr(message, "from_user", None)
+        if not user or getattr(user, "is_bot", False):
+            return False
+        probation_seconds = self.setting_int(message.chat.id, "new_member_probation_seconds", 600)
+        if probation_seconds <= 0:
+            return False
+        join_time = self.state.get_member_join_time(message.chat.id, user.id)
+        if not join_time:
+            return False
+        now = time()
+        if now - join_time > probation_seconds:
+            return False
+
+        has_media = getattr(message, "content_type", "") in {
+            "photo", "video", "document", "audio", "voice", "video_note", "sticker", "animation", "contact"
+        }
+        has_link = bool(self.URL_PATTERN.search(self.message_text(message)))
+        is_forward = bool(getattr(message, "forward_date", None) or getattr(message, "forward_from", None) or getattr(message, "forward_from_chat", None))
+
+        if has_media or has_link or is_forward:
+            violation_type = "media" if has_media else "link" if has_link else "forward"
+            remaining = int((probation_seconds - (now - join_time)) / 60) + 1
+            reason = f"Thành viên mới trong thời gian thử thách ({remaining} phút còn lại)."
+            self.delete_violation_message(
+                message,
+                f"new_member_probation:{violation_type}",
+                reason_label=reason,
+                join_time=join_time,
+                probation_seconds=probation_seconds,
+            )
+            self.apply_action(message, "warn", reason, trigger="new_member_probation")
+            return True
+        return False
+
+    def detect_zero_width_bypass(self, message):
+        if not self.setting_bool(message.chat.id, "block_zero_width_space", True):
+            return False
+        text = self.message_text(message)
+        if not text:
+            return False
+        threshold = self.setting_int(message.chat.id, "zero_width_threshold", 3)
+        count = count_zero_width_chars(text)
+        if count >= threshold:
+            reason = f"Chứa {count} ký tự tàng hình / Zero-Width Space để lách luật."
+            self.delete_violation_message(
+                message,
+                "zero_width_space_bypass",
+                reason_label=reason,
+                invisible_char_count=count,
+            )
+            self.apply_action(message, "warn", reason, trigger="zero_width_bypass")
+            return True
+        return False
+
+    def handle_raid_detected(self, chat_id, user):
+        action = self.setting(chat_id, "anti_raid_action", "kick").strip().lower()
+        reason = "Phát hiện cuộc tấn công tham gia hàng loạt (Anti-Join Raid / Panic Mode)."
+        if user and hasattr(user, "id"):
+            try:
+                if action == "ban":
+                    self.bot.ban_chat_member(chat_id, user.id)
+                else:
+                    self.bot.ban_chat_member(chat_id, user.id)
+                    self.bot.unban_chat_member(chat_id, user.id)
+            except Exception as exc:
+                LOGGER.info("Cannot %s raid user %s in %s: %s", action, user.id, chat_id, exc)
+        self.audit(
+            chat_id,
+            "anti_raid_lockdown",
+            target_user_id=str(getattr(user, "id", "")),
+            details={"reason": reason, "action_taken": action},
+        )
 
     def detect_spam(self, message):
         limit = self.setting_int(message.chat.id, "spam_max_messages", 6)

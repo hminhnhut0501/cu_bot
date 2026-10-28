@@ -34,12 +34,15 @@ import {
   Edit3,
   ExternalLink,
   Eye,
+  EyeOff,
   FileText,
   Forward,
   HelpCircle,
   Link2,
+  Lock,
   MessageSquare,
   Play,
+  Radio,
   RotateCcw,
   Save,
   Settings2,
@@ -115,6 +118,9 @@ export default function ModerationStudio({
   const [testHasLink, setTestHasLink] = useState(true);
   const [testHasButtons, setTestHasButtons] = useState(false);
   const [testIsForwarded, setTestIsForwarded] = useState(false);
+  const [testIsSenderChat, setTestIsSenderChat] = useState(false);
+  const [testIsNewMember, setTestIsNewMember] = useState(false);
+  const [testHasZeroWidth, setTestHasZeroWidth] = useState(false);
   const [testUserBio, setTestUserBio] = useState("Kiếm tiền online t.me/fast_profit");
   const [testRepeatCount, setTestRepeatCount] = useState(1);
 
@@ -157,6 +163,21 @@ export default function ModerationStudio({
   const deleteMessagesFromBots = isOn("delete_messages_from_bots", true);
   const removeUnknownBots = isOn("remove_unknown_bots", true);
   const exemptAdmins = isOn("exempt_admins", true);
+
+  const blockAnonymousChannels = isOn("block_anonymous_channels", true);
+  const anonymousChannelAction = getVal("anonymous_channel_action", "ban");
+
+  const newMemberProbationSeconds = getVal("new_member_probation_seconds", "600");
+  const newMemberRestrictMedia = isOn("new_member_restrict_media", true);
+  const newMemberProbationOn = Number(newMemberProbationSeconds) > 0;
+
+  const antiRaidEnabled = isOn("anti_raid_enabled", true);
+  const antiRaidThreshold = getVal("anti_raid_threshold", "5");
+  const antiRaidWindowSeconds = getVal("anti_raid_window_seconds", "30");
+  const antiRaidAction = getVal("anti_raid_action", "kick");
+
+  const blockZeroWidth = isOn("block_zero_width_space", true);
+  const zeroWidthThreshold = getVal("zero_width_threshold", "3");
 
   const warningNotice = getVal("warning_text", "⚠️ {user} vui lòng không vi phạm quy định nhóm!");
 
@@ -266,6 +287,33 @@ export default function ModerationStudio({
       });
     }
 
+    // Check 6: Sender chat
+    if (testIsSenderChat && blockAnonymousChannels) {
+      violations.push({
+        rule: "Kênh nặc danh (Sender Chat Trap)",
+        detail: "Gửi tin nhắn dưới danh nghĩa Kênh Telegram để ẩn danh tính cá nhân.",
+        action: anonymousChannelAction || "ban",
+      });
+    }
+
+    // Check 7: New member probation
+    if (testIsNewMember && newMemberProbationOn && (testHasLink || testIsForwarded)) {
+      violations.push({
+        rule: "Thử thách tân thủ (New Member Probation)",
+        detail: "Thành viên mới tham gia nhóm bị hạn chế gửi link hoặc forward tin nhắn.",
+        action: "warn",
+      });
+    }
+
+    // Check 8: Zero-width bypass
+    if (testHasZeroWidth && blockZeroWidth) {
+      violations.push({
+        rule: "Ký tự tàng hình (Zero-Width Space Bypass)",
+        detail: "Phát hiện chuỗi ký tự vô hình/RTL xen kẽ nhằm qua mặt bộ lọc từ khóa.",
+        action: "warn",
+      });
+    }
+
     const isViolated = violations.length > 0;
     const severeAction = violations.some((v) => v.action === "ban")
       ? "ban"
@@ -287,6 +335,9 @@ export default function ModerationStudio({
     testHasLink,
     testHasButtons,
     testIsForwarded,
+    testIsSenderChat,
+    testIsNewMember,
+    testHasZeroWidth,
     testUserBio,
     testRepeatCount,
     inlineKeyboardBlock,
@@ -298,6 +349,10 @@ export default function ModerationStudio({
     dupMax,
     dupEnabled,
     dupAction,
+    blockAnonymousChannels,
+    anonymousChannelAction,
+    newMemberProbationOn,
+    blockZeroWidth,
   ]);
 
   return (
@@ -405,7 +460,7 @@ export default function ModerationStudio({
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                 Quy tắc kiểm duyệt thời gian thực
               </Typography>
-              <Chip label="12 quy tắc" size="small" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1 }} />
+              <Chip label="16 quy tắc" size="small" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1 }} />
             </Box>
 
             <Stack divider={<Divider />}>
@@ -904,6 +959,195 @@ export default function ModerationStudio({
                 }}
                 saving={saving}
               />
+
+              {/* Rule 13: Anonymous Channel Trap */}
+              <RuleRow
+                icon={<Radio size={18} color="#ec4899" />}
+                title="Chặn Kênh nặc danh (Sender Chat Trap)"
+                desc="Chặn gửi tin dưới danh nghĩa Kênh Telegram để tránh bị ban tài khoản cá nhân"
+                conditionChip="Gửi dạng Kênh (Sender Chat)"
+                actionChip={anonymousChannelAction.toUpperCase()}
+                actionColor={actionColor(anonymousChannelAction)}
+                switchOn={blockAnonymousChannels}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ block_anonymous_channels: blockAnonymousChannels ? "false" : "true" });
+                  } else {
+                    const r = getRow("block_anonymous_channels");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Chặn Kênh nặc danh (Sender Chat Trap)",
+                    desc: "Kẻ spam thường dùng Kênh Telegram để chat trong group nhằm ẩn ID cá nhân.",
+                    fields: [
+                      {
+                        key: "block_anonymous_channels",
+                        label: "Trạng thái chặn Kênh nặc danh",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật — Chặn tin nhắn từ Kênh (Khuyên dùng)" },
+                          { value: "false", label: "Tắt — Cho phép gửi dưới dạng Kênh" },
+                        ],
+                      },
+                      {
+                        key: "anonymous_channel_action",
+                        label: "Hành vi xử lý",
+                        type: "select",
+                        options: [
+                          { value: "ban", label: "Cấm kênh vĩnh viễn (Ban Sender Chat) - Khuyên dùng" },
+                          { value: "delete", label: "Chỉ xóa tin (Delete)" },
+                          { value: "warn", label: "Cảnh báo (Warn)" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      block_anonymous_channels: blockAnonymousChannels ? "true" : "false",
+                      anonymous_channel_action: anonymousChannelAction,
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 14: New Member Probation */}
+              <RuleRow
+                icon={<Clock size={18} color="#06b6d4" />}
+                title="Thử thách Tân thủ (New Member Probation)"
+                desc={newMemberProbationOn ? `Chặn link & media đối với thành viên mới trong ${Math.round(Number(newMemberProbationSeconds) / 60)} phút đầu` : "Đang tắt thử thách tân thủ"}
+                conditionChip={`Tân thủ < ${Math.round(Number(newMemberProbationSeconds) / 60)}p`}
+                actionChip="XÓA & WARN"
+                actionColor="warning"
+                switchOn={newMemberProbationOn}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ new_member_probation_seconds: newMemberProbationOn ? "0" : "600" });
+                  } else {
+                    const r = getRow("new_member_probation_seconds");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Thử thách Tân thủ (New Member Probation)",
+                    desc: "90% bot spam gửi link ngay trong vài phút đầu sau khi vào nhóm. Chế độ này hạn chế tân thủ gửi link/media.",
+                    fields: [
+                      { key: "new_member_probation_seconds", label: "Thời gian thử thách tân thủ", type: "number", unit: "giây", hint: "vd: 600 = 10 phút, 3600 = 1 giờ (Đặt 0 để tắt)" },
+                      {
+                        key: "new_member_restrict_media",
+                        label: "Chặn ảnh, video, sticker, file media",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Có chặn (Khuyên dùng)" },
+                          { value: "false", label: "Không chặn" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      new_member_probation_seconds: newMemberProbationSeconds,
+                      new_member_restrict_media: newMemberRestrictMedia ? "true" : "false",
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 15: Anti-Join Raid Panic Mode */}
+              <RuleRow
+                icon={<ShieldAlert size={18} color="#ef4444" />}
+                title="Bảo vệ chống Raid (Anti-Join Raid / Panic Mode)"
+                desc={antiRaidEnabled ? `Tự động kích hoạt phòng thủ khẩn cấp khi có trên ${antiRaidThreshold} tài khoản vào nhóm trong ${antiRaidWindowSeconds}s` : "Đang tắt chống Raid"}
+                conditionChip={`> ${antiRaidThreshold} mem / ${antiRaidWindowSeconds}s`}
+                actionChip={antiRaidAction.toUpperCase()}
+                actionColor="error"
+                switchOn={antiRaidEnabled}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ anti_raid_enabled: antiRaidEnabled ? "false" : "true" });
+                  } else {
+                    const r = getRow("anti_raid_enabled");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Bảo vệ chống Raid (Anti-Join Raid / Panic Mode)",
+                    desc: "Tự động phát hiện khi nhóm bị tấn công dồn dập bởi hàng chục tài khoản ảo hoặc bot kéo mem.",
+                    fields: [
+                      {
+                        key: "anti_raid_enabled",
+                        label: "Trạng thái bảo vệ chống Raid",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật — Kích hoạt tự động (Khuyên dùng)" },
+                          { value: "false", label: "Tắt" },
+                        ],
+                      },
+                      { key: "anti_raid_threshold", label: "Ngưỡng số lượng thành viên tham gia ồ ạt", type: "number", unit: "người", hint: "Mặc định 5 người" },
+                      { key: "anti_raid_window_seconds", label: "Cửa sổ thời gian đếm burst", type: "number", unit: "giây", hint: "Mặc định 30 giây" },
+                      {
+                        key: "anti_raid_action",
+                        label: "Hành vi xử lý tài khoản Raid",
+                        type: "select",
+                        options: [
+                          { value: "kick", label: "Trục xuất ngay (Kick) - Khuyên dùng" },
+                          { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      anti_raid_enabled: antiRaidEnabled ? "true" : "false",
+                      anti_raid_threshold: antiRaidThreshold,
+                      anti_raid_window_seconds: antiRaidWindowSeconds,
+                      anti_raid_action: antiRaidAction,
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 16: Zero-Width Bypass Filter */}
+              <RuleRow
+                icon={<EyeOff size={18} color="#8b5cf6" />}
+                title="Chống ký tự tàng hình (Zero-Width Space Bypass)"
+                desc={blockZeroWidth ? `Tự động bóc tách và phạt khi tin chứa >= ${zeroWidthThreshold} ký tự vô hình/RTL lách luật` : "Đang tắt lọc ký tự tàng hình"}
+                conditionChip={`>= ${zeroWidthThreshold} ký tự tàng hình`}
+                actionChip="XÓA & WARN"
+                actionColor="secondary"
+                switchOn={blockZeroWidth}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ block_zero_width_space: blockZeroWidth ? "false" : "true" });
+                  } else {
+                    const r = getRow("block_zero_width_space");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Chống ký tự tàng hình (Zero-Width Space Bypass)",
+                    desc: "Kẻ spam thường chèn các ký tự vô hình Zero-Width hoặc RTL vào giữa từ khóa cấm để né bộ lọc.",
+                    fields: [
+                      {
+                        key: "block_zero_width_space",
+                        label: "Trạng thái chặn ký tự tàng hình",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật — Tự động bóc tách & phạt (Khuyên dùng)" },
+                          { value: "false", label: "Tắt" },
+                        ],
+                      },
+                      { key: "zero_width_threshold", label: "Số lượng ký tự tàng hình tối đa trong tin", type: "number", unit: "ký tự", hint: "Vượt quá ngưỡng này sẽ bị coi là spam (Mặc định 3)" },
+                    ],
+                    values: {
+                      block_zero_width_space: blockZeroWidth ? "true" : "false",
+                      zero_width_threshold: zeroWidthThreshold,
+                    },
+                  });
+                }}
+                saving={saving}
+              />
             </Stack>
           </Paper>
 
@@ -1086,6 +1330,30 @@ export default function ModerationStudio({
                       clickable
                       color={testIsForwarded ? "warning" : "default"}
                       onClick={() => setTestIsForwarded((v) => !v)}
+                      size="small"
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Chip
+                      label={testIsSenderChat ? "Dạng Kênh (Sender Chat)" : "Tài khoản thường"}
+                      clickable
+                      color={testIsSenderChat ? "error" : "default"}
+                      onClick={() => setTestIsSenderChat((v) => !v)}
+                      size="small"
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Chip
+                      label={testIsNewMember ? "Tân thủ (< 10 phút)" : "Thành viên cũ"}
+                      clickable
+                      color={testIsNewMember ? "info" : "default"}
+                      onClick={() => setTestIsNewMember((v) => !v)}
+                      size="small"
+                      sx={{ borderRadius: 1 }}
+                    />
+                    <Chip
+                      label={testHasZeroWidth ? "Có ký tự tàng hình" : "Không ký tự ẩn"}
+                      clickable
+                      color={testHasZeroWidth ? "secondary" : "default"}
+                      onClick={() => setTestHasZeroWidth((v) => !v)}
                       size="small"
                       sx={{ borderRadius: 1 }}
                     />
@@ -1348,6 +1616,62 @@ export default function ModerationStudio({
                         startIcon={<Edit3 size={14} />}
                         onClick={() => {
                           const r = getRow("bio_scan_cache_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Cửa sổ theo dõi Anti-Raid
+                        </Typography>
+                        <Chip label={`${getVal("anti_raid_window_seconds", "30")}s`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Khung thời gian gom nhóm đếm số lượng tài khoản mới join ồ ạt để kích hoạt Panic Mode.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("anti_raid_window_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Ngưỡng ký tự tàng hình (Zero-Width)
+                        </Typography>
+                        <Chip label={`${getVal("zero_width_threshold", "3")} ký tự`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Số lượng ký tự tàng hình tối đa trong một tin nhắn trước khi bot coi là hành vi lách luật.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("zero_width_threshold");
                           if (r) startEdit(r);
                         }}
                         sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
