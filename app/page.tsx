@@ -936,15 +936,28 @@ export default function HomePage() {
   }, [activeLayer, scopedConfigRows]);
   const activeConfigSection = useMemo(() => configTabs.find((section) => section.title === activeConfigTab), [activeConfigTab, configTabs]);
   const ActiveConfigIcon = activeConfigSection?.icon;
+  const allModerationConfigRows = useMemo(() => {
+    const moderationRow = moduleRows.find((row) => String(row.module_key || "").toLowerCase() === "moderation");
+    const settings = readSettingsObject(moderationRow?.settings);
+    const modHub = MODULE_HUBS.find((m) => m.key === "moderation");
+    return (modHub?.configKeys || []).map((key) => ({
+      id: moderationRow?.id ? `module-setting:${moderationRow.id}:${key}` : `module-setting:new:${activeBotKey || "main"}:${key}`,
+      bot_key: activeBotKey || "main",
+      key,
+      value: settings[key] ?? CONFIG_DEFAULT_VALUES[key] ?? "",
+      enabled: true,
+      notes: "Cấu hình module moderation áp dụng mặc định cho toàn bộ group.",
+      __virtual: true,
+    }));
+  }, [moduleRows, activeBotKey]);
+
   const moderationConfigRowMap = useMemo(() => {
     const map = new Map<string, Row>();
-    if (activeConfigSection) {
-      for (const row of activeConfigSection.rows) {
-        map.set(String(row.key || ""), row);
-      }
+    for (const row of allModerationConfigRows) {
+      map.set(String(row.key || ""), row);
     }
     return map;
-  }, [activeConfigSection]);
+  }, [allModerationConfigRows]);
   const moderationBlocks = useMemo(() => [
     {
       key: "core",
@@ -3243,6 +3256,67 @@ export default function HomePage() {
     }
   }
 
+  async function updateModerationSettings(updates: Record<string, string>) {
+    const moderationRow = moduleRows.find((item) => String(item.module_key || "").toLowerCase() === "moderation");
+    const currentSettings = readSettingsObject(moderationRow?.settings);
+    const nextSettings = { ...currentSettings, ...updates };
+
+    const previousLookups = lookups;
+    const prevRows = rows;
+
+    // Optimistic UI updates
+    setLookups((current) => ({
+      ...current,
+      moduleSettings: current.moduleSettings.map((mr) => {
+        if (moderationRow?.id && mr.id === moderationRow.id) {
+          return { ...mr, settings: nextSettings };
+        }
+        return mr;
+      }),
+    }));
+
+    setRows((current) =>
+      current.map((r) => {
+        if (r.key && updates[r.key as string] !== undefined) {
+          return { ...r, value: updates[r.key as string] };
+        }
+        return r;
+      })
+    );
+
+    try {
+      if (moderationRow?.id) {
+        await api("/api/module_settings", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: moderationRow.id,
+            values: {
+              ...moderationRow,
+              settings: nextSettings,
+            },
+          }),
+        });
+      } else {
+        await api("/api/module_settings", {
+          method: "POST",
+          body: JSON.stringify({
+            bot_key: selectedBot || activeBotKey || "main",
+            module_key: "moderation",
+            module_name: "Kiểm duyệt tự động",
+            category: "Kiểm duyệt tự động",
+            settings: nextSettings,
+            enabled: true,
+          }),
+        });
+      }
+      flashToast("Đã cập nhật quy tắc kiểm duyệt thành công!", "success");
+    } catch (err) {
+      setLookups(previousLookups);
+      setRows(prevRows);
+      flashToast("Không thể lưu cấu hình kiểm duyệt: " + (err instanceof Error ? err.message : String(err)), "error");
+    }
+  }
+
   async function setForwardMode(mode: "block" | "controlled" | "allow") {
     const allowRow = moderationConfigRowMap.get("allow_forward_messages");
     if (!allowRow) {
@@ -3945,6 +4019,7 @@ export default function HomePage() {
             selectedBotKey={activeBotKey || selectedBot || "main"}
             onOpenTaskData={openTaskData}
             activeConfigSection={activeConfigSection}
+            onUpdateSettings={updateModerationSettings}
           />
         ) : null}
 

@@ -7,9 +7,15 @@ import {
   Box,
   Button as MuiButton,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -33,6 +39,7 @@ import {
   MessageSquare,
   Play,
   RotateCcw,
+  Save,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -40,6 +47,7 @@ import {
   Sparkles,
   UserX,
   VolumeX,
+  X,
   Zap,
 } from "lucide-react";
 
@@ -74,6 +82,7 @@ export type ModerationStudioProps = {
   selectedBotKey?: string;
   onOpenTaskData: (key: string) => void;
   activeConfigSection?: { title: string; rows: Row[] };
+  onUpdateSettings?: (updates: Record<string, string>) => Promise<void>;
 };
 
 export default function ModerationStudio({
@@ -92,6 +101,7 @@ export default function ModerationStudio({
   selectedBotKey = "main",
   onOpenTaskData,
   activeConfigSection,
+  onUpdateSettings,
 }: ModerationStudioProps) {
   const [activeTab, setActiveTab] = useState<"matrix" | "sandbox" | "templates">("matrix");
 
@@ -137,6 +147,42 @@ export default function ModerationStudio({
   const banSeconds = getVal("ban_seconds", "86400");
 
   const warningNotice = getVal("warning_text", "⚠️ {user} vui lòng không vi phạm quy định nhóm!");
+
+  const spamRateOn = Number(spamMax) > 0 && spamAction !== "none";
+  const mediaFloodOn = Number(mediaMax) > 0 && mediaAction !== "none";
+  const autoBanLadderOn = Number(banAfterWarnings) > 0;
+
+  type EditingRuleField = {
+    key: string;
+    label: string;
+    type: "number" | "select" | "text";
+    options?: { value: string; label: string }[];
+    unit?: string;
+    hint?: string;
+  };
+
+  type EditingRuleModalState = {
+    title: string;
+    desc: string;
+    fields: EditingRuleField[];
+    values: Record<string, string>;
+  };
+
+  const [editingRule, setEditingRule] = useState<EditingRuleModalState | null>(null);
+  const [modalSaving, setModalSaving] = useState(false);
+
+  const handleSaveModal = async () => {
+    if (!editingRule) return;
+    setModalSaving(true);
+    try {
+      if (onUpdateSettings) {
+        await onUpdateSettings(editingRule.values);
+      }
+      setEditingRule(null);
+    } finally {
+      setModalSaving(false);
+    }
+  };
 
   // Action badge colors
   const actionColor = (action: string): "warning" | "info" | "secondary" | "error" | "default" => {
@@ -352,14 +398,38 @@ export default function ModerationStudio({
                 conditionChip={`> ${spamMax} tin / ${spamWindow}s`}
                 actionChip={spamAction}
                 actionColor={actionColor(spamAction)}
-                switchOn={Boolean(getRow("spam_action"))}
+                switchOn={spamRateOn}
                 onToggle={() => {
-                  const r = getRow("spam_action");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ spam_max_messages: spamRateOn ? "0" : "5" });
+                  } else {
+                    const r = getRow("spam_max_messages");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("spam_max_messages");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Chống Spam tin nhắn nhanh (Flood Rate)",
+                    desc: "Giới hạn số tin nhắn một thành viên có thể gửi trong một khoảng thời gian ngắn.",
+                    fields: [
+                      { key: "spam_max_messages", label: "Giới hạn số tin tối đa", type: "number", unit: "tin", hint: "Vượt quá ngưỡng này sẽ bị coi là spam (Đặt 0 để tắt)" },
+                      { key: "spam_window_seconds", label: "Cửa sổ thời gian theo dõi", type: "number", unit: "giây", hint: "Khoảng thời gian gom nhóm tin nhắn để đếm" },
+                      { key: "spam_action", label: "Hành vi xử lý vi phạm", type: "select", options: [
+                        { value: "mute", label: "Chặn chat tạm thời (Mute) - Khuyên dùng" },
+                        { value: "warn", label: "Cảnh báo (Warn)" },
+                        { value: "delete", label: "Chỉ xóa tin (Delete)" },
+                        { value: "kick", label: "Đuổi khỏi nhóm (Kick)" },
+                        { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
+                      ]},
+                      { key: "spam_restrict_seconds", label: "Thời hạn khóa chat (nếu chọn Mute)", type: "number", unit: "giây", hint: "vd: 300 = 5 phút, 3600 = 1 giờ, 86400 = 24 giờ" },
+                    ],
+                    values: {
+                      spam_max_messages: spamMax,
+                      spam_window_seconds: spamWindow,
+                      spam_action: spamAction,
+                      spam_restrict_seconds: getVal("spam_restrict_seconds", "300"),
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -374,12 +444,33 @@ export default function ModerationStudio({
                 actionColor={actionColor(dupAction)}
                 switchOn={dupEnabled}
                 onToggle={() => {
-                  const r = getRow("duplicate_message_enabled");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ duplicate_message_enabled: dupEnabled ? "false" : "true" });
+                  } else {
+                    const r = getRow("duplicate_message_enabled");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("duplicate_message_max_count");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Chống Lặp lại nội dung (Duplicate / Text & Sticker Raid)",
+                    desc: "Phát hiện tin nhắn hoặc sticker giống nhau lặp đi lặp lại nhiều lần.",
+                    fields: [
+                      { key: "duplicate_message_max_count", label: "Số lần trùng lặp tối đa cho phép", type: "number", unit: "lần" },
+                      { key: "duplicate_message_window_seconds", label: "Thời gian theo dõi trùng lặp", type: "number", unit: "giây" },
+                      { key: "duplicate_message_action", label: "Hành vi xử lý", type: "select", options: [
+                        { value: "delete", label: "Xóa tin nhắn vi phạm (Delete)" },
+                        { value: "warn", label: "Cảnh báo (Warn)" },
+                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "ban", label: "Cấm khỏi nhóm (Ban)" },
+                      ]},
+                    ],
+                    values: {
+                      duplicate_message_max_count: dupMax,
+                      duplicate_message_window_seconds: dupWindow,
+                      duplicate_message_action: dupAction,
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -392,14 +483,35 @@ export default function ModerationStudio({
                 conditionChip={`> ${mediaMax} media / ${mediaWindow}s`}
                 actionChip={mediaAction}
                 actionColor={actionColor(mediaAction)}
-                switchOn={Boolean(getRow("media_spam_action"))}
+                switchOn={mediaFloodOn}
                 onToggle={() => {
-                  const r = getRow("media_spam_action");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ media_spam_max_messages: mediaFloodOn ? "0" : "3" });
+                  } else {
+                    const r = getRow("media_spam_max_messages");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("media_spam_max_messages");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Chống Spam ảnh / video / media (Media Flood)",
+                    desc: "Ngăn chặn xả hàng loạt file media, sticker hoặc GIF làm loãng nhóm.",
+                    fields: [
+                      { key: "media_spam_max_messages", label: "Số file media tối đa", type: "number", unit: "file", hint: "Đặt 0 để tắt kiểm tra" },
+                      { key: "media_spam_window_seconds", label: "Thời gian theo dõi", type: "number", unit: "giây" },
+                      { key: "media_spam_action", label: "Hành vi xử lý", type: "select", options: [
+                        { value: "delete", label: "Xóa media vi phạm (Delete)" },
+                        { value: "warn", label: "Cảnh báo (Warn)" },
+                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "ban", label: "Cấm khỏi nhóm (Ban)" },
+                      ]},
+                    ],
+                    values: {
+                      media_spam_max_messages: mediaMax,
+                      media_spam_window_seconds: mediaWindow,
+                      media_spam_action: mediaAction,
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -414,12 +526,31 @@ export default function ModerationStudio({
                 actionColor={actionColor(hiddenLinkAction)}
                 switchOn={scanHiddenLink}
                 onToggle={() => {
-                  const r = getRow("scan_hidden_links");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ scan_hidden_links: scanHiddenLink ? "false" : "true" });
+                  } else {
+                    const r = getRow("scan_hidden_links");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("hidden_link_action");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Chặn Link ẩn & Text-Mention (@user vô hình)",
+                    desc: "Bóc tách link siêu liên kết ẩn trong ký tự hoặc @mention tàng hình.",
+                    fields: [
+                      { key: "hidden_link_action", label: "Hành vi khi phát hiện link ẩn", type: "select", options: [
+                        { value: "delete", label: "Xóa tin nhắn (Delete) - Khuyên dùng" },
+                        { value: "warn", label: "Cảnh báo (Warn)" },
+                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
+                      ]},
+                      { key: "hidden_link_reason", label: "Lý do ghi nhật ký và thông báo", type: "text" },
+                    ],
+                    values: {
+                      hidden_link_action: hiddenLinkAction,
+                      hidden_link_reason: getVal("hidden_link_reason", "Chứa liên kết ẩn hoặc mention vô hình trái phép."),
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -434,12 +565,29 @@ export default function ModerationStudio({
                 actionColor="secondary"
                 switchOn={scanBio}
                 onToggle={() => {
-                  const r = getRow("scan_bio_links");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ scan_bio_links: scanBio ? "false" : "true" });
+                  } else {
+                    const r = getRow("scan_bio_links");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("bio_link_restrict_seconds");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Quét Link độc hại trong Bio thành viên (Bio Scanner)",
+                    desc: "Kiểm tra tiểu sử của tài khoản mới gia nhập để lọc bot airdrop và lừa đảo.",
+                    fields: [
+                      { key: "bio_link_restrict_seconds", label: "Thời hạn khóa chat thành viên vi phạm bio", type: "number", unit: "giây", hint: "vd: 86400 = 24 giờ, 604800 = 7 ngày" },
+                      { key: "bio_link_delete_message", label: "Tự động xóa tin nhắn vi phạm", type: "select", options: [
+                        { value: "true", label: "Có xóa tin (Khuyên dùng)" },
+                        { value: "false", label: "Không xóa tin" },
+                      ]},
+                    ],
+                    values: {
+                      bio_link_restrict_seconds: getVal("bio_link_restrict_seconds", "86400"),
+                      bio_link_delete_message: getVal("bio_link_delete_message", "true"),
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -454,12 +602,29 @@ export default function ModerationStudio({
                 actionColor={actionColor(inlineAction)}
                 switchOn={inlineKeyboardBlock}
                 onToggle={() => {
-                  const r = getRow("delete_inline_keyboard_messages");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ delete_inline_keyboard_messages: inlineKeyboardBlock ? "false" : "true" });
+                  } else {
+                    const r = getRow("delete_inline_keyboard_messages");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("inline_keyboard_action");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Chặn Tin nhắn có nút bấm (Inline Keyboard Scam Trap)",
+                    desc: "Thành viên thường gửi tin nhắn có nút inline button sẽ bị xử phạt ngay lập tức.",
+                    fields: [
+                      { key: "inline_keyboard_action", label: "Hành vi xử phạt", type: "select", options: [
+                        { value: "ban", label: "Cấm vĩnh viễn (Ban) - Khuyên dùng diệt bot cào" },
+                        { value: "kick", label: "Đuổi khỏi nhóm (Kick)" },
+                        { value: "warn", label: "Cảnh báo (Warn)" },
+                        { value: "delete", label: "Chỉ xóa tin (Delete)" },
+                      ]},
+                    ],
+                    values: {
+                      inline_keyboard_action: inlineAction,
+                    },
+                  });
                 }}
                 saving={saving}
               />
@@ -519,19 +684,129 @@ export default function ModerationStudio({
                 conditionChip={`Chạm mốc ${banAfterWarnings} cảnh báo`}
                 actionChip={`Ban ${Number(banSeconds) / 3600}h`}
                 actionColor="error"
-                switchOn={Boolean(getRow("ban_after_warnings"))}
+                switchOn={autoBanLadderOn}
                 onToggle={() => {
-                  const r = getRow("ban_after_warnings");
-                  if (r) toggleConfigValue(r);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ ban_after_warnings: autoBanLadderOn ? "0" : "3" });
+                  } else {
+                    const r = getRow("ban_after_warnings");
+                    if (r) toggleConfigValue(r);
+                  }
                 }}
                 onEdit={() => {
-                  const r = getRow("ban_after_warnings");
-                  if (r) startEdit(r);
+                  setEditingRule({
+                    title: "Thang xử lý lũy tiến (Auto-Ban Ladder)",
+                    desc: "Tự động cấm thành viên khi số lần cảnh báo vi phạm vượt quá ngưỡng.",
+                    fields: [
+                      { key: "ban_after_warnings", label: "Số lần cảnh báo tối đa trước khi Ban", type: "number", unit: "lần", hint: "Đặt 0 để tắt chế độ Auto-ban" },
+                      { key: "ban_seconds", label: "Thời hạn cấm thành viên", type: "number", unit: "giây", hint: "vd: 86400 = 24 giờ, 604800 = 7 ngày" },
+                    ],
+                    values: {
+                      ban_after_warnings: banAfterWarnings,
+                      ban_seconds: banSeconds,
+                    },
+                  });
                 }}
                 saving={saving}
               />
             </Stack>
           </Paper>
+
+          {/* Dedicated Rule Edit Modal */}
+          <Dialog
+            open={Boolean(editingRule)}
+            onClose={() => setEditingRule(null)}
+            maxWidth="sm"
+            fullWidth
+            slotProps={{
+              paper: {
+                sx: { borderRadius: 3, p: 1 },
+              },
+            }}
+          >
+            {editingRule && (
+              <>
+                <DialogTitle sx={{ pb: 1 }}>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                        {editingRule.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {editingRule.desc}
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={() => setEditingRule(null)}>
+                      <X size={18} />
+                    </IconButton>
+                  </Stack>
+                </DialogTitle>
+                <Divider />
+                <DialogContent sx={{ pt: 2.5, pb: 2 }}>
+                  <Stack spacing={2.5}>
+                    {editingRule.fields.map((field) => (
+                      <Box key={field.key}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.75, display: "block" }}>
+                          {field.label} {field.unit ? `(${field.unit})` : ""}
+                        </Typography>
+                        {field.type === "select" ? (
+                          <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            value={editingRule.values[field.key] ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditingRule((prev) =>
+                                prev ? { ...prev, values: { ...prev.values, [field.key]: val } } : null
+                              );
+                            }}
+                            helperText={field.hint}
+                          >
+                            {(field.options || []).map((opt) => (
+                              <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        ) : (
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type={field.type === "number" ? "number" : "text"}
+                            value={editingRule.values[field.key] ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditingRule((prev) =>
+                                prev ? { ...prev, values: { ...prev.values, [field.key]: val } } : null
+                              );
+                            }}
+                            helperText={field.hint}
+                          />
+                        )}
+                      </Box>
+                    ))}
+                  </Stack>
+                </DialogContent>
+                <Divider />
+                <DialogActions sx={{ px: 3, py: 2 }}>
+                  <MuiButton variant="outlined" color="inherit" onClick={() => setEditingRule(null)} disabled={modalSaving}>
+                    Hủy
+                  </MuiButton>
+                  <MuiButton
+                    variant="contained"
+                    color="primary"
+                    startIcon={modalSaving ? <CircularProgress size={16} color="inherit" /> : <Save size={16} />}
+                    onClick={handleSaveModal}
+                    disabled={modalSaving}
+                    sx={{ fontWeight: 700 }}
+                  >
+                    Lưu quy tắc
+                  </MuiButton>
+                </DialogActions>
+              </>
+            )}
+          </Dialog>
 
           {/* Active Edit Drawer / Inline Form if user clicked "Sửa" */}
           {selected && Object.keys(draft).length > 0 && (
