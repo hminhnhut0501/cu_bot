@@ -348,6 +348,10 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             paddingBlock: 6,
             minHeight: 34,
             letterSpacing: 0,
+            transition: "background-color 160ms cubic-bezier(0.4, 0, 0.2, 1), border-color 160ms cubic-bezier(0.4, 0, 0.2, 1), color 160ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 160ms cubic-bezier(0.4, 0, 0.2, 1), transform 120ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "&:active:not(:disabled)": {
+              transform: "scale(0.97)",
+            },
             "&:focus-visible": {
               outline: `2px solid ${alpha(colors.primary, 0.35)}`,
               outlineOffset: 2,
@@ -357,6 +361,13 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
           sizeLarge: { minHeight: 40, paddingInline: 18, paddingBlock: 8, fontSize: "0.875rem" },
           contained: {
             boxShadow: "none",
+            "&:hover": {
+              boxShadow: mode === "dark" ? "0 4px 14px rgba(52, 211, 192, 0.25)" : "0 4px 14px rgba(15, 118, 110, 0.2)",
+              transform: "translateY(-1px)",
+            },
+            "&:active:not(:disabled)": {
+              transform: "translateY(0) scale(0.97)",
+            },
           },
           outlined: {
             borderColor: colors.line,
@@ -364,12 +375,19 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             backgroundColor: colors.paper,
             "&:hover": {
               backgroundColor: colors.surfaceMuted,
-              borderColor: colors.line,
+              borderColor: colors.textSubtle,
+              transform: "translateY(-1px)",
+            },
+            "&:active:not(:disabled)": {
+              transform: "translateY(0) scale(0.97)",
             },
           },
           text: {
             color: colors.textMuted,
             "&:hover": { backgroundColor: colors.surface, color: colors.text },
+            "&:active:not(:disabled)": {
+              transform: "scale(0.97)",
+            },
           },
         },
       },
@@ -379,7 +397,9 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
           root: {
             color: colors.textMuted,
             borderRadius: sharedTokens.radius.sm,
-            "&:hover": { backgroundColor: colors.surface, color: colors.text },
+            transition: "background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 120ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "&:hover": { backgroundColor: colors.surface, color: colors.text, transform: "scale(1.05)" },
+            "&:active:not(:disabled)": { transform: "scale(0.92)" },
           },
         },
       },
@@ -391,6 +411,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             backgroundColor: colors.surfaceContainerLow,
             border: `1px solid ${colors.line}`,
             borderRadius: sharedTokens.radius.lg,
+            transition: "border-color 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1)",
           },
           outlined: { border: `1px solid ${colors.line}` },
           elevation0: { boxShadow: "none" },
@@ -405,6 +426,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             borderRadius: 18,
             backgroundColor: colors.surfaceContainerLow,
             backgroundImage: "none",
+            transition: "transform 180ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1), border-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
           },
         },
       },
@@ -464,6 +486,13 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             border: `1px solid ${mode === "dark" ? alpha(colors.line, 0.9) : colors.lineSoft}`,
             backgroundColor: mode === "dark" ? colors.surfaceContainerHigh : colors.surfaceContainerHigh,
             color: colors.text,
+            transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "&.MuiChip-clickable:hover": {
+              transform: "translateY(-1px)",
+            },
+            "&.MuiChip-clickable:active": {
+              transform: "scale(0.95)",
+            },
           },
           filled: {
             backgroundColor: mode === "dark" ? colors.surfaceContainerHigh : colors.surfaceContainerHigh,
@@ -511,6 +540,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             fontSize: "0.8125rem",
             padding: "11px 14px",
             letterSpacing: "-0.01em",
+            transition: "background-color 140ms ease",
           },
           head: {
             backgroundColor: colors.surfaceMuted,
@@ -525,6 +555,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
       MuiTableRow: {
         styleOverrides: {
           root: {
+            transition: "background-color 140ms ease",
             "&:last-child .MuiTableCell-body": { borderBottom: "none" },
             "&:hover": { backgroundColor: alpha(colors.primary, mode === "dark" ? 0.07 : 0.03) },
           },
@@ -540,16 +571,28 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             fontWeight: 500,
             padding: "6px 8px",
             borderRadius: sharedTokens.radius.sm,
+            boxShadow: shadows[1],
           },
         },
       },
       MuiDialog: {
         styleOverrides: {
+          root: {
+            "& .MuiBackdrop-root": {
+              backdropFilter: "blur(6px)",
+              backgroundColor: mode === "dark" ? "rgba(0, 0, 0, 0.65)" : "rgba(15, 23, 42, 0.35)",
+              transition: "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1) !important",
+            },
+          },
           paper: {
             borderRadius: 14,
             border: `1px solid ${colors.line}`,
             backgroundImage: "none",
             backgroundColor: colors.paper,
+            boxShadow: mode === "dark"
+              ? "0 20px 48px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1)"
+              : "0 20px 48px rgba(15, 23, 42, 0.16), 0 0 1px rgba(0, 0, 0, 0.05)",
+            animation: "scaleIn 180ms cubic-bezier(0.16, 1, 0.3, 1)",
           },
         },
       },
@@ -559,6 +602,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             backgroundColor: colors.paper,
             borderColor: colors.line,
             backgroundImage: "none",
+            transition: "transform 220ms cubic-bezier(0.16, 1, 0.3, 1) !important",
           },
         },
       },
@@ -569,6 +613,7 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             backgroundColor: colors.primary,
             height: 3,
             borderRadius: 999,
+            transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
           },
         },
       },
@@ -581,6 +626,10 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             fontWeight: 600,
             fontSize: "0.8125rem",
             color: colors.textMuted,
+            transition: "color 160ms cubic-bezier(0.4, 0, 0.2, 1), background-color 160ms cubic-bezier(0.4, 0, 0.2, 1), transform 120ms cubic-bezier(0.4, 0, 0.2, 1)",
+            "&:active:not(.Mui-disabled)": {
+              transform: "scale(0.97)",
+            },
             "&.Mui-selected": { color: colors.primary },
           },
         },
@@ -596,14 +645,17 @@ const buildThemeOptions = (mode: ThemeMode): ThemeOptions => {
             borderRadius: 11,
             backgroundColor: colors.line,
             opacity: 1,
+            transition: "background-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
           },
           thumb: {
             boxShadow: "none",
             width: 16,
             height: 16,
+            transition: "background-color 180ms cubic-bezier(0.4, 0, 0.2, 1)",
           },
           switchBase: {
             padding: 5,
+            transition: "transform 180ms cubic-bezier(0.4, 0, 0.2, 1)",
             "&.Mui-checked": {
               transform: "translateX(14px)",
               color: colors.paper,

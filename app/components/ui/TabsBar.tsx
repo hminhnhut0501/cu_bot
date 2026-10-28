@@ -91,7 +91,10 @@ export default function TabsBar({
                 textTransform: "none",
                 letterSpacing: 0,
                 boxShadow: "none",
-                transition: "all 160ms ease",
+                transition: "all 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+                "&:active": {
+                  transform: "scale(0.97)",
+                },
               },
               "& .MuiTab-root.Mui-selected": {
                 bgcolor: isTonal ? tonalSelectedBg : "primary.main",
@@ -99,8 +102,9 @@ export default function TabsBar({
                 borderColor: "primary.main",
                 boxShadow: isTonal ? "none" : "0 8px 20px rgba(15, 118, 110, 0.18)",
               },
-              "& .MuiTab-root:hover": {
+              "& .MuiTab-root:hover:not(.Mui-selected)": {
                 bgcolor: "background.default",
+                transform: "translateY(-1px)",
               },
               "& .MuiTab-root.Mui-selected:hover": {
                 bgcolor: isTonal ? tonalSelectedHoverBg : "primary.dark",

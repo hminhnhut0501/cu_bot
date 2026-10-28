@@ -777,7 +777,7 @@ export default function ModerationStudio({
 
       {/* 3. TAB 1: POLICY RULE MATRIX */}
       {activeTab === "matrix" && (
-        <Stack spacing={2}>
+        <Stack spacing={2} className="animate-fade-in">
           <Paper variant="outlined" sx={{ p: 0, overflow: "hidden", borderRadius: 2 }}>
             <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
@@ -1601,7 +1601,7 @@ export default function ModerationStudio({
 
       {/* TAB: KEYWORDS MANAGEMENT */}
       {activeTab === "keywords" && (
-        <Stack spacing={2}>
+        <Stack spacing={2} className="animate-fade-in">
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
             <Stack spacing={2}>
               {/* Header */}
@@ -1878,7 +1878,7 @@ export default function ModerationStudio({
 
       {/* TAB: DOMAIN BLACKLIST MANAGEMENT */}
       {activeTab === "domains" && (
-        <Stack spacing={2}>
+        <Stack spacing={2} className="animate-fade-in">
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
             <Stack spacing={2}>
               {/* Header */}
@@ -2155,7 +2155,7 @@ export default function ModerationStudio({
 
       {/* 4. TAB 2: RULE SANDBOX (LIVE SIMULATOR) */}
       {activeTab === "sandbox" && (
-        <Grid container spacing={2}>
+        <Grid container spacing={2} className="animate-fade-in">
           {/* Left Column: Test inputs */}
           <Grid size={{ xs: 12, lg: 6 }}>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -2312,7 +2312,7 @@ export default function ModerationStudio({
 
       {/* 5. TAB 3: NOTICE TEMPLATES */}
       {activeTab === "templates" && (
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+        <Paper variant="outlined" className="animate-fade-in" sx={{ p: 2, borderRadius: 2 }}>
           <Stack spacing={2}>
             <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
               Mẫu thông báo vi phạm
@@ -2378,7 +2378,7 @@ export default function ModerationStudio({
 
       {/* 6. TAB 4: ADVANCED SETTINGS */}
       {activeTab === "advanced" && (
-        <Stack spacing={2}>
+        <Stack spacing={2} className="animate-fade-in">
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
             <Stack spacing={2}>
               <Box>

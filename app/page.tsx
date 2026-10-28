@@ -3769,7 +3769,7 @@ export default function HomePage() {
           />
 
           <Box component="main" sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: "100%", overflowX: "hidden" }}>
-            <Stack spacing={2}>
+            <Stack spacing={2} key={activeLayer} className="animate-fade-in">
               {!showOverview && layerTables.length > 1 && !activeLayer.startsWith("module:") && activeLayer !== "modules" ? (
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mr: 0.5 }}>

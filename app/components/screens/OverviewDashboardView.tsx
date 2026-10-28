@@ -159,6 +159,7 @@ export default function OverviewDashboardView({
                 borderRadius: "50%",
                 bgcolor: isHealthy ? "#10b981" : "#f59e0b",
                 boxShadow: `0 0 0 3px ${isHealthy ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.25)"}`,
+                animation: "pulseGlow 2s infinite ease-in-out",
               }}
             />
           </Box>
@@ -210,6 +211,7 @@ export default function OverviewDashboardView({
       <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
         <Paper
           variant="outlined"
+          className="interactive-card"
           sx={{
             p: 2,
             borderRadius: 2,
@@ -237,6 +239,7 @@ export default function OverviewDashboardView({
 
         <Paper
           variant="outlined"
+          className="interactive-card"
           sx={{
             p: 2,
             borderRadius: 2,
@@ -264,6 +267,7 @@ export default function OverviewDashboardView({
 
         <Paper
           variant="outlined"
+          className="interactive-card"
           sx={{
             p: 2,
             borderRadius: 2,
@@ -291,6 +295,7 @@ export default function OverviewDashboardView({
 
         <Paper
           variant="outlined"
+          className="interactive-card"
           sx={{
             p: 2,
             borderRadius: 2,
