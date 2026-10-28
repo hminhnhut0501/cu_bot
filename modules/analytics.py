@@ -81,9 +81,14 @@ class AnalyticsModule(BotModule):
     def existing_activity_counts(self, activity_date):
         counts = {}
         try:
-            for row in self.store.fresh_rows("analytics_member_activity"):
-                if str(row.get("activity_date") or "")[:10] != str(activity_date):
-                    continue
+            target_date = str(activity_date)[:10]
+            # Use query_rows with targeted date filter instead of scanning unbounded history
+            rows = self.store.query_rows(
+                "analytics_member_activity",
+                bot_key=self.settings.bot_key,
+                activity_date=target_date,
+            )
+            for row in rows:
                 chat_id = str(row.get("chat_id") or "")
                 user_id = str(row.get("user_id") or "")
                 if chat_id and user_id:

@@ -41,6 +41,15 @@ BOT_SCOPED_TABLES = {
     "video_messages",
 }
 
+# Tables that grow continuously with append-only logs/events.
+# Capped to prevent exhausting Free Tier PostgREST egress and container RAM.
+LOG_TABLE_LIMITS = {
+    "audit_logs": 200,
+    "channel_post_events": 200,
+    "entertainment_events": 200,
+    "reputation_events": 200,
+}
+
 
 class SupabaseStore:
     def __init__(self, supabase_url, service_role_key, refresh_seconds=120, bot_key="main"):
@@ -94,7 +103,13 @@ class SupabaseStore:
             "authorization": f"Bearer {self.service_role_key}",
             "accept": "application/json",
         }
-        params = {"select": "*", "order": "id.asc"}
+        params = {"select": "*"}
+        if table in LOG_TABLE_LIMITS:
+            params["order"] = "id.desc"
+            params["limit"] = str(LOG_TABLE_LIMITS[table])
+        else:
+            params["order"] = "id.asc"
+
         if table == "member_moderation_state":
             params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key},bot_key.eq.*)"
         elif table in BOT_SCOPED_TABLES:

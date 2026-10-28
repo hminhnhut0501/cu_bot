@@ -15,6 +15,7 @@ type BulkPayload = {
 type DynamicTable = {
   select: (columns?: string) => DynamicTable;
   order: (column: string, options?: { ascending?: boolean }) => DynamicTable;
+  limit: (count: number) => DynamicTable;
   or: (filters: string) => DynamicTable;
   insert: (payload: Payload | Payload[]) => DynamicTable;
   update: (payload: Payload) => DynamicTable;
@@ -22,6 +23,14 @@ type DynamicTable = {
   eq: (column: string, value: unknown) => DynamicTable;
   single: () => DynamicTable;
   then: Promise<unknown>["then"];
+};
+
+const LOG_TABLE_DEFAULT_LIMITS: Record<string, number> = {
+  audit_logs: 300,
+  channel_post_events: 200,
+  entertainment_events: 200,
+  reputation_events: 200,
+  analytics_member_activity: 500,
 };
 
 type SeedSpec = {
@@ -218,6 +227,12 @@ export async function GET(request: NextRequest, { params }: Params) {
       if (filter) {
         query = query.or(filter);
       }
+    }
+
+    const limitParam = request.nextUrl.searchParams.get("limit");
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : LOG_TABLE_DEFAULT_LIMITS[params.table];
+    if (parsedLimit && !isNaN(parsedLimit) && parsedLimit > 0) {
+      query = query.limit(parsedLimit);
     }
 
     const { data, error } = (await query) as { data: unknown[] | null; error: { message: string } | null };
