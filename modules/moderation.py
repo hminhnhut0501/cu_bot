@@ -879,15 +879,19 @@ class ModerationModule(BotModule):
         known_group_usernames = self.known_group_usernames(message.chat.id)
         for entity in entities:
             entity_type = (getattr(entity, "type", "") or "").strip().lower()
-            if entity_type not in {"text_link", "text_mention", "mention"}:
+            if entity_type not in {"text_link", "text_mention", "mention", "url"}:
                 continue
 
             detail = {"entity_type": entity_type}
-            if entity_type == "text_link":
-                if not self.setting_bool(message.chat.id, "scan_text_link", True):
+            if entity_type in {"text_link", "url"}:
+                if not self.setting_bool(message.chat.id, "scan_text_link", True) and not self.setting_bool(message.chat.id, "scan_hidden_links", True):
                     continue
-                url = getattr(entity, "url", "") or ""
+                url = getattr(entity, "url", "") or self.entity_text(message, entity) or ""
                 if not url:
+                    continue
+                url_clean = url.lower().strip()
+                is_internal = any(uname and uname in url_clean for uname in current_group_usernames | known_bot_usernames)
+                if is_internal:
                     continue
                 detail["entity_url"] = url
                 detail["rule_action"] = self.setting(message.chat.id, "text_link_action", self.setting(message.chat.id, "hidden_link_action", "warn"))
@@ -1016,18 +1020,6 @@ class ModerationModule(BotModule):
             )
             reason = self.setting(message.chat.id, "forward_warning_reason", "Không được forward video/bài vào nhóm.")
             action = (self.setting(message.chat.id, "forward_action", "warn") or "warn").strip().lower()
-            if action in {"delete", "remove"}:
-                ban_after = self.setting_int(message.chat.id, "ban_after_warnings", 3)
-                if ban_after > 0:
-                    self.warn_user(
-                        message.chat.id,
-                        message.from_user.id,
-                        reason=reason,
-                        user=message.from_user,
-                        trigger="forwarded_message",
-                        send_notice=False,
-                    )
-                return True
             self.apply_action(message, action, reason, trigger="forwarded_message")
             return True
 
@@ -1427,13 +1419,18 @@ class ModerationModule(BotModule):
 
     def restrict_user_for_spam(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule"):
         seconds = self.setting_int(chat_id, "spam_restrict_seconds", 300)
-        until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
-        permissions = telebot.types.ChatPermissions(can_send_messages=False)
+        until_date_int = int((datetime.now() + timedelta(seconds=seconds)).timestamp()) if seconds > 0 else None
+        until_date_dt = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
+        permissions = telebot.types.ChatPermissions(
+            can_send_messages=False,
+            can_send_other_messages=False,
+            can_add_web_page_previews=False,
+        )
         try:
             self.bot.restrict_chat_member(
-                chat_id,
-                user_id,
-                until_date=until_date,
+                int(chat_id),
+                int(user_id),
+                until_date=until_date_int,
                 permissions=permissions,
                 use_independent_chat_permissions=True,
             )
@@ -1443,7 +1440,7 @@ class ModerationModule(BotModule):
                 "muted",
                 reason=reason or "Tạm cấm chat theo luật tự động",
                 actor_user_id=actor_user_id or self.actor_for_system(),
-                until_at=until_date.isoformat() if until_date else "",
+                until_at=until_date_dt.isoformat() if until_date_dt else "",
                 trigger=trigger,
             )
             self.audit(
@@ -1454,22 +1451,33 @@ class ModerationModule(BotModule):
                 details=self.audit_details(
                     reason=reason or "Tạm cấm chat theo luật tự động",
                     seconds=seconds,
-                    until_date=until_date.isoformat() if until_date else "",
+                    until_date=until_date_dt.isoformat() if until_date_dt else "",
                     trigger=trigger,
                     member_status="muted",
                 ),
             )
         except Exception as exc:
-            LOGGER.warning("Cannot restrict spammer %s in %s: %s", user_id, chat_id, exc)
+            LOGGER.error("Cannot restrict spammer %s in %s: %s", user_id, chat_id, exc)
 
     def notify_temporary_restrict(self, chat_id, user, reason):
+        seconds = self.setting_int(chat_id, "spam_restrict_seconds", 300)
+        minutes = max(1, seconds // 60)
         text = self.setting(
             chat_id,
             "spam_restrict_text",
-            "{mention} bị tạm cấm chat vì {reason}",
+            "🔇 {mention} bị tạm cấm chat trong {minutes} phút vì: {reason}",
         )
         try:
-            sent = self.bot.send_message(chat_id, text.format(mention=self.user_mention(user), user_id=user.id, reason=reason))
+            sent = self.bot.send_message(
+                chat_id,
+                text.format(
+                    mention=self.user_mention(user) if user else f"User {getattr(user, 'id', '')}",
+                    user_id=getattr(user, "id", ""),
+                    reason=reason,
+                    minutes=minutes,
+                ),
+                parse_mode="HTML"
+            )
             delete_after = self.setting_int(chat_id, "spam_notice_delete_seconds", 20)
             if delete_after > 0:
                 self.delete_later(chat_id, sent.message_id, delete_after, "spam_notice")
@@ -1609,32 +1617,66 @@ class ModerationModule(BotModule):
         if not deleted and retry_seconds > 0:
             self.delete_later(message.chat.id, message.message_id, retry_seconds, f"{reason}:retry")
 
+    def get_or_load_warning_count(self, chat_id, user_id):
+        current = self.state.get_warning(chat_id, user_id)
+        if current > 0:
+            return current
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        for row in self.store.rows("member_moderation_state"):
+            if str(row.get("chat_id") or "") == chat_str and str(row.get("user_id") or "") == user_str:
+                payload = row.get("payload")
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except Exception:
+                        payload = {}
+                if isinstance(payload, dict):
+                    saved_count = payload.get("warning_count", 0)
+                    try:
+                        saved_count_int = int(saved_count)
+                        if saved_count_int > 0:
+                            self.state.set_warning(chat_id, user_id, saved_count_int)
+                            return saved_count_int
+                    except (ValueError, TypeError):
+                        pass
+        return 0
+
     def apply_action(self, message, action, reason, trigger="automatic_rule"):
         action = (action or "warn").strip().lower()
+        from_user = getattr(message, "from_user", None)
+        if not from_user:
+            return
         if action in {"delete", "remove"}:
+            self.warn_user(message.chat.id, from_user.id, reason, user=from_user, trigger=trigger, send_notice=False)
             return
         if action == "ban":
-            self.ban_user(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
+            self.ban_user(message.chat.id, from_user.id, reason=reason, trigger=trigger)
             return
         if action in {"mute", "restrict"}:
-            self.restrict_user_for_spam(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
-            self.notify_temporary_restrict(message.chat.id, message.from_user, reason)
+            self.restrict_user_for_spam(message.chat.id, from_user.id, reason=reason, trigger=trigger)
+            self.notify_temporary_restrict(message.chat.id, from_user, reason)
             return
         if action == "kick":
-            self.kick_user(message.chat.id, message.from_user.id, reason=reason, trigger=trigger)
+            self.kick_user(message.chat.id, from_user.id, reason=reason, trigger=trigger)
             return
         if action == "warn":
-            self.warn_user(message.chat.id, message.from_user.id, reason, user=message.from_user, trigger=trigger)
+            self.warn_user(message.chat.id, from_user.id, reason, user=from_user, trigger=trigger, send_notice=True)
+            return
 
     def warn_user(self, chat_id, user_id, reason="", user=None, actor_user_id="", trigger="automatic_rule", send_notice=True):
+        if self.state.get_warning(chat_id, user_id) == 0:
+            self.get_or_load_warning_count(chat_id, user_id)
         count = self.state.add_warning(chat_id, user_id)
         ban_after = self.setting_int(chat_id, "ban_after_warnings", 3)
         details = self.audit_details(reason=reason, warning_count=count, warning_limit=ban_after, trigger=trigger)
+
+        # STAGE 3: Reach or exceed ban limit -> BAN USER
         if ban_after and count >= ban_after:
             self.ban_user(
                 chat_id,
                 user_id,
-                reason=reason or "Đạt giới hạn cảnh báo",
+                reason=reason or "Đạt giới hạn cảnh báo vi phạm",
                 actor_user_id=actor_user_id or self.actor_for_system(),
                 trigger=trigger,
                 warning_count=count,
@@ -1642,8 +1684,56 @@ class ModerationModule(BotModule):
             )
             return count
 
+        # STAGE 2: Repeated violation (violation 2+) -> MUTE / RESTRICT USER IMMEDIATELY
+        if count >= 2:
+            self.restrict_user_for_spam(chat_id, user_id, reason=reason, trigger=trigger)
+            seconds = self.setting_int(chat_id, "spam_restrict_seconds", 300)
+            minutes = max(1, seconds // 60)
+            self.record_member_moderation_state(
+                chat_id,
+                user_id,
+                "muted",
+                reason=reason or "Tái phạm quy tắc nhóm",
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                trigger=trigger,
+                payload={"warning_count": count},
+            )
+            if send_notice and user:
+                mention = self.user_mention(user)
+                mute_text = (
+                    f"🔇 {mention} đã bị <b>tạm cấm chat {minutes} phút</b> do tái phạm "
+                    f"({count}/{ban_after}): {reason}.\n"
+                    f"⚠️ <i>Nếu tiếp tục vi phạm khi hết cấm chat, bạn sẽ bị cấm vĩnh viễn (BAN) khỏi nhóm!</i>"
+                )
+                try:
+                    sent = self.bot.send_message(chat_id, mute_text, parse_mode="HTML")
+                    delete_after = self.setting_int(chat_id, "spam_notice_delete_seconds", 30)
+                    if delete_after > 0:
+                        self.delete_later(chat_id, sent.message_id, delete_after, "mute_warning_notice")
+                except Exception as exc:
+                    LOGGER.warning("Cannot send mute notice to %s: %s", chat_id, exc)
+
+            self.audit(
+                chat_id,
+                "warn_escalate_mute",
+                target_user_id=user_id,
+                actor_user_id=actor_user_id or self.actor_for_system(),
+                details=details,
+            )
+            return count
+
+        # STAGE 1: First violation -> Warning notice
+        self.record_member_moderation_state(
+            chat_id,
+            user_id,
+            "warned",
+            reason=reason or "Cảnh báo vi phạm",
+            actor_user_id=actor_user_id or self.actor_for_system(),
+            trigger=trigger,
+            payload={"warning_count": count},
+        )
         if send_notice:
-            text = self.setting(chat_id, "warning_text", "Cảnh báo {mention}: {reason} ({count}/{limit})")
+            text = self.setting(chat_id, "warning_text", "⚠️ Cảnh báo {mention}: {reason} ({count}/{limit}). Tái phạm sẽ bị khóa chat!")
             if reason == self.setting(chat_id, "forward_warning_reason", "Không được forward video/bài vào nhóm."):
                 text = self.setting(chat_id, "forward_warning_text", text)
             mention = self.user_mention(user) if user else str(user_id)
@@ -1658,13 +1748,18 @@ class ModerationModule(BotModule):
                         count=count,
                         limit=ban_after or "-",
                     ),
+                    parse_mode="HTML",
                 )
-                delete_after_key = "forward_warning_delete_seconds" if is_forward_warning else "warning_notice_delete_seconds"
-                delete_after = self.setting_int(chat_id, delete_after_key, 180)
+                delete_after = self.setting_int(
+                    chat_id,
+                    "forward_warning_delete_seconds" if is_forward_warning else "warning_notice_delete_seconds",
+                    180 if is_forward_warning else 30,
+                )
                 if delete_after > 0:
                     self.delete_later(chat_id, sent.message_id, delete_after, "warning_notice")
             except Exception as exc:
-                LOGGER.warning("Cannot send warning in %s: %s", chat_id, exc)
+                LOGGER.warning("Cannot send warning notice to %s: %s", chat_id, exc)
+
         self.audit(
             chat_id,
             "warn",
@@ -1677,8 +1772,9 @@ class ModerationModule(BotModule):
     def ban_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule", warning_count=None, warning_limit=None, permanent=False):
         try:
             seconds = 0 if permanent else self.setting_int(chat_id, "ban_seconds", 0)
-            until_date = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
-            self.bot.ban_chat_member(chat_id, user_id, until_date=until_date)
+            until_date_int = int((datetime.now() + timedelta(seconds=seconds)).timestamp()) if seconds > 0 else None
+            until_date_dt = datetime.now() + timedelta(seconds=seconds) if seconds > 0 else None
+            self.bot.ban_chat_member(int(chat_id), int(user_id), until_date=until_date_int)
             self.state.reset_warnings(chat_id, user_id)
             self.record_member_moderation_state(
                 chat_id,
@@ -1686,9 +1782,22 @@ class ModerationModule(BotModule):
                 "banned",
                 reason=reason or "Ban theo luật tự động",
                 actor_user_id=actor_user_id or self.actor_for_system(),
-                until_at=until_date.isoformat() if until_date else "",
+                until_at=until_date_dt.isoformat() if until_date_dt else "",
                 trigger=trigger,
+                payload={"warning_count": warning_count or 0},
             )
+            # Public ban notice
+            try:
+                ban_text = f"🚫 Đã cấm thành viên khỏi nhóm do vi phạm: {reason}"
+                if warning_count and warning_limit:
+                    ban_text = f"🚫 Đã cấm thành viên khỏi nhóm do vượt ngưỡng vi phạm ({warning_count}/{warning_limit}): {reason}"
+                sent = self.bot.send_message(chat_id, ban_text)
+                delete_after = self.setting_int(chat_id, "warning_notice_delete_seconds", 30)
+                if delete_after > 0:
+                    self.delete_later(chat_id, sent.message_id, delete_after, "ban_notice")
+            except Exception as exc:
+                LOGGER.info("Cannot send ban notice in %s: %s", chat_id, exc)
+
             self.audit(
                 chat_id,
                 "ban",
@@ -1697,7 +1806,7 @@ class ModerationModule(BotModule):
                 details=self.audit_details(
                     reason=reason or "Ban theo luật tự động",
                     seconds=seconds,
-                    until_date=until_date.isoformat() if until_date else "",
+                    until_date=until_date_dt.isoformat() if until_date_dt else "permanent",
                     trigger=trigger,
                     warning_count=warning_count,
                     warning_limit=warning_limit,
@@ -1705,12 +1814,17 @@ class ModerationModule(BotModule):
                 ),
             )
         except Exception as exc:
-            LOGGER.warning("Cannot ban %s in %s: %s", user_id, chat_id, exc)
+            LOGGER.error("Cannot ban %s in %s: %s", user_id, chat_id, exc)
+            # Fallback: if ban failed due to permissions, restrict them completely
+            try:
+                self.restrict_user_for_spam(chat_id, user_id, reason=f"Fallback mute (Ban failed: {exc})", trigger=trigger)
+            except Exception:
+                pass
 
     def kick_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule"):
         try:
-            self.bot.ban_chat_member(chat_id, user_id)
-            self.bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
+            self.bot.ban_chat_member(int(chat_id), int(user_id))
+            self.bot.unban_chat_member(int(chat_id), int(user_id), only_if_banned=True)
             self.state.reset_warnings(chat_id, user_id)
             self.record_member_moderation_state(
                 chat_id,
@@ -1726,10 +1840,10 @@ class ModerationModule(BotModule):
                 "kick",
                 target_user_id=user_id,
                 actor_user_id=actor_user_id or self.actor_for_system(),
-                details=self.audit_details(reason=reason or "Kick theo luật tự động", trigger=trigger, member_status="normal", last_action="kick"),
+                details=self.audit_details(reason=reason or "Kick theo luật tự động", trigger=trigger),
             )
         except Exception as exc:
-            LOGGER.warning("Cannot kick %s in %s: %s", user_id, chat_id, exc)
+            LOGGER.error("Cannot kick %s in %s: %s", user_id, chat_id, exc)
 
     def safe_delete(self, message, reason="unknown", audit_details=""):
         user = getattr(message, "from_user", None)

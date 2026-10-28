@@ -95,6 +95,16 @@ class RuntimeState:
             self.warnings[key] += 1
             return self.warnings[key]
 
+    def get_warning(self, chat_id, user_id):
+        key = (int(chat_id), int(user_id))
+        with self.lock:
+            return self.warnings.get(key, 0)
+
+    def set_warning(self, chat_id, user_id, count):
+        key = (int(chat_id), int(user_id))
+        with self.lock:
+            self.warnings[key] = int(count)
+
     def reset_warnings(self, chat_id, user_id):
         with self.lock:
             self.warnings.pop((int(chat_id), int(user_id)), None)
