@@ -4009,6 +4009,7 @@ export default function HomePage() {
             onOpenTaskData={openTaskData}
             activeConfigSection={activeConfigSection}
             onUpdateSettings={updateModerationSettings}
+            api={api}
           />
         ) : null}
 
@@ -4116,7 +4117,7 @@ export default function HomePage() {
           />
         ) : null}
 
-        {table.key === "keywords" ? (
+        {table.key === "keywords" && !activeLayer.startsWith("module:moderation") ? (
           <Alert severity="info" sx={{ mt: 2 }}>
             <strong>Luật từ khóa:</strong> nếu action = <code>delete</code> thì bot vẫn xóa tin và cộng cảnh báo nội bộ. Khi user chạm ngưỡng <code>ban_after_warnings</code>, bot sẽ tự ban để tránh spam lách luật.
           </Alert>
@@ -4339,7 +4340,7 @@ export default function HomePage() {
         )}
             </Stack>
           </Paper>
-        ) : activeLayer !== "members" && activeLayer !== "blacklist" && table.key !== "audit_logs" && (!activeLayer.startsWith("module:") || showTaskData) ? (
+        ) : activeLayer !== "members" && activeLayer !== "blacklist" && table.key !== "audit_logs" && (!activeLayer.startsWith("module:") || (showTaskData && activeModuleHub.key !== "moderation")) ? (
         <Box
           sx={{
             display: "grid",

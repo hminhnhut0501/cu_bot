@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Alert,
@@ -15,6 +15,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Stack,
@@ -27,8 +28,10 @@ import {
   AlertTriangle,
   Ban,
   Bot,
+  Check,
   CheckCircle2,
   Clock,
+  Code,
   Copy,
   Crown,
   Edit3,
@@ -36,15 +39,20 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Filter,
   Forward,
+  Globe,
+  Hash,
   HelpCircle,
   Link2,
   Lock,
   MessageSquare,
   Play,
+  Plus,
   Radio,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   Shield,
   ShieldAlert,
@@ -88,10 +96,34 @@ export type ModerationStudioProps = {
   setForwardMode: (val: "block" | "controlled" | "allow") => void;
   selectedGroupName?: string;
   selectedBotKey?: string;
-  onOpenTaskData: (key: string) => void;
+  onOpenTaskData?: (key: string) => void;
   activeConfigSection?: { title: string; rows: Row[] };
   onUpdateSettings?: (updates: Record<string, string>) => Promise<void>;
+  api?: (path: string, init?: RequestInit) => Promise<any>;
 };
+
+export type KeywordItem = {
+  id: number | string;
+  keyword: string;
+  match: "contains" | "regex";
+  action: "delete" | "warn" | "mute" | "kick" | "ban";
+  reason?: string;
+  enabled: boolean;
+  notes?: string;
+  bot_key?: string;
+};
+
+export type DomainItem = {
+  id: number | string;
+  domain: string;
+  risk: "phishing" | "scam" | "telegram_clone" | "nsfw";
+  action: "delete" | "warn" | "ban";
+  enabled: boolean;
+  notes?: string;
+  bot_key?: string;
+};
+
+export type StudioTab = "matrix" | "keywords" | "domains" | "sandbox" | "templates" | "advanced";
 
 export default function ModerationStudio({
   moderationConfigRowMap,
@@ -110,8 +142,242 @@ export default function ModerationStudio({
   onOpenTaskData,
   activeConfigSection,
   onUpdateSettings,
+  api,
 }: ModerationStudioProps) {
-  const [activeTab, setActiveTab] = useState<"matrix" | "sandbox" | "templates" | "advanced">("matrix");
+  const [activeTab, setActiveTab] = useState<StudioTab>("matrix");
+
+  // Keywords state
+  const [keywords, setKeywords] = useState<KeywordItem[]>([]);
+  const [keywordsLoading, setKeywordsLoading] = useState(false);
+  const [keywordsSearch, setKeywordsSearch] = useState("");
+  const [keywordsFilterAction, setKeywordsFilterAction] = useState("all");
+  const [keywordsFilterMatch, setKeywordsFilterMatch] = useState("all");
+  const [keywordModalOpen, setKeywordModalOpen] = useState(false);
+  const [keywordDraft, setKeywordDraft] = useState<Partial<KeywordItem>>({
+    keyword: "",
+    match: "contains",
+    action: "delete",
+    reason: "",
+    enabled: true,
+    notes: "",
+  });
+
+  // Domains state
+  const [domains, setDomains] = useState<DomainItem[]>([]);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainsSearch, setDomainsSearch] = useState("");
+  const [domainsFilterRisk, setDomainsFilterRisk] = useState("all");
+  const [domainsFilterAction, setDomainsFilterAction] = useState("all");
+  const [domainModalOpen, setDomainModalOpen] = useState(false);
+  const [domainDraft, setDomainDraft] = useState<Partial<DomainItem>>({
+    domain: "",
+    risk: "phishing",
+    action: "ban",
+    enabled: true,
+    notes: "",
+  });
+
+  const callApi = async (path: string, init: RequestInit = {}) => {
+    if (api) {
+      return await api(path, init);
+    }
+    const headers = new Headers(init.headers);
+    headers.set("content-type", "application/json");
+    if (typeof window !== "undefined") {
+      const pwd = window.localStorage.getItem("cu_bot_cp_password");
+      if (pwd) {
+        headers.set("x-cp-password", pwd);
+      }
+    }
+    const res = await fetch(path, { ...init, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Yêu cầu thất bại");
+    }
+    return data;
+  };
+
+  const loadKeywords = async () => {
+    setKeywordsLoading(true);
+    try {
+      const data = await callApi("/api/keywords");
+      if (data && Array.isArray(data.rows)) {
+        setKeywords(data.rows);
+      }
+    } catch (e) {
+      console.error("Failed to load keywords", e);
+    } finally {
+      setKeywordsLoading(false);
+    }
+  };
+
+  const loadDomains = async () => {
+    setDomainsLoading(true);
+    try {
+      const data = await callApi("/api/domain_blacklist");
+      if (data && Array.isArray(data.rows)) {
+        setDomains(data.rows);
+      }
+    } catch (e) {
+      console.error("Failed to load domain blacklist", e);
+    } finally {
+      setDomainsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadKeywords();
+    void loadDomains();
+  }, []);
+
+  const handleToggleKeyword = async (kw: KeywordItem) => {
+    const nextVal = !(kw.enabled !== false && String(kw.enabled) !== "false");
+    setKeywords((prev) => prev.map((k) => (k.id === kw.id ? { ...k, enabled: nextVal } : k)));
+    try {
+      await callApi("/api/keywords", {
+        method: "PATCH",
+        body: JSON.stringify({ id: kw.id, values: { enabled: nextVal } }),
+      });
+    } catch (err) {
+      setKeywords((prev) => prev.map((k) => (k.id === kw.id ? { ...k, enabled: !nextVal } : k)));
+    }
+  };
+
+  const handleSaveKeyword = async () => {
+    if (!keywordDraft.keyword?.trim()) return;
+    try {
+      if (keywordDraft.id) {
+        await callApi("/api/keywords", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: keywordDraft.id,
+            values: {
+              keyword: keywordDraft.keyword.trim(),
+              match: keywordDraft.match || "contains",
+              action: keywordDraft.action || "delete",
+              reason: keywordDraft.reason || "",
+              enabled: keywordDraft.enabled ?? true,
+              notes: keywordDraft.notes || "",
+            },
+          }),
+        });
+      } else {
+        await callApi("/api/keywords", {
+          method: "POST",
+          body: JSON.stringify({
+            keyword: keywordDraft.keyword.trim(),
+            match: keywordDraft.match || "contains",
+            action: keywordDraft.action || "delete",
+            reason: keywordDraft.reason || "",
+            enabled: keywordDraft.enabled ?? true,
+            notes: keywordDraft.notes || "",
+            bot_key: selectedBotKey || "all",
+          }),
+        });
+      }
+      setKeywordModalOpen(false);
+      await loadKeywords();
+    } catch (err: any) {
+      alert(err.message || "Không thể lưu từ khóa");
+    }
+  };
+
+  const handleDeleteKeyword = async (id: number | string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa từ khóa này khỏi danh sách cấm?")) return;
+    setKeywords((prev) => prev.filter((k) => k.id !== id));
+    try {
+      await callApi(`/api/keywords?id=${id}`, { method: "DELETE" });
+    } catch (err) {
+      await loadKeywords();
+    }
+  };
+
+  const handleToggleDomain = async (dm: DomainItem) => {
+    const nextVal = !(dm.enabled !== false && String(dm.enabled) !== "false");
+    setDomains((prev) => prev.map((d) => (d.id === dm.id ? { ...d, enabled: nextVal } : d)));
+    try {
+      await callApi("/api/domain_blacklist", {
+        method: "PATCH",
+        body: JSON.stringify({ id: dm.id, values: { enabled: nextVal } }),
+      });
+    } catch (err) {
+      setDomains((prev) => prev.map((d) => (d.id === dm.id ? { ...d, enabled: !nextVal } : d)));
+    }
+  };
+
+  const handleSaveDomain = async () => {
+    if (!domainDraft.domain?.trim()) return;
+    const cleanDomain = domainDraft.domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    try {
+      if (domainDraft.id) {
+        await callApi("/api/domain_blacklist", {
+          method: "PATCH",
+          body: JSON.stringify({
+            id: domainDraft.id,
+            values: {
+              domain: cleanDomain,
+              risk: domainDraft.risk || "phishing",
+              action: domainDraft.action || "ban",
+              enabled: domainDraft.enabled ?? true,
+              notes: domainDraft.notes || "",
+            },
+          }),
+        });
+      } else {
+        await callApi("/api/domain_blacklist", {
+          method: "POST",
+          body: JSON.stringify({
+            domain: cleanDomain,
+            risk: domainDraft.risk || "phishing",
+            action: domainDraft.action || "ban",
+            enabled: domainDraft.enabled ?? true,
+            notes: domainDraft.notes || "",
+            bot_key: selectedBotKey || "all",
+          }),
+        });
+      }
+      setDomainModalOpen(false);
+      await loadDomains();
+    } catch (err: any) {
+      alert(err.message || "Không thể lưu domain");
+    }
+  };
+
+  const handleDeleteDomain = async (id: number | string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa domain này khỏi danh sách blacklist?")) return;
+    setDomains((prev) => prev.filter((d) => d.id !== id));
+    try {
+      await callApi(`/api/domain_blacklist?id=${id}`, { method: "DELETE" });
+    } catch (err) {
+      await loadDomains();
+    }
+  };
+
+  const filteredKeywords = useMemo(() => {
+    return keywords.filter((k) => {
+      const q = keywordsSearch.trim().toLowerCase();
+      if (q) {
+        const text = `${k.keyword || ""} ${k.reason || ""} ${k.notes || ""}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      if (keywordsFilterAction !== "all" && k.action !== keywordsFilterAction) return false;
+      if (keywordsFilterMatch !== "all" && k.match !== keywordsFilterMatch) return false;
+      return true;
+    });
+  }, [keywords, keywordsSearch, keywordsFilterAction, keywordsFilterMatch]);
+
+  const filteredDomains = useMemo(() => {
+    return domains.filter((d) => {
+      const q = domainsSearch.trim().toLowerCase();
+      if (q) {
+        const text = `${d.domain || ""} ${d.notes || ""}`.toLowerCase();
+        if (!text.includes(q)) return false;
+      }
+      if (domainsFilterRisk !== "all" && d.risk !== domainsFilterRisk) return false;
+      if (domainsFilterAction !== "all" && d.action !== domainsFilterAction) return false;
+      return true;
+    });
+  }, [domains, domainsSearch, domainsFilterRisk, domainsFilterAction]);
 
   // Sandbox testing state
   const [testText, setTestText] = useState("Ủng hộ kênh t.me/airdrop_free_ton nhận 500 TON miễn phí!");
@@ -314,6 +580,47 @@ export default function ModerationStudio({
       });
     }
 
+    // Check 9: Custom Banned Keywords
+    for (const kw of keywords) {
+      if (kw.enabled === false || String(kw.enabled) === "false") continue;
+      const kwVal = String(kw.keyword || "").trim();
+      if (!kwVal) continue;
+      let matched = false;
+      if (kw.match === "regex") {
+        try {
+          const rx = new RegExp(kwVal, "i");
+          matched = rx.test(testText);
+        } catch {
+          // ignore invalid regex
+        }
+      } else {
+        matched = testText.toLowerCase().includes(kwVal.toLowerCase());
+      }
+      if (matched) {
+        violations.push({
+          rule: `Từ khóa cấm: "${kwVal}"`,
+          detail: kw.reason || "Phát hiện từ khóa cấm trong nội dung tin nhắn.",
+          action: kw.action || "delete",
+        });
+        break;
+      }
+    }
+
+    // Check 10: Blacklisted Domains
+    for (const dm of domains) {
+      if (dm.enabled === false || String(dm.enabled) === "false") continue;
+      const dmVal = String(dm.domain || "").trim().toLowerCase();
+      if (!dmVal) continue;
+      if (testText.toLowerCase().includes(dmVal)) {
+        violations.push({
+          rule: `Domain độc hại: "${dmVal}" (${dm.risk || "scam"})`,
+          detail: dm.notes || "Tin nhắn chứa liên kết trỏ đến domain trong Blacklist.",
+          action: dm.action || "ban",
+        });
+        break;
+      }
+    }
+
     const isViolated = violations.length > 0;
     const severeAction = violations.some((v) => v.action === "ban")
       ? "ban"
@@ -353,6 +660,8 @@ export default function ModerationStudio({
     anonymousChannelAction,
     newMemberProbationOn,
     blockZeroWidth,
+    keywords,
+    domains,
   ]);
 
   return (
@@ -387,28 +696,24 @@ export default function ModerationStudio({
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Tooltip title="Quản lý danh sách từ khóa cấm">
-            <MuiButton
-              variant="outlined"
-              size="small"
-              onClick={() => onOpenTaskData("keywords")}
-              startIcon={<SlidersHorizontal size={14} />}
-              sx={{ textTransform: "none", borderRadius: 1.5, height: 30 }}
-            >
-              Từ khóa cấm
-            </MuiButton>
-          </Tooltip>
-          <Tooltip title="Quản lý danh sách tên miền độc hại">
-            <MuiButton
-              variant="outlined"
-              size="small"
-              onClick={() => onOpenTaskData("domain_blacklist")}
-              startIcon={<Link2 size={14} />}
-              sx={{ textTransform: "none", borderRadius: 1.5, height: 30 }}
-            >
-              Blacklist Domain
-            </MuiButton>
-          </Tooltip>
+          <MuiButton
+            variant={activeTab === "keywords" ? "contained" : "outlined"}
+            size="small"
+            onClick={() => setActiveTab("keywords")}
+            startIcon={<SlidersHorizontal size={14} />}
+            sx={{ textTransform: "none", borderRadius: 1.5, height: 30, fontWeight: 700 }}
+          >
+            Từ khóa cấm ({keywords.length})
+          </MuiButton>
+          <MuiButton
+            variant={activeTab === "domains" ? "contained" : "outlined"}
+            size="small"
+            onClick={() => setActiveTab("domains")}
+            startIcon={<Link2 size={14} />}
+            sx={{ textTransform: "none", borderRadius: 1.5, height: 30, fontWeight: 700 }}
+          >
+            Blacklist Domain ({domains.length})
+          </MuiButton>
         </Stack>
       </Paper>
 
@@ -422,6 +727,24 @@ export default function ModerationStudio({
           sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
         >
           Ma trận chính sách
+        </MuiButton>
+        <MuiButton
+          variant={activeTab === "keywords" ? "contained" : "text"}
+          onClick={() => setActiveTab("keywords")}
+          startIcon={<SlidersHorizontal size={16} />}
+          size="small"
+          sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+        >
+          Từ khóa cấm ({keywords.length})
+        </MuiButton>
+        <MuiButton
+          variant={activeTab === "domains" ? "contained" : "text"}
+          onClick={() => setActiveTab("domains")}
+          startIcon={<Link2 size={16} />}
+          size="small"
+          sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+        >
+          Blacklist Domain ({domains.length})
         </MuiButton>
         <MuiButton
           variant={activeTab === "sandbox" ? "contained" : "text"}
@@ -444,7 +767,7 @@ export default function ModerationStudio({
         <MuiButton
           variant={activeTab === "advanced" ? "contained" : "text"}
           onClick={() => setActiveTab("advanced")}
-          startIcon={<SlidersHorizontal size={16} />}
+          startIcon={<Settings2 size={16} />}
           size="small"
           sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
         >
@@ -1276,6 +1599,560 @@ export default function ModerationStudio({
         </Stack>
       )}
 
+      {/* TAB: KEYWORDS MANAGEMENT */}
+      {activeTab === "keywords" && (
+        <Stack spacing={2}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Stack spacing={2}>
+              {/* Header */}
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
+                <Box>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Box sx={{ width: 28, height: 28, borderRadius: 1.25, bgcolor: "rgba(234, 88, 12, 0.1)", display: "grid", placeItems: "center", color: "warning.main" }}>
+                      <SlidersHorizontal size={16} />
+                    </Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      Bộ lọc từ khóa cấm & Lách luật
+                    </Typography>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                    Tự động xóa tin nhắn, tích lũy cảnh báo nội bộ và trừng phạt thành viên vi phạm từ khóa hoặc chuỗi biểu thức Regex.
+                  </Typography>
+                </Box>
+                <MuiButton
+                  variant="contained"
+                  size="small"
+                  startIcon={<Plus size={16} />}
+                  onClick={() => {
+                    setKeywordDraft({
+                      keyword: "",
+                      match: "contains",
+                      action: "delete",
+                      reason: "",
+                      enabled: true,
+                      notes: "",
+                    });
+                    setKeywordModalOpen(true);
+                  }}
+                  sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700, flexShrink: 0 }}
+                >
+                  Thêm từ khóa
+                </MuiButton>
+              </Box>
+
+              {/* Quick stats strip */}
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                <Chip
+                  size="small"
+                  label={`Tổng: ${keywords.length}`}
+                  variant="outlined"
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="success"
+                  label={`Đang bật: ${keywords.filter((k) => k.enabled !== false && String(k.enabled) !== "false").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="warning"
+                  label={`Regex: ${keywords.filter((k) => k.match === "regex").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="info"
+                  label={`Xóa tin: ${keywords.filter((k) => k.action === "delete").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="error"
+                  label={`Ban/Kick: ${keywords.filter((k) => k.action === "ban" || k.action === "kick").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+              </Stack>
+
+              {/* Filter & Search Bar */}
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: "center" }}>
+                <TextField
+                  size="small"
+                  placeholder="Tìm theo từ khóa, lý do hoặc ghi chú..."
+                  value={keywordsSearch}
+                  onChange={(e) => setKeywordsSearch(e.target.value)}
+                  fullWidth
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search size={16} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  select
+                  size="small"
+                  value={keywordsFilterMatch}
+                  onChange={(e) => setKeywordsFilterMatch(e.target.value)}
+                  sx={{ minWidth: 140 }}
+                >
+                  <MenuItem value="all">Kiểu khớp: Tất cả</MenuItem>
+                  <MenuItem value="contains">Chứa cụm từ</MenuItem>
+                  <MenuItem value="regex">Biểu thức Regex</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  value={keywordsFilterAction}
+                  onChange={(e) => setKeywordsFilterAction(e.target.value)}
+                  sx={{ minWidth: 140 }}
+                >
+                  <MenuItem value="all">Hành động: Tất cả</MenuItem>
+                  <MenuItem value="delete">Xóa tin</MenuItem>
+                  <MenuItem value="warn">Cảnh báo</MenuItem>
+                  <MenuItem value="mute">Mute</MenuItem>
+                  <MenuItem value="kick">Kick</MenuItem>
+                  <MenuItem value="ban">Ban</MenuItem>
+                </TextField>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          {/* Keywords List */}
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            {keywordsLoading ? (
+              <Box sx={{ p: 4, display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">Đang tải danh sách từ khóa...</Typography>
+              </Box>
+            ) : filteredKeywords.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: "center" }}>
+                <SlidersHorizontal size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {keywords.length === 0 ? "Chưa có từ khóa cấm nào" : "Không tìm thấy từ khóa phù hợp"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                  {keywords.length === 0
+                    ? "Bổ sung các từ khóa quảng cáo, cờ bạc, lừa đảo để bot tự động dọn dẹp."
+                    : "Thử điều chỉnh từ khóa tìm kiếm hoặc bỏ chọn bộ lọc."}
+                </Typography>
+                {keywords.length === 0 && (
+                  <MuiButton
+                    variant="contained"
+                    size="small"
+                    startIcon={<Plus size={14} />}
+                    onClick={() => {
+                      setKeywordDraft({
+                        keyword: "",
+                        match: "contains",
+                        action: "delete",
+                        reason: "",
+                        enabled: true,
+                        notes: "",
+                      });
+                      setKeywordModalOpen(true);
+                    }}
+                    sx={{ textTransform: "none", borderRadius: 1.5 }}
+                  >
+                    Thêm từ khóa đầu tiên
+                  </MuiButton>
+                )}
+              </Box>
+            ) : (
+              <Stack divider={<Divider />}>
+                {filteredKeywords.map((item) => {
+                  const isEnabled = item.enabled !== false && String(item.enabled) !== "false";
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{
+                        p: 1.5,
+                        bgcolor: isEnabled ? "background.paper" : "action.hover",
+                        opacity: isEnabled ? 1 : 0.65,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.5}
+                        sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}
+                      >
+                        {/* Left: Keyword + badges + reason */}
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flex: 1, minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", gap: 0.5 }}>
+                              <Typography
+                                sx={{
+                                  fontFamily: "monospace",
+                                  fontWeight: 800,
+                                  fontSize: "0.95rem",
+                                  bgcolor: "action.selected",
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: 1,
+                                }}
+                              >
+                                {item.keyword}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                variant={item.match === "regex" ? "filled" : "outlined"}
+                                color={item.match === "regex" ? "warning" : "default"}
+                                label={item.match === "regex" ? "REGEX" : "Chứa từ"}
+                                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                              />
+                              <Chip
+                                size="small"
+                                color={actionColor(item.action)}
+                                label={item.action.toUpperCase()}
+                                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                              />
+                            </Stack>
+                            {(item.reason || item.notes) && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                {item.reason ? `Lý do: ${item.reason}` : ""}
+                                {item.reason && item.notes ? " • " : ""}
+                                {item.notes ? `Ghi chú: ${item.notes}` : ""}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Stack>
+
+                        {/* Right: Switch + Edit + Delete */}
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: { xs: "flex-end", md: "flex-end" } }}>
+                          <Tooltip title="Chỉnh sửa từ khóa">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setKeywordDraft({
+                                  id: item.id,
+                                  keyword: item.keyword,
+                                  match: item.match || "contains",
+                                  action: item.action || "delete",
+                                  reason: item.reason || "",
+                                  enabled: isEnabled,
+                                  notes: item.notes || "",
+                                });
+                                setKeywordModalOpen(true);
+                              }}
+                            >
+                              <Edit3 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Xóa từ khóa">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => void handleDeleteKeyword(item.id)}
+                            >
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={isEnabled ? "Đang bật — bấm để tắt" : "Đang tắt — bấm để bật"}>
+                            <Switch
+                              checked={isEnabled}
+                              onChange={() => void handleToggleKeyword(item)}
+                              size="small"
+                            />
+                          </Tooltip>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Paper>
+
+          {/* Policy rule insight note */}
+          <Alert severity="info" sx={{ borderRadius: 1.5 }}>
+            <Typography variant="caption" sx={{ display: "block" }}>
+              💡 <strong>Quy trình xử lý từ khóa:</strong> Khi người dùng gửi tin nhắn chứa từ khóa có hành vi <code>delete</code>, bot sẽ lập tức xóa tin nhắn và cộng 1 điểm cảnh báo nội bộ. Nếu chạm ngưỡng <strong>Ban sau số cảnh báo</strong> trong cấu hình kiểm duyệt, bot sẽ tự động cấm thành viên để ngăn spam lách luật.
+            </Typography>
+          </Alert>
+        </Stack>
+      )}
+
+      {/* TAB: DOMAIN BLACKLIST MANAGEMENT */}
+      {activeTab === "domains" && (
+        <Stack spacing={2}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Stack spacing={2}>
+              {/* Header */}
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1.5 }}>
+                <Box>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Box sx={{ width: 28, height: 28, borderRadius: 1.25, bgcolor: "rgba(220, 38, 38, 0.1)", display: "grid", placeItems: "center", color: "error.main" }}>
+                      <Link2 size={16} />
+                    </Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                      Blacklist Domain & Tên miền độc hại
+                    </Typography>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                    Chặn tên miền độc hại, website giả mạo Telegram, cờ bạc, lừa đảo đầu tư và đường dẫn khiêu dâm.
+                  </Typography>
+                </Box>
+                <MuiButton
+                  variant="contained"
+                  size="small"
+                  startIcon={<Plus size={16} />}
+                  onClick={() => {
+                    setDomainDraft({
+                      domain: "",
+                      risk: "phishing",
+                      action: "ban",
+                      enabled: true,
+                      notes: "",
+                    });
+                    setDomainModalOpen(true);
+                  }}
+                  sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700, flexShrink: 0 }}
+                >
+                  Thêm tên miền
+                </MuiButton>
+              </Box>
+
+              {/* Quick stats strip */}
+              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                <Chip
+                  size="small"
+                  label={`Tổng: ${domains.length}`}
+                  variant="outlined"
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="success"
+                  label={`Đang chặn: ${domains.filter((d) => d.enabled !== false && String(d.enabled) !== "false").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="error"
+                  label={`Phishing: ${domains.filter((d) => d.risk === "phishing").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="warning"
+                  label={`Scam: ${domains.filter((d) => d.risk === "scam").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+                <Chip
+                  size="small"
+                  color="secondary"
+                  label={`Telegram Clone: ${domains.filter((d) => d.risk === "telegram_clone").length}`}
+                  sx={{ fontWeight: 700, borderRadius: 1 }}
+                />
+              </Stack>
+
+              {/* Filter & Search Bar */}
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: "center" }}>
+                <TextField
+                  size="small"
+                  placeholder="Tìm theo tên miền, ghi chú nguồn..."
+                  value={domainsSearch}
+                  onChange={(e) => setDomainsSearch(e.target.value)}
+                  fullWidth
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search size={16} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  select
+                  size="small"
+                  value={domainsFilterRisk}
+                  onChange={(e) => setDomainsFilterRisk(e.target.value)}
+                  sx={{ minWidth: 150 }}
+                >
+                  <MenuItem value="all">Rủi ro: Tất cả</MenuItem>
+                  <MenuItem value="phishing">Phishing (Đánh cắp TK)</MenuItem>
+                  <MenuItem value="scam">Scam lừa đảo</MenuItem>
+                  <MenuItem value="telegram_clone">Telegram Clone</MenuItem>
+                  <MenuItem value="nsfw">18+ / NSFW</MenuItem>
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  value={domainsFilterAction}
+                  onChange={(e) => setDomainsFilterAction(e.target.value)}
+                  sx={{ minWidth: 140 }}
+                >
+                  <MenuItem value="all">Hành động: Tất cả</MenuItem>
+                  <MenuItem value="ban">Ban lập tức</MenuItem>
+                  <MenuItem value="delete">Xóa tin</MenuItem>
+                  <MenuItem value="warn">Cảnh báo</MenuItem>
+                </TextField>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          {/* Domains List */}
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            {domainsLoading ? (
+              <Box sx={{ p: 4, display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5 }}>
+                <CircularProgress size={20} />
+                <Typography variant="body2" color="text.secondary">Đang tải danh sách domain...</Typography>
+              </Box>
+            ) : filteredDomains.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: "center" }}>
+                <Link2 size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {domains.length === 0 ? "Chưa có domain nào trong blacklist" : "Không tìm thấy tên miền phù hợp"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                  {domains.length === 0
+                    ? "Thêm các domain lừa đảo hoặc giả mạo để bot tự động khóa mõm hoặc ban kẻ phát tán."
+                    : "Thử điều chỉnh từ khóa tìm kiếm hoặc bỏ chọn bộ lọc."}
+                </Typography>
+                {domains.length === 0 && (
+                  <MuiButton
+                    variant="contained"
+                    size="small"
+                    startIcon={<Plus size={14} />}
+                    onClick={() => {
+                      setDomainDraft({
+                        domain: "",
+                        risk: "phishing",
+                        action: "ban",
+                        enabled: true,
+                        notes: "",
+                      });
+                      setDomainModalOpen(true);
+                    }}
+                    sx={{ textTransform: "none", borderRadius: 1.5 }}
+                  >
+                    Thêm domain đầu tiên
+                  </MuiButton>
+                )}
+              </Box>
+            ) : (
+              <Stack divider={<Divider />}>
+                {filteredDomains.map((item) => {
+                  const isEnabled = item.enabled !== false && String(item.enabled) !== "false";
+                  const riskColorMap: Record<string, "error" | "warning" | "secondary" | "default"> = {
+                    phishing: "error",
+                    scam: "warning",
+                    telegram_clone: "secondary",
+                    nsfw: "default",
+                  };
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{
+                        p: 1.5,
+                        bgcolor: isEnabled ? "background.paper" : "action.hover",
+                        opacity: isEnabled ? 1 : 0.65,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Stack
+                        direction={{ xs: "column", md: "row" }}
+                        spacing={1.5}
+                        sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}
+                      >
+                        {/* Left: Domain + Badges + Notes */}
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flex: 1, minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", gap: 0.5 }}>
+                              <Typography
+                                sx={{
+                                  fontFamily: "monospace",
+                                  fontWeight: 800,
+                                  fontSize: "0.95rem",
+                                  bgcolor: "action.selected",
+                                  px: 1,
+                                  py: 0.25,
+                                  borderRadius: 1,
+                                }}
+                              >
+                                {item.domain}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                color={riskColorMap[item.risk] || "default"}
+                                label={item.risk.toUpperCase()}
+                                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                              />
+                              <Chip
+                                size="small"
+                                color={actionColor(item.action)}
+                                label={item.action.toUpperCase()}
+                                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                              />
+                            </Stack>
+                            {item.notes && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                                Ghi chú: {item.notes}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Stack>
+
+                        {/* Right: Switch + Edit + Delete */}
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: { xs: "flex-end", md: "flex-end" } }}>
+                          <Tooltip title="Chỉnh sửa domain">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setDomainDraft({
+                                  id: item.id,
+                                  domain: item.domain,
+                                  risk: item.risk || "phishing",
+                                  action: item.action || "ban",
+                                  enabled: isEnabled,
+                                  notes: item.notes || "",
+                                });
+                                setDomainModalOpen(true);
+                              }}
+                            >
+                              <Edit3 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Xóa domain">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => void handleDeleteDomain(item.id)}
+                            >
+                              <Trash2 size={15} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={isEnabled ? "Đang bật — bấm để tắt" : "Đang tắt — bấm để bật"}>
+                            <Switch
+                              checked={isEnabled}
+                              onChange={() => void handleToggleDomain(item)}
+                              size="small"
+                            />
+                          </Tooltip>
+                        </Stack>
+                      </Stack>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Paper>
+
+          {/* Domain insight alert */}
+          <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
+            <Typography variant="caption" sx={{ display: "block" }}>
+              🛡️ <strong>Chống vượt rào:</strong> Hệ thống tự động bóc tách hostname từ liên kết văn bản, link ẩn trong Markdown và bio thành viên để so khớp với Blacklist Domain, ngăn chặn kẻ xấu rút ngắn link hoặc chuyển hướng tinh vi.
+            </Typography>
+          </Alert>
+        </Stack>
+      )}
+
       {/* 4. TAB 2: RULE SANDBOX (LIVE SIMULATOR) */}
       {activeTab === "sandbox" && (
         <Grid container spacing={2}>
@@ -1686,6 +2563,204 @@ export default function ModerationStudio({
           </Paper>
         </Stack>
       )}
+
+      {/* DIALOG: ADD / EDIT KEYWORD */}
+      <Dialog
+        open={keywordModalOpen}
+        onClose={() => setKeywordModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          {keywordDraft.id ? "Chỉnh sửa từ khóa cấm" : "Thêm từ khóa cấm mới"}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Từ khóa hoặc chuỗi biểu thức (Regex) *"
+              size="small"
+              fullWidth
+              value={keywordDraft.keyword || ""}
+              onChange={(e) => setKeywordDraft((prev) => ({ ...prev, keyword: e.target.value }))}
+              placeholder="ví dụ: airdrop nhận quà, casino, tele"
+              autoFocus
+            />
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  select
+                  label="Kiểu khớp"
+                  size="small"
+                  fullWidth
+                  value={keywordDraft.match || "contains"}
+                  onChange={(e) => setKeywordDraft((prev) => ({ ...prev, match: e.target.value as any }))}
+                >
+                  <MenuItem value="contains">Chứa cụm từ (Contains)</MenuItem>
+                  <MenuItem value="regex">Biểu thức chính quy (Regex)</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  select
+                  label="Hành vi trừng phạt"
+                  size="small"
+                  fullWidth
+                  value={keywordDraft.action || "delete"}
+                  onChange={(e) => setKeywordDraft((prev) => ({ ...prev, action: e.target.value as any }))}
+                >
+                  <MenuItem value="delete">Xóa tin (+ Tích lũy cảnh báo)</MenuItem>
+                  <MenuItem value="warn">Cảnh báo nhắc nhở</MenuItem>
+                  <MenuItem value="mute">Mute (Cấm chat)</MenuItem>
+                  <MenuItem value="kick">Kick (Đuổi khỏi nhóm)</MenuItem>
+                  <MenuItem value="ban">Ban (Cấm vĩnh viễn)</MenuItem>
+                </TextField>
+              </Grid>
+            </Grid>
+
+            <TextField
+              label="Lý do vi phạm (hiển thị khi cảnh báo)"
+              size="small"
+              fullWidth
+              value={keywordDraft.reason || ""}
+              onChange={(e) => setKeywordDraft((prev) => ({ ...prev, reason: e.target.value }))}
+              placeholder="ví dụ: Quảng cáo nhóm lừa đảo, Spam cờ bạc"
+            />
+
+            <TextField
+              label="Ghi chú nội bộ"
+              size="small"
+              fullWidth
+              value={keywordDraft.notes || ""}
+              onChange={(e) => setKeywordDraft((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Ghi chú thêm về nguồn gốc phát hiện..."
+            />
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pt: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Kích hoạt quy tắc này ngay lập tức
+              </Typography>
+              <Switch
+                checked={keywordDraft.enabled !== false}
+                onChange={(e) => setKeywordDraft((prev) => ({ ...prev, enabled: e.target.checked }))}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <MuiButton
+            onClick={() => setKeywordModalOpen(false)}
+            variant="text"
+            sx={{ textTransform: "none" }}
+          >
+            Hủy
+          </MuiButton>
+          <MuiButton
+            onClick={() => void handleSaveKeyword()}
+            variant="contained"
+            disabled={!keywordDraft.keyword?.trim()}
+            sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+          >
+            Lưu từ khóa
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: ADD / EDIT DOMAIN BLACKLIST */}
+      <Dialog
+        open={domainModalOpen}
+        onClose={() => setDomainModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          {domainDraft.id ? "Chỉnh sửa tên miền độc hại" : "Thêm tên miền vào Blacklist"}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Tên miền (Domain) *"
+              size="small"
+              fullWidth
+              value={domainDraft.domain || ""}
+              onChange={(e) => setDomainDraft((prev) => ({ ...prev, domain: e.target.value }))}
+              placeholder="ví dụ: fake-telegram-gift.xyz, ton-free-gift.top"
+              helperText="Hệ thống tự động loại bỏ tiền tố https:// và path"
+              autoFocus
+            />
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  select
+                  label="Phân loại rủi ro"
+                  size="small"
+                  fullWidth
+                  value={domainDraft.risk || "phishing"}
+                  onChange={(e) => setDomainDraft((prev) => ({ ...prev, risk: e.target.value as any }))}
+                >
+                  <MenuItem value="phishing">Phishing (Đánh cắp tài khoản)</MenuItem>
+                  <MenuItem value="scam">Scam (Lừa đảo đầu tư)</MenuItem>
+                  <MenuItem value="telegram_clone">Telegram Clone (Giả mạo Telegram)</MenuItem>
+                  <MenuItem value="nsfw">18+ / NSFW (Khiêu dâm)</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  select
+                  label="Hành vi trừng phạt"
+                  size="small"
+                  fullWidth
+                  value={domainDraft.action || "ban"}
+                  onChange={(e) => setDomainDraft((prev) => ({ ...prev, action: e.target.value as any }))}
+                >
+                  <MenuItem value="ban">Ban lập tức + Xóa tin</MenuItem>
+                  <MenuItem value="delete">Xóa tin nhắn</MenuItem>
+                  <MenuItem value="warn">Cảnh báo nhắc nhở</MenuItem>
+                </TextField>
+              </Grid>
+            </Grid>
+
+            <TextField
+              label="Ghi chú / Nguồn phát hiện"
+              size="small"
+              fullWidth
+              value={domainDraft.notes || ""}
+              onChange={(e) => setDomainDraft((prev) => ({ ...prev, notes: e.target.value }))}
+              placeholder="Chi tiết về chiến dịch lừa đảo liên quan..."
+            />
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pt: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Kích hoạt chặn domain này ngay lập tức
+              </Typography>
+              <Switch
+                checked={domainDraft.enabled !== false}
+                onChange={(e) => setDomainDraft((prev) => ({ ...prev, enabled: e.target.checked }))}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <MuiButton
+            onClick={() => setDomainModalOpen(false)}
+            variant="text"
+            sx={{ textTransform: "none" }}
+          >
+            Hủy
+          </MuiButton>
+          <MuiButton
+            onClick={() => void handleSaveDomain()}
+            variant="contained"
+            disabled={!domainDraft.domain?.trim()}
+            sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+          >
+            Lưu domain
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
