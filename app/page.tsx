@@ -3975,7 +3975,14 @@ export default function HomePage() {
         <Banners error={error} notice={notice} toast={toast} />
 
         {table.key === "audit_logs" && activeLayer !== "members" && activeLayer !== "blacklist" ? (
-          <AuditConsole auditStats={auditStats} />
+          <AuditConsole
+            auditStats={auditStats}
+            rows={rows}
+            selected={selected}
+            onSelectRow={setSelected}
+            auditLogSeverity={auditLogSeverity}
+            formatDateTime={formatDateTime}
+          />
         ) : null}
 
         {activeLayer === "members" || activeLayer === "blacklist" ? (
@@ -4268,7 +4275,7 @@ export default function HomePage() {
         )}
             </Stack>
           </Paper>
-        ) : activeLayer !== "members" && activeLayer !== "blacklist" ? (
+        ) : activeLayer !== "members" && activeLayer !== "blacklist" && table.key !== "audit_logs" ? (
         <Box
           sx={{
             display: "grid",

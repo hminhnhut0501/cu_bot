@@ -1,16 +1,37 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   Box,
   Button as MuiButton,
   Chip,
+  Divider,
   Grid,
+  IconButton,
+  LinearProgress,
   Paper,
   Stack,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import Section from "@/app/components/ui/Section";
-import StatCard from "@/app/components/ui/StatCard";
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  ArrowRight,
+  Bot,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Flame,
+  Layers,
+  Radio,
+  RefreshCcw,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import type { Row } from "@/lib/cp-types";
 
 export type OverviewDashboardViewProps = {
@@ -48,6 +69,8 @@ export type OverviewDashboardViewProps = {
   formatDateTime: (date: any) => string;
 };
 
+type AuditFilterTab = "all" | "critical" | "warning" | "info";
+
 export default function OverviewDashboardView({
   healthSummary,
   overviewActionCards,
@@ -61,299 +84,506 @@ export default function OverviewDashboardView({
   actionBadge,
   formatDateTime,
 }: OverviewDashboardViewProps) {
+  const [auditTab, setAuditTab] = useState<AuditFilterTab>("all");
+
+  const totalIssues =
+    healthSummary.pendingScamReports +
+    healthSummary.pendingChannelPosts +
+    healthSummary.failedChannelPosts;
+
+  const isHealthy = totalIssues === 0 && todayAuditSummary.critical === 0;
+
+  // Combine and sort today's audit logs chronologically
+  const unifiedAuditStream = useMemo(() => {
+    let list: Array<{ row: Row; severity: "critical" | "warning" | "info" }> = [];
+
+    if (auditTab === "all" || auditTab === "critical") {
+      list.push(...todayAuditGroups.critical.map((row) => ({ row, severity: "critical" as const })));
+    }
+    if (auditTab === "all" || auditTab === "warning") {
+      list.push(...todayAuditGroups.warning.map((row) => ({ row, severity: "warning" as const })));
+    }
+    if (auditTab === "all" || auditTab === "info") {
+      list.push(...todayAuditGroups.info.map((row) => ({ row, severity: "info" as const })));
+    }
+
+    return list.sort((a, b) => {
+      const timeA = String(a.row.created_at || a.row.updated_at || "");
+      const timeB = String(b.row.created_at || b.row.updated_at || "");
+      return timeB.localeCompare(timeA);
+    });
+  }, [todayAuditGroups, auditTab]);
+
   return (
-    <>
-      <Section
-        eyebrow="Overview"
-        title="Tổng quan vận hành"
-        subtitle="Trạng thái, việc cần xử lý, lối vào module."
-        tone="main"
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 1 }}>
+      {/* Executive Operational Command Banner */}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 2.5,
+          borderRadius: 2.5,
+          bgcolor: "background.paper",
+          display: "flex",
+          flexDirection: { xs: "column", lg: "row" },
+          justifyContent: "space-between",
+          alignItems: { xs: "stretch", lg: "center" },
+          gap: 2,
+          border: "1px solid",
+          borderColor: isHealthy ? "divider" : "warning.light",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+        }}
       >
-        <Stack spacing={2}>
-          <Paper
-            variant="outlined"
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          {/* Animated Pulse Radar Dot */}
+          <Box
             sx={{
-              p: 2.25,
-              bgcolor: "background.default",
-              backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.06), transparent 56%)",
-              borderTopColor: "rgba(15, 118, 110, 0.24)",
+              width: 44,
+              height: 44,
+              borderRadius: 2,
+              bgcolor: isHealthy ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.14)",
+              color: isHealthy ? "success.main" : "warning.main",
+              display: "grid",
+              placeItems: "center",
+              flexShrink: 0,
+              position: "relative",
             }}
           >
-            <Stack spacing={1.5}>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 2,
-                  alignItems: { xs: "flex-start", md: "center" },
-                  flexDirection: { xs: "column", md: "row" },
-                }}
-              >
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography variant="overline" color="text.secondary">
-                    Health summary
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {healthSummary.pendingScamReports ||
-                    healthSummary.pendingChannelPosts ||
-                    healthSummary.failedChannelPosts
-                      ? "Có việc cần xử lý hôm nay"
-                      : "Hệ thống đang ổn định"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {healthSummary.pendingScamReports ||
-                    healthSummary.pendingChannelPosts ||
-                    healthSummary.failedChannelPosts
-                      ? `Còn ${
-                          healthSummary.pendingScamReports +
-                          healthSummary.pendingChannelPosts +
-                          healthSummary.failedChannelPosts
-                        } mục cần xử lý.`
-                      : "Không có backlog nổi bật."}
-                  </Typography>
-                </Box>
-                <Stack
-                  direction={{ xs: "column", sm: "row" }}
-                  spacing={1}
+            {isHealthy ? <ShieldCheck size={22} /> : <AlertTriangle size={22} />}
+            <Box
+              sx={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                bgcolor: isHealthy ? "#10b981" : "#f59e0b",
+                boxShadow: `0 0 0 3px ${isHealthy ? "rgba(16, 185, 129, 0.25)" : "rgba(245, 158, 11, 0.25)"}`,
+              }}
+            />
+          </Box>
+
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                {isHealthy ? "Hệ Thống Đang Vận Hành Ổn Định" : `Phát Hiện ${totalIssues} Mục Cần Xử Lý`}
+              </Typography>
+              <Chip
+                size="small"
+                label={isHealthy ? "LIVE OPERATIONAL" : "ACTION REQUIRED"}
+                color={isHealthy ? "success" : "warning"}
+                sx={{ height: 20, fontSize: 10, fontWeight: 800, borderRadius: 1 }}
+              />
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {isHealthy
+                ? "Toàn bộ bot, tiến trình kiểm duyệt và kênh phát sóng hoạt động bình thường, không có backlog."
+                : `Hàng đợi có ${healthSummary.pendingScamReports} báo cáo scam, ${healthSummary.failedChannelPosts} bài phát sóng lỗi cần can thiệp.`}
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+          <MuiButton
+            variant="contained"
+            size="small"
+            color={isHealthy ? "primary" : "warning"}
+            startIcon={<Zap size={14} />}
+            onClick={() => openModuleConfigure("moderation")}
+            sx={{ textTransform: "none", borderRadius: 1.5, boxShadow: "none", fontWeight: 700 }}
+          >
+            {isHealthy ? "Trung tâm kiểm duyệt" : "Xem việc cần xử lý"}
+          </MuiButton>
+          <MuiButton
+            variant="outlined"
+            size="small"
+            startIcon={<Activity size={14} />}
+            onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}
+            sx={{ textTransform: "none", borderRadius: 1.5 }}
+          >
+            Mở Audit Logs ({todayAuditSummary.total})
+          </MuiButton>
+        </Stack>
+      </Paper>
+
+      {/* 4 Executive KPI Cards */}
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "repeat(2, 1fr)", lg: "repeat(4, 1fr)" } }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "success.main",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+              Bot Đang Hoạt Động
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.25, color: "success.main" }}>
+              {healthSummary.activeBots}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Sẵn sàng nhận & gửi lệnh
+            </Typography>
+          </Box>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.1)", display: "grid", placeItems: "center", color: "success.main" }}>
+            <Bot size={20} />
+          </Box>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: "primary.main",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+              Module Đang Bật
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.25, color: "primary.main" }}>
+              {healthSummary.enabledModules}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Tính năng đang chạy ngầm
+            </Typography>
+          </Box>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", display: "grid", placeItems: "center", color: "primary.main" }}>
+            <Layers size={20} />
+          </Box>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: totalIssues > 0 ? "warning.main" : "text.secondary",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+              Sự Vụ Chờ Xử Lý
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.25, color: totalIssues > 0 ? "warning.main" : "text.primary" }}>
+              {totalIssues}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Scam & bài phát lỗi
+            </Typography>
+          </Box>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: totalIssues > 0 ? "rgba(245, 158, 11, 0.1)" : "action.hover", display: "grid", placeItems: "center", color: totalIssues > 0 ? "warning.main" : "text.secondary" }}>
+            <AlertCircle size={20} />
+          </Box>
+        </Paper>
+
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            borderLeft: "4px solid",
+            borderLeftColor: healthSummary.disabledBots > 0 ? "error.main" : "divider",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
+              Bot Tạm Dừng
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, mt: 0.25, color: healthSummary.disabledBots > 0 ? "error.main" : "text.secondary" }}>
+              {healthSummary.disabledBots}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Chưa bật hoặc thiếu token
+            </Typography>
+          </Box>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "action.hover", display: "grid", placeItems: "center", color: "text.secondary" }}>
+            <Radio size={20} />
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Main Split: Triage Queue (Left) & Unified Live Incident Stream (Right) */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1.15fr" }, gap: 2.5, alignItems: "start" }}>
+        {/* Left Column: Priority Triage Backlog */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Flame size={18} style={{ color: "#ef4444" }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                Hàng Đợi Vận Hành Cần Xử Lý (Triage Queue)
+              </Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              Các sự vụ, hàng đợi duyệt và cảnh báo cần admin thao tác trong ca trực
+            </Typography>
+          </Box>
+
+          <Stack spacing={1.25}>
+            {overviewActionCards.map((item) => {
+              const isUrgent = item.tone === "scam" || item.tone === "danger";
+              const isWarn = item.tone === "warning";
+              return (
+                <Paper
+                  key={item.label}
+                  variant="outlined"
                   sx={{
-                    flexWrap: "wrap",
-                    justifyContent: { xs: "flex-start", md: "flex-end" },
-                    width: { xs: "100%", md: "auto" },
+                    p: 1.75,
+                    borderRadius: 1.5,
+                    bgcolor: "background.paper",
+                    border: "1px solid",
+                    borderColor: isUrgent ? "error.light" : isWarn ? "warning.light" : "divider",
+                    transition: "all 0.15s ease",
+                    "&:hover": {
+                      borderColor: "primary.main",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                      transform: "translateY(-1px)",
+                    },
                   }}
                 >
-                  <MuiButton
-                    fullWidth={false}
-                    sx={{ width: { xs: "100%", sm: "auto" } }}
-                    variant="contained"
-                    onClick={() => openModuleConfigure("moderation")}
-                  >
-                    Xem việc cần xử lý
-                  </MuiButton>
-                  <MuiButton
-                    fullWidth={false}
-                    sx={{ width: { xs: "100%", sm: "auto" } }}
-                    variant="outlined"
-                    onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}
-                  >
-                    Mở logs
-                  </MuiButton>
-                </Stack>
-              </Box>
-
-              <Grid container spacing={1.25}>
-                {[
-                  { label: "Bot online", value: healthSummary.activeBots, body: "Bot đang hoạt động", tone: "success" as const },
-                  { label: "Module bật", value: healthSummary.enabledModules, body: "Module đang chạy", tone: "main" as const },
-                  {
-                    label: "Cảnh báo",
-                    value: healthSummary.pendingScamReports + healthSummary.failedChannelPosts,
-                    body: "Mục cần chú ý",
-                    tone: "warning" as const,
-                  },
-                  { label: "Bot off", value: healthSummary.disabledBots, body: "Bot chưa sẵn sàng", tone: "neutral" as const },
-                ].map((item) => (
-                  <Grid key={item.label} size={{ xs: 12, sm: 6, xl: 3 }}>
-                    <StatCard compact label={item.label} value={item.value} hint={item.body} tone={item.tone} />
-                  </Grid>
-                ))}
-              </Grid>
-            </Stack>
-          </Paper>
-
-          <Grid container spacing={1.5}>
-            <Grid size={{ xs: 12, lg: 7 }}>
-              <Section eyebrow="Actions" title="Việc cần chú ý" subtitle="Bắt đầu từ cảnh báo, queue và hành động còn thiếu." tone="warning" subtle>
-                <Stack spacing={1.25}>
-                  {overviewActionCards.map((item) => (
-                    <Paper
-                      key={item.label}
-                      variant="outlined"
-                      sx={{
-                        p: 1.5,
-                        bgcolor: "background.paper",
-                        borderLeft: "3px solid",
-                        borderLeftColor:
-                          item.tone === "scam" || item.tone === "danger"
-                            ? "error.main"
-                            : item.tone === "warning"
-                              ? "warning.main"
-                              : "primary.main",
-                      }}
-                    >
-                      <Stack
-                        direction={{ xs: "column", sm: "row" }}
-                        spacing={1.25}
-                        sx={{ alignItems: { xs: "flex-start", sm: "center" }, justifyContent: "space-between", gap: 2 }}
-                      >
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            {item.label}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Mục đang chờ xử lý trong ca hiện tại.
-                          </Typography>
-                        </Box>
-                        <Stack
-                          direction="row"
-                          spacing={1}
-                          sx={{
-                            alignItems: "center",
-                            flexShrink: 0,
-                            width: { xs: "100%", sm: "auto" },
-                            justifyContent: { xs: "space-between", sm: "flex-end" },
-                          }}
-                        >
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={String(item.value)}
-                            sx={{
-                              borderColor:
-                                item.tone === "scam" || item.tone === "danger"
-                                  ? "error.main"
-                                  : item.tone === "warning"
-                                    ? "warning.main"
-                                    : item.tone === "main"
-                                      ? "primary.main"
-                                      : "divider",
-                              color:
-                                item.tone === "scam" || item.tone === "danger"
-                                  ? "error.main"
-                                  : item.tone === "warning"
-                                    ? "warning.main"
-                                    : item.tone === "main"
-                                      ? "primary.main"
-                                      : "text.secondary",
-                              fontWeight: 700,
-                            }}
-                          />
-                          <MuiButton size="small" variant="outlined" onClick={item.action}>
-                            Mở
-                          </MuiButton>
-                        </Stack>
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
+                          {item.label}
+                        </Typography>
+                        {isUrgent ? (
+                          <Chip size="small" label="Khẩn cấp" color="error" sx={{ height: 20, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
+                        ) : isWarn ? (
+                          <Chip size="small" label="Cần xử lý" color="warning" sx={{ height: 20, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
+                        ) : null}
                       </Stack>
-                    </Paper>
-                  ))}
-                </Stack>
-              </Section>
-            </Grid>
-
-            <Grid size={{ xs: 12, lg: 5 }}>
-              <Section eyebrow="Quick view" title="Top hôm nay" subtitle="Tóm tắt hành động và group nổi bật." tone="analytics" subtle>
-                <Stack spacing={1.5}>
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
-                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 700 }}>
-                      Top hành động hôm nay
-                    </Typography>
-                    <Stack spacing={0.75}>
-                      {todayAuditGroups.info.slice(0, 3).map((row) => (
-                        <Stack key={String(row.id || row.action)} direction="row" sx={{ justifyContent: "space-between", gap: 2, py: 0.25 }}>
-                          <Typography variant="body2" color="text.primary" sx={{ fontWeight: 600 }}>
-                            {actionBadge(row, { key: "audit_logs", label: "Nhật ký", description: "", titleField: "action", summaryFields: [], fields: [] })}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-                            {formatDateTime(row.created_at || row.updated_at)}
-                          </Typography>
-                        </Stack>
-                      ))}
-                      {!todayAuditGroups.info.length ? <Typography variant="body2" color="text.secondary">Chưa có action nổi bật.</Typography> : null}
-                    </Stack>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.paper" }}>
-                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 700 }}>
-                      Group nổi bật
-                    </Typography>
-                    <Stack spacing={0.75}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {String(selectedScopeRow?.group_name || selectedScope || "Chưa chọn group")}
-                      </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {selectedScopeRow
-                          ? `Bot: ${selectedScopeRow.bot_key || selectedBot || "main"} · Scope đã chọn`
-                          : "Chọn scope để xem group nổi bật trong ngữ cảnh hiện tại."}
+                        Đang tồn trong hàng đợi ca trực hiện tại
                       </Typography>
-                    </Stack>
-                  </Paper>
-                </Stack>
-              </Section>
-            </Grid>
-          </Grid>
-        </Stack>
-      </Section>
+                    </Box>
 
-      <Section
-        eyebrow="Signals"
-        title="Log bot trong ngày"
-        subtitle="Tổng hợp ngắn gọn thay vì dàn đều mọi trạng thái trên một màn hình."
-        tone="analytics"
-      >
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-            <Chip label={`Tổng ${todayAuditSummary.total}`} />
-            <Chip label={`Cảnh báo ${todayAuditSummary.warning}`} />
-            <Chip label={`Nghiêm trọng ${todayAuditSummary.critical}`} />
-            <Chip label={`Thông tin ${todayAuditSummary.info}`} />
-            <MuiButton variant="outlined" onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexShrink: 0 }}>
+                      <Chip
+                        size="small"
+                        label={String(item.value)}
+                        color={isUrgent ? "error" : isWarn ? "warning" : "default"}
+                        variant={Number(item.value) > 0 ? "filled" : "outlined"}
+                        sx={{ fontWeight: 800, height: 24, borderRadius: 1 }}
+                      />
+                      <MuiButton
+                        size="small"
+                        variant="outlined"
+                        endIcon={<ArrowRight size={13} />}
+                        onClick={item.action}
+                        sx={{ textTransform: "none", height: 28, borderRadius: 1.5 }}
+                      >
+                        Mở
+                      </MuiButton>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              );
+            })}
+          </Stack>
+
+          {/* Context Scope Quick Insight */}
+          <Divider sx={{ my: 0.5 }} />
+          <Box sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase" }}>
+              Ngữ Cảnh Đang Chọn:
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.25 }}>
+              {String(selectedScopeRow?.group_name || selectedScope || "Toàn bộ nhóm (Global Scope)")}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Bot phụ trách: <strong>{selectedScopeRow?.bot_key || selectedBot || "main"}</strong>
+            </Typography>
+          </Box>
+        </Paper>
+
+        {/* Right Column: Unified Real-Time Incident & Audit Feed */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1.5, flexWrap: "wrap" }}>
+            <Box>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Activity size={18} style={{ color: "#2563eb" }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  Dòng Sự Kiện Kiểm Toán Thời Gian Thực
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                Toàn bộ biến động bảo vệ, can thiệp và cảnh báo trong ngày
+              </Typography>
+            </Box>
+
+            <MuiButton
+              size="small"
+              variant="text"
+              endIcon={<ExternalLink size={13} />}
+              onClick={() => goToInsight({ targetLayer: "logs", targetTable: "audit_logs" })}
+              sx={{ textTransform: "none" }}
+            >
               Mở Logs
             </MuiButton>
+          </Box>
+
+          {/* Category Filter Chips Bar */}
+          <Stack direction="row" spacing={0.75} sx={{ overflowX: "auto", pb: 0.5 }}>
+            <Chip
+              size="small"
+              label={`Tất cả (${todayAuditSummary.total})`}
+              color={auditTab === "all" ? "primary" : "default"}
+              variant={auditTab === "all" ? "filled" : "outlined"}
+              onClick={() => setAuditTab("all")}
+              sx={{ borderRadius: 1.5, fontWeight: auditTab === "all" ? 700 : 500, cursor: "pointer" }}
+            />
+            <Chip
+              size="small"
+              label={`Nghiêm trọng (${todayAuditSummary.critical})`}
+              color={auditTab === "critical" ? "error" : "default"}
+              variant={auditTab === "critical" ? "filled" : "outlined"}
+              onClick={() => setAuditTab("critical")}
+              sx={{ borderRadius: 1.5, fontWeight: auditTab === "critical" ? 700 : 500, cursor: "pointer" }}
+            />
+            <Chip
+              size="small"
+              label={`Cảnh báo (${todayAuditSummary.warning})`}
+              color={auditTab === "warning" ? "warning" : "default"}
+              variant={auditTab === "warning" ? "filled" : "outlined"}
+              onClick={() => setAuditTab("warning")}
+              sx={{ borderRadius: 1.5, fontWeight: auditTab === "warning" ? 700 : 500, cursor: "pointer" }}
+            />
+            <Chip
+              size="small"
+              label={`Thông tin (${todayAuditSummary.info})`}
+              color={auditTab === "info" ? "info" : "default"}
+              variant={auditTab === "info" ? "filled" : "outlined"}
+              onClick={() => setAuditTab("info")}
+              sx={{ borderRadius: 1.5, fontWeight: auditTab === "info" ? 700 : 500, cursor: "pointer" }}
+            />
           </Stack>
-          <Grid container spacing={1.25}>
-            {(["critical", "warning", "info"] as const).map((severity) => {
-              const group = todayAuditGroups[severity];
-              const titleMap = { critical: "Nghiêm trọng", warning: "Cảnh báo", info: "Thông tin" } as const;
-              return (
-                <Grid key={severity} size={{ xs: 12, md: 4 }}>
+
+          {/* Live Chronological Stream */}
+          <Stack spacing={1} sx={{ maxHeight: 520, overflowY: "auto", pr: 0.5 }}>
+            {unifiedAuditStream.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+                <CheckCircle2 size={32} style={{ opacity: 0.3, marginBottom: 8 }} />
+                <Typography variant="body2">Không có sự kiện kiểm toán nào trong danh mục này</Typography>
+              </Box>
+            ) : (
+              unifiedAuditStream.map(({ row, severity }) => {
+                const isCrit = severity === "critical";
+                const isWarn = severity === "warning";
+                const timeStr = formatDateTime(row.created_at || row.updated_at);
+                const actionName = String(row.action || "Log Event");
+
+                return (
                   <Paper
+                    key={String(row.id || `${row.action}-${timeStr}`)}
                     variant="outlined"
                     sx={{
                       p: 1.5,
+                      borderRadius: 1.5,
+                      borderLeft: "3px solid",
+                      borderLeftColor: isCrit ? "error.main" : isWarn ? "warning.main" : "primary.main",
                       bgcolor: "background.paper",
-                      borderTop: "3px solid",
-                      borderTopColor:
-                        severity === "critical"
-                          ? "error.main"
-                          : severity === "warning"
-                            ? "warning.main"
-                            : "primary.main",
+                      transition: "all 0.15s ease",
+                      "&:hover": {
+                        bgcolor: "action.hover",
+                      },
                     }}
                   >
-                    <Stack spacing={1}>
-                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {titleMap[severity]}
+                    <Stack spacing={0.75}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
+                          <Box
+                            sx={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              bgcolor: isCrit ? "error.main" : isWarn ? "warning.main" : "primary.main",
+                              flexShrink: 0,
+                            }}
+                          />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
+                            {actionName}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={isCrit ? "Critical" : isWarn ? "Warning" : "Info"}
+                            color={isCrit ? "error" : isWarn ? "warning" : "default"}
+                            sx={{ height: 18, fontSize: 10, borderRadius: 0.75 }}
+                          />
+                        </Stack>
+
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                          {timeStr}
                         </Typography>
-                        <Chip
-                          size="small"
-                          label={group.length}
-                          color={severity === "critical" ? "error" : severity === "warning" ? "warning" : "default"}
-                        />
                       </Stack>
-                      <Stack spacing={0.75}>
-                        {group.slice(0, 3).map((item) => (
-                          <Box key={String(item.id || item.action)} sx={{ py: 0.25 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {String(item.action || "Log")}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {formatDateTime(item.created_at || item.updated_at)}
-                            </Typography>
-                          </Box>
-                        ))}
-                        {!group.length ? (
-                          <Typography variant="caption" color="text.secondary">
-                            Không có sự kiện.
+
+                      {/* Detail row */}
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+                        {row.bot_key ? (
+                          <Chip size="small" variant="outlined" label={`Bot: ${row.bot_key}`} sx={{ height: 20, fontSize: 10 }} />
+                        ) : null}
+                        {row.actor_user_id ? (
+                          <Chip size="small" variant="outlined" label={`Actor: ${row.actor_user_id}`} sx={{ height: 20, fontSize: 10 }} />
+                        ) : null}
+                        {row.target_user_id ? (
+                          <Chip size="small" variant="outlined" label={`Target: ${row.target_user_id}`} sx={{ height: 20, fontSize: 10 }} />
+                        ) : null}
+                        {row.details && typeof row.details === "object" && (row.details as any).reason ? (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }} noWrap>
+                            Lý do: {String((row.details as any).reason)}
                           </Typography>
                         ) : null}
                       </Stack>
                     </Stack>
                   </Paper>
-                </Grid>
-              );
-            })}
-          </Grid>
-        </Stack>
-      </Section>
-    </>
+                );
+              })
+            )}
+          </Stack>
+        </Paper>
+      </Box>
+    </Box>
   );
 }
