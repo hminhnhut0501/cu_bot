@@ -214,25 +214,20 @@ export default function ScamInbox({
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
           <Box
             sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
+              width: 34,
+              height: 34,
+              borderRadius: 1.5,
               display: "grid",
               placeItems: "center",
               bgcolor: "rgba(225, 29, 72, 0.12)",
               color: "#e11d48",
             }}
           >
-            <ShieldAlert size={20} />
+            <ShieldAlert size={18} />
           </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              Trung Tâm Thẩm Định Lừa Đảo (Scam Investigation)
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Xem xét báo cáo, đối chiếu bằng chứng giao dịch và đồng bộ cảnh báo toàn mạng lưới
-            </Typography>
-          </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Thẩm định lừa đảo
+          </Typography>
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>

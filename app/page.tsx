@@ -3808,17 +3808,6 @@ export default function HomePage() {
 
         {showOperations ? (
         <>
-        {activeTaskDefinition && activeLayer !== "advanced" ? (
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
-            <Stack direction={{ xs: "column", lg: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", lg: "center" } }}>
-              <Box>
-                <Typography variant="overline" color="text.secondary">Mục tiêu</Typography>
-                <Typography variant="h6">{activeTaskDefinition.outcome}</Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 760 }}>{activeTaskDefinition.description}</Typography>
-            </Stack>
-          </Paper>
-        ) : null}
 
         {activeLayer === "advanced" ? (
           <ErrorAlert
@@ -4203,7 +4192,7 @@ export default function HomePage() {
             setDraft={setDraft}
             save={save}
           />
-        ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") ? (
+        ) : table.key === "channel_posts" ? null : table.key === "config" && activeLayer.startsWith("module:") && activeLayer !== "module:moderation" ? (
           <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.paper" }}>
             <Stack spacing={2}>
               <TabsBar

@@ -290,87 +290,89 @@ export default function ModerationStudio({
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      {/* 1. Pulse Defense Header & Group Context */}
+      {/* 1. Compact Action Header */}
       <Paper
         variant="outlined"
         sx={{
-          p: 2,
+          p: 1.5,
           bgcolor: "background.paper",
           borderRadius: 2,
-          backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.05), transparent 60%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 1.5,
         }}
       >
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={2}
-          sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", md: "center" } }}
-        >
-          <Box>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
-              <ShieldCheck size={20} color="#0f766e" />
-              <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: "-0.02em" }}>
-                Hệ thống Phòng thủ & Kiểm duyệt Tự động
-              </Typography>
-              <Chip
-                label="Active Defense"
-                size="small"
-                color="success"
-                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700 }}
-              />
-            </Stack>
-            <Typography variant="body2" color="text.secondary">
-              Đang bảo vệ: <strong>{selectedGroupName}</strong> · Bot trực: <code>@{selectedBotKey}</code> · Tự động phát hiện spam, link độc, raid và trừng phạt tức thì.
-            </Typography>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
+          <Box sx={{ width: 34, height: 34, borderRadius: 1.5, bgcolor: "rgba(15, 118, 110, 0.1)", display: "grid", placeItems: "center", color: "primary.main" }}>
+            <ShieldCheck size={18} />
           </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Kiểm duyệt tự động
+          </Typography>
+          <Chip
+            label="Active"
+            size="small"
+            color="success"
+            sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+          />
+        </Stack>
 
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Tooltip title="Quản lý danh sách từ khóa cấm">
             <MuiButton
               variant="outlined"
               size="small"
               onClick={() => onOpenTaskData("keywords")}
               startIcon={<SlidersHorizontal size={14} />}
-              sx={{ textTransform: "none" }}
+              sx={{ textTransform: "none", borderRadius: 1.5, height: 30 }}
             >
               Từ khóa cấm
             </MuiButton>
+          </Tooltip>
+          <Tooltip title="Quản lý danh sách tên miền độc hại">
             <MuiButton
               variant="outlined"
               size="small"
               onClick={() => onOpenTaskData("domain_blacklist")}
               startIcon={<Link2 size={14} />}
-              sx={{ textTransform: "none" }}
+              sx={{ textTransform: "none", borderRadius: 1.5, height: 30 }}
             >
               Blacklist Domain
             </MuiButton>
-          </Stack>
+          </Tooltip>
         </Stack>
       </Paper>
 
-      {/* 2. Navigation Pills: Policy Matrix vs Sandbox vs Templates */}
+      {/* 2. Navigation Pills: Clean & icon-focused */}
       <Stack direction="row" spacing={1} sx={{ borderBottom: "1px solid", borderColor: "divider", pb: 1 }}>
         <MuiButton
           variant={activeTab === "matrix" ? "contained" : "text"}
           onClick={() => setActiveTab("matrix")}
           startIcon={<Shield size={16} />}
+          size="small"
           sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
         >
-          Ma trận chính sách (Policy Matrix)
+          Ma trận chính sách
         </MuiButton>
         <MuiButton
           variant={activeTab === "sandbox" ? "contained" : "text"}
           onClick={() => setActiveTab("sandbox")}
           startIcon={<Zap size={16} />}
+          size="small"
           sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
         >
-          Phòng thử nghiệm luật (Rule Sandbox)
+          Thử nghiệm luật
         </MuiButton>
         <MuiButton
           variant={activeTab === "templates" ? "contained" : "text"}
           onClick={() => setActiveTab("templates")}
           startIcon={<MessageSquare size={16} />}
+          size="small"
           sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
         >
-          Mẫu tin cảnh báo (Notice Templates)
+          Mẫu cảnh báo
         </MuiButton>
       </Stack>
 
@@ -378,21 +380,19 @@ export default function ModerationStudio({
       {activeTab === "matrix" && (
         <Stack spacing={2}>
           <Paper variant="outlined" sx={{ p: 0, overflow: "hidden", borderRadius: 2 }}>
-            <Box sx={{ p: 2, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider" }}>
+            <Box sx={{ px: 2, py: 1.25, bgcolor: "background.default", borderBottom: "1px solid", borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                Bảng quy tắc kiểm duyệt thời gian thực
+                Quy tắc kiểm duyệt thời gian thực
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Các switch cập nhật lạc quan (0ms). Nhấp vào "Sửa" trên từng dòng để đổi ngưỡng số hoặc thời gian phạt.
-              </Typography>
+              <Chip label="8 quy tắc" size="small" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1 }} />
             </Box>
 
             <Stack divider={<Divider />}>
               {/* Rule 1: Spam Rate */}
               <RuleRow
                 icon={<Clock size={18} color="#0284c7" />}
-                title="Chống Spam tin nhắn nhanh (Flood Rate)"
-                desc={`Giới hạn ${spamMax} tin / ${spamWindow} giây. Vượt ngưỡng sẽ ${spamAction}.`}
+                title="Chống spam tin dồn dập"
+                desc={`Tối đa ${spamMax} tin / ${spamWindow}s · Phạt: ${spamAction.toUpperCase()}`}
                 conditionChip={`> ${spamMax} tin / ${spamWindow}s`}
                 actionChip={spamAction}
                 actionColor={actionColor(spamAction)}
@@ -407,19 +407,19 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chống Spam tin nhắn nhanh (Flood Rate)",
-                    desc: "Giới hạn số tin nhắn một thành viên có thể gửi trong một khoảng thời gian ngắn.",
+                    title: "Chống spam tin dồn dập",
+                    desc: "Giới hạn số tin nhắn một thành viên có thể gửi trong khoảng thời gian ngắn.",
                     fields: [
-                      { key: "spam_max_messages", label: "Giới hạn số tin tối đa", type: "number", unit: "tin", hint: "Vượt quá ngưỡng này sẽ bị coi là spam (Đặt 0 để tắt)" },
-                      { key: "spam_window_seconds", label: "Cửa sổ thời gian theo dõi", type: "number", unit: "giây", hint: "Khoảng thời gian gom nhóm tin nhắn để đếm" },
-                      { key: "spam_action", label: "Hành vi xử lý vi phạm", type: "select", options: [
-                        { value: "mute", label: "Chặn chat tạm thời (Mute) - Khuyên dùng" },
+                      { key: "spam_max_messages", label: "Giới hạn số tin tối đa", type: "number", unit: "tin", hint: "Đặt 0 để tắt" },
+                      { key: "spam_window_seconds", label: "Cửa sổ theo dõi", type: "number", unit: "giây" },
+                      { key: "spam_action", label: "Hành vi xử phạt", type: "select", options: [
+                        { value: "mute", label: "Khóa chat tạm thời (Mute)" },
                         { value: "warn", label: "Cảnh báo (Warn)" },
                         { value: "delete", label: "Chỉ xóa tin (Delete)" },
                         { value: "kick", label: "Đuổi khỏi nhóm (Kick)" },
                         { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
                       ]},
-                      { key: "spam_restrict_seconds", label: "Thời hạn khóa chat (nếu chọn Mute)", type: "number", unit: "giây", hint: "vd: 300 = 5 phút, 3600 = 1 giờ, 86400 = 24 giờ" },
+                      { key: "spam_restrict_seconds", label: "Thời hạn khóa chat (giây)", type: "number", unit: "giây", hint: "vd: 300 = 5p, 3600 = 1h" },
                     ],
                     values: {
                       spam_max_messages: spamMax,
@@ -435,8 +435,8 @@ export default function ModerationStudio({
               {/* Rule 2: Duplicate Flood */}
               <RuleRow
                 icon={<RotateCcw size={18} color="#f59e0b" />}
-                title="Chống Lặp lại nội dung (Duplicate / Text & Sticker Raid)"
-                desc={`Phát hiện tin nhắn hoặc sticker giống nhau quá ${dupMax} lần / ${dupWindow} giây.`}
+                title="Chống lặp nội dung & sticker"
+                desc={`Lặp > ${dupMax} lần / ${dupWindow}s · Phạt: ${dupAction.toUpperCase()}`}
                 conditionChip={`Lặp > ${dupMax} lần / ${dupWindow}s`}
                 actionChip={dupAction}
                 actionColor={actionColor(dupAction)}
@@ -451,15 +451,15 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chống Lặp lại nội dung (Duplicate / Text & Sticker Raid)",
+                    title: "Chống lặp nội dung & sticker",
                     desc: "Phát hiện tin nhắn hoặc sticker giống nhau lặp đi lặp lại nhiều lần.",
                     fields: [
-                      { key: "duplicate_message_max_count", label: "Số lần trùng lặp tối đa cho phép", type: "number", unit: "lần" },
-                      { key: "duplicate_message_window_seconds", label: "Thời gian theo dõi trùng lặp", type: "number", unit: "giây" },
-                      { key: "duplicate_message_action", label: "Hành vi xử lý", type: "select", options: [
-                        { value: "delete", label: "Xóa tin nhắn vi phạm (Delete)" },
+                      { key: "duplicate_message_max_count", label: "Số lần trùng lặp tối đa", type: "number", unit: "lần" },
+                      { key: "duplicate_message_window_seconds", label: "Thời gian theo dõi", type: "number", unit: "giây" },
+                      { key: "duplicate_message_action", label: "Hành vi xử phạt", type: "select", options: [
+                        { value: "delete", label: "Xóa tin nhắn (Delete)" },
                         { value: "warn", label: "Cảnh báo (Warn)" },
-                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "restrict", label: "Khóa chat (Mute)" },
                         { value: "ban", label: "Cấm khỏi nhóm (Ban)" },
                       ]},
                     ],
@@ -476,9 +476,9 @@ export default function ModerationStudio({
               {/* Rule 3: Media Spam */}
               <RuleRow
                 icon={<Eye size={18} color="#8b5cf6" />}
-                title="Chống Spam ảnh / video / media (Media Flood)"
-                desc={`Giới hạn gửi tối đa ${mediaMax} file media / ${mediaWindow} giây.`}
-                conditionChip={`> ${mediaMax} media / ${mediaWindow}s`}
+                title="Chống spam file media"
+                desc={`Tối đa ${mediaMax} file / ${mediaWindow}s · Phạt: ${mediaAction.toUpperCase()}`}
+                conditionChip={`> ${mediaMax} file / ${mediaWindow}s`}
                 actionChip={mediaAction}
                 actionColor={actionColor(mediaAction)}
                 switchOn={mediaFloodOn}
@@ -492,15 +492,15 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chống Spam ảnh / video / media (Media Flood)",
-                    desc: "Ngăn chặn xả hàng loạt file media, sticker hoặc GIF làm loãng nhóm.",
+                    title: "Chống spam file media",
+                    desc: "Ngăn chặn gửi hàng loạt file ảnh, video hoặc GIF làm loãng nhóm.",
                     fields: [
-                      { key: "media_spam_max_messages", label: "Số file media tối đa", type: "number", unit: "file", hint: "Đặt 0 để tắt kiểm tra" },
+                      { key: "media_spam_max_messages", label: "Số file media tối đa", type: "number", unit: "file", hint: "Đặt 0 để tắt" },
                       { key: "media_spam_window_seconds", label: "Thời gian theo dõi", type: "number", unit: "giây" },
-                      { key: "media_spam_action", label: "Hành vi xử lý", type: "select", options: [
-                        { value: "delete", label: "Xóa media vi phạm (Delete)" },
+                      { key: "media_spam_action", label: "Hành vi xử phạt", type: "select", options: [
+                        { value: "delete", label: "Xóa media (Delete)" },
                         { value: "warn", label: "Cảnh báo (Warn)" },
-                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "restrict", label: "Khóa chat (Mute)" },
                         { value: "ban", label: "Cấm khỏi nhóm (Ban)" },
                       ]},
                     ],
@@ -517,9 +517,9 @@ export default function ModerationStudio({
               {/* Rule 4: Hidden Link & Text Mention */}
               <RuleRow
                 icon={<Link2 size={18} color="#ec4899" />}
-                title="Chặn Link ẩn & Text-Mention (@user vô hình)"
-                desc="Tự động bóc tách các liên kết lồng trong văn bản hoặc ký tự khoảng trắng để tránh lách luật."
-                conditionChip="Có liên kết ẩn / @mention"
+                title="Chặn link ẩn & mention tàng hình"
+                desc={`Tự động bóc tách link lồng văn bản hoặc mention ẩn · Phạt: ${hiddenLinkAction.toUpperCase()}`}
+                conditionChip="Có link ẩn / @mention"
                 actionChip={hiddenLinkAction}
                 actionColor={actionColor(hiddenLinkAction)}
                 switchOn={scanHiddenLink}
@@ -533,16 +533,16 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chặn Link ẩn & Text-Mention (@user vô hình)",
-                    desc: "Bóc tách link siêu liên kết ẩn trong ký tự hoặc @mention tàng hình.",
+                    title: "Chặn link ẩn & mention tàng hình",
+                    desc: "Bóc tách siêu liên kết ẩn trong ký tự hoặc mention vô hình.",
                     fields: [
-                      { key: "hidden_link_action", label: "Hành vi khi phát hiện link ẩn", type: "select", options: [
-                        { value: "delete", label: "Xóa tin nhắn (Delete) - Khuyên dùng" },
+                      { key: "hidden_link_action", label: "Hành vi xử lý", type: "select", options: [
+                        { value: "delete", label: "Xóa tin (Delete)" },
                         { value: "warn", label: "Cảnh báo (Warn)" },
-                        { value: "restrict", label: "Khóa chat tạm thời (Mute)" },
+                        { value: "restrict", label: "Khóa chat (Mute)" },
                         { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
                       ]},
-                      { key: "hidden_link_reason", label: "Lý do ghi nhật ký và thông báo", type: "text" },
+                      { key: "hidden_link_reason", label: "Lý do ghi log và thông báo", type: "text" },
                     ],
                     values: {
                       hidden_link_action: hiddenLinkAction,
@@ -556,10 +556,10 @@ export default function ModerationStudio({
               {/* Rule 5: Bio Scanner */}
               <RuleRow
                 icon={<UserX size={18} color="#14b8a6" />}
-                title="Quét Link độc hại trong Bio thành viên (Bio Scanner)"
-                desc="Kiểm tra tiểu sử của thành viên mới gia nhập, ngăn chặn tài khoản bot quảng cáo lừa đảo."
-                conditionChip="Bio chứa link t.me/ hoặc URL"
-                actionChip="Xóa tin & Hạn chế"
+                title="Quét link độc trong Bio"
+                desc="Tự động phát hiện bot airdrop và link xấu trong tiểu sử thành viên mới"
+                conditionChip="Bio chứa link / URL"
+                actionChip="Xóa & Mute"
                 actionColor="secondary"
                 switchOn={scanBio}
                 onToggle={() => {
@@ -572,12 +572,12 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Quét Link độc hại trong Bio thành viên (Bio Scanner)",
+                    title: "Quét link độc trong Bio",
                     desc: "Kiểm tra tiểu sử của tài khoản mới gia nhập để lọc bot airdrop và lừa đảo.",
                     fields: [
-                      { key: "bio_link_restrict_seconds", label: "Thời hạn khóa chat thành viên vi phạm bio", type: "number", unit: "giây", hint: "vd: 86400 = 24 giờ, 604800 = 7 ngày" },
+                      { key: "bio_link_restrict_seconds", label: "Thời hạn khóa chat (giây)", type: "number", unit: "giây" },
                       { key: "bio_link_delete_message", label: "Tự động xóa tin nhắn vi phạm", type: "select", options: [
-                        { value: "true", label: "Có xóa tin (Khuyên dùng)" },
+                        { value: "true", label: "Có xóa tin" },
                         { value: "false", label: "Không xóa tin" },
                       ]},
                     ],
@@ -593,9 +593,9 @@ export default function ModerationStudio({
               {/* Rule 6: Inline Keyboard Trap */}
               <RuleRow
                 icon={<AlertTriangle size={18} color="#ef4444" />}
-                title="Chặn Tin nhắn có nút bấm (Inline Keyboard Scam Trap)"
-                desc="Thành viên không phải admin gửi tin có nút bấm sẽ bị trừng phạt nghiêm khắc để diệt bot cào airdrop."
-                conditionChip="Tin nhắn có inline button"
+                title="Chặn tin nhắn có nút bấm"
+                desc={`Chỉ admin được gửi tin có button. Phạt thành viên thường: ${inlineAction.toUpperCase()}`}
+                conditionChip="Tin có inline button"
                 actionChip={inlineAction}
                 actionColor={actionColor(inlineAction)}
                 switchOn={inlineKeyboardBlock}
@@ -609,11 +609,11 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chặn Tin nhắn có nút bấm (Inline Keyboard Scam Trap)",
-                    desc: "Thành viên thường gửi tin nhắn có nút inline button sẽ bị xử phạt ngay lập tức.",
+                    title: "Chặn tin nhắn có nút bấm",
+                    desc: "Thành viên thường gửi tin nhắn có nút inline button sẽ bị xử phạt ngay.",
                     fields: [
                       { key: "inline_keyboard_action", label: "Hành vi xử phạt", type: "select", options: [
-                        { value: "ban", label: "Cấm vĩnh viễn (Ban) - Khuyên dùng diệt bot cào" },
+                        { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
                         { value: "kick", label: "Đuổi khỏi nhóm (Kick)" },
                         { value: "warn", label: "Cảnh báo (Warn)" },
                         { value: "delete", label: "Chỉ xóa tin (Delete)" },
@@ -628,16 +628,16 @@ export default function ModerationStudio({
               />
 
               {/* Rule 7: Forward Gate */}
-              <Box sx={{ p: 2, bgcolor: "background.paper" }}>
+              <Box sx={{ p: 1.75, bgcolor: "background.paper" }}>
                 <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { md: "center" } }}>
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                     <Forward size={18} color="#6366f1" />
                     <Box>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        Chế độ kiểm soát tin Forward (Forward Gate)
+                        Kiểm soát tin Forward
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Chặn triệt để tin chia sẻ từ kênh/nhóm khác để tránh spam kéo mem.
+                        Chặn chia sẻ từ kênh/nhóm khác tránh spam kéo mem
                       </Typography>
                     </Box>
                   </Stack>
@@ -650,7 +650,7 @@ export default function ModerationStudio({
                       color={forwardMode === "block" ? "error" : "default"}
                       variant={forwardMode === "block" ? "filled" : "outlined"}
                       onClick={() => setForwardMode("block")}
-                      sx={{ fontWeight: 700 }}
+                      sx={{ fontWeight: 700, borderRadius: 1.5 }}
                     />
                     <Chip
                       label="Có kiểm soát"
@@ -659,7 +659,7 @@ export default function ModerationStudio({
                       color={forwardMode === "controlled" ? "warning" : "default"}
                       variant={forwardMode === "controlled" ? "filled" : "outlined"}
                       onClick={() => setForwardMode("controlled")}
-                      sx={{ fontWeight: 700 }}
+                      sx={{ fontWeight: 700, borderRadius: 1.5 }}
                     />
                     <Chip
                       label="Cho phép tất cả"
@@ -668,7 +668,7 @@ export default function ModerationStudio({
                       color={forwardMode === "allow" ? "success" : "default"}
                       variant={forwardMode === "allow" ? "filled" : "outlined"}
                       onClick={() => setForwardMode("allow")}
-                      sx={{ fontWeight: 700 }}
+                      sx={{ fontWeight: 700, borderRadius: 1.5 }}
                     />
                   </Stack>
                 </Stack>
@@ -677,10 +677,10 @@ export default function ModerationStudio({
               {/* Rule 8: Escalation Ladder (Ban after warnings) */}
               <RuleRow
                 icon={<Ban size={18} color="#dc2626" />}
-                title="Thang xử lý lũy tiến (Auto-Ban Ladder)"
-                desc={`Tự động cấm thành viên sau ${banAfterWarnings} lần cảnh báo trong thời hạn ${Number(banSeconds) / 3600} giờ.`}
-                conditionChip={`Chạm mốc ${banAfterWarnings} cảnh báo`}
-                actionChip={`Ban ${Number(banSeconds) / 3600}h`}
+                title="Thang trừng phạt lũy tiến (Auto-Ban)"
+                desc={`Tự động cấm sau ${banAfterWarnings} lần cảnh báo (${Math.round(Number(banSeconds) / 3600)}h)`}
+                conditionChip={`Chạm ${banAfterWarnings} cảnh báo`}
+                actionChip={`Ban ${Math.round(Number(banSeconds) / 3600)}h`}
                 actionColor="error"
                 switchOn={autoBanLadderOn}
                 onToggle={() => {
@@ -693,11 +693,11 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Thang xử lý lũy tiến (Auto-Ban Ladder)",
+                    title: "Thang trừng phạt lũy tiến (Auto-Ban)",
                     desc: "Tự động cấm thành viên khi số lần cảnh báo vi phạm vượt quá ngưỡng.",
                     fields: [
-                      { key: "ban_after_warnings", label: "Số lần cảnh báo tối đa trước khi Ban", type: "number", unit: "lần", hint: "Đặt 0 để tắt chế độ Auto-ban" },
-                      { key: "ban_seconds", label: "Thời hạn cấm thành viên", type: "number", unit: "giây", hint: "vd: 86400 = 24 giờ, 604800 = 7 ngày" },
+                      { key: "ban_after_warnings", label: "Số lần cảnh báo tối đa trước khi Ban", type: "number", unit: "lần", hint: "Đặt 0 để tắt" },
+                      { key: "ban_seconds", label: "Thời hạn cấm (giây)", type: "number", unit: "giây", hint: "vd: 86400 = 24h" },
                     ],
                     values: {
                       ban_after_warnings: banAfterWarnings,
@@ -842,14 +842,9 @@ export default function ModerationStudio({
           <Grid size={{ xs: 12, lg: 6 }}>
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
               <Stack spacing={2}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                    Trình kiểm thử tin nhắn (Message Inspector)
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Nhập thử nội dung chat để kiểm tra xem bot sẽ phản hồi như thế nào với cấu hình hiện tại.
-                  </Typography>
-                </Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  Thử nghiệm tin nhắn
+                </Typography>
 
                 <TextField
                   label="Nội dung tin nhắn thử nghiệm"
@@ -870,36 +865,40 @@ export default function ModerationStudio({
 
                 <Stack spacing={1}>
                   <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                    Mô phỏng đặc tính tin nhắn:
+                    Thuộc tính tin nhắn:
                   </Typography>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
                     <Chip
-                      label={testHasLink ? "Có chứa link (ON)" : "Không có link"}
+                      label={testHasLink ? "Có link" : "Không link"}
                       clickable
                       color={testHasLink ? "primary" : "default"}
                       onClick={() => setTestHasLink((v) => !v)}
                       size="small"
+                      sx={{ borderRadius: 1 }}
                     />
                     <Chip
-                      label={testHasButtons ? "Có inline buttons (ON)" : "Không có button"}
+                      label={testHasButtons ? "Có inline buttons" : "Không button"}
                       clickable
                       color={testHasButtons ? "error" : "default"}
                       onClick={() => setTestHasButtons((v) => !v)}
                       size="small"
+                      sx={{ borderRadius: 1 }}
                     />
                     <Chip
-                      label={testIsForwarded ? "Tin forward (ON)" : "Tin viết trực tiếp"}
+                      label={testIsForwarded ? "Tin forward" : "Tin trực tiếp"}
                       clickable
                       color={testIsForwarded ? "warning" : "default"}
                       onClick={() => setTestIsForwarded((v) => !v)}
                       size="small"
+                      sx={{ borderRadius: 1 }}
                     />
                     <Chip
-                      label={`Gửi lặp lại: ${testRepeatCount} lần`}
+                      label={`Lặp lại: ${testRepeatCount} lần`}
                       clickable
                       color={testRepeatCount > 1 ? "secondary" : "default"}
                       onClick={() => setTestRepeatCount((c) => (c >= 5 ? 1 : c + 2))}
                       size="small"
+                      sx={{ borderRadius: 1 }}
                     />
                   </Stack>
                 </Stack>
@@ -909,31 +908,31 @@ export default function ModerationStudio({
                 {/* Verdict Box */}
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                    Kết luận đánh giá từ Bot:
+                    Đánh giá từ Bot:
                   </Typography>
                   {sandboxAnalysis.isViolated ? (
                     <Alert severity="error" sx={{ borderRadius: 1.5 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        🚨 PHÁT HIỆN VI PHẠM ({sandboxAnalysis.violations.length} lỗi)
+                        🚨 Phát hiện vi phạm ({sandboxAnalysis.violations.length})
                       </Typography>
                       <Stack spacing={0.5} sx={{ mt: 0.5 }}>
                         {sandboxAnalysis.violations.map((v, i) => (
                           <Typography key={i} variant="caption" sx={{ display: "block" }}>
-                            • <strong>{v.rule}</strong>: {v.detail} $\rightarrow$ <em>Action: {v.action}</em>
+                            • <strong>{v.rule}</strong>: {v.detail} → <em>Xử lý: {v.action}</em>
                           </Typography>
                         ))}
                       </Stack>
                       <Typography variant="body2" sx={{ mt: 1, fontWeight: 700 }}>
-                        ⚡ Hành vi trừng phạt tổng hợp: <code>{sandboxAnalysis.severeAction.toUpperCase()}</code>
+                        ⚡ Hành vi trừng phạt: <code>{sandboxAnalysis.severeAction.toUpperCase()}</code>
                       </Typography>
                     </Alert>
                   ) : (
                     <Alert severity="success" sx={{ borderRadius: 1.5 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        ✅ HỢP LỆ — Tin nhắn an toàn
+                        ✅ Hợp lệ — Tin nhắn an toàn
                       </Typography>
                       <Typography variant="caption">
-                        Không vi phạm bất kỳ bộ lọc chống spam, link ẩn hay blacklist nào. Bot sẽ cho qua bình thường.
+                        Không vi phạm bộ lọc spam, link ẩn hay blacklist.
                       </Typography>
                     </Alert>
                   )}
@@ -948,10 +947,7 @@ export default function ModerationStudio({
               <Stack spacing={1.5} sx={{ width: "100%", alignItems: "center" }}>
                 <Box sx={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                    Mô phỏng hiển thị trên Telegram
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Phản hồi thực tế trong nhóm
+                    Mô phỏng Telegram
                   </Typography>
                 </Box>
 
@@ -976,14 +972,9 @@ export default function ModerationStudio({
       {activeTab === "templates" && (
         <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
           <Stack spacing={2}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                Mẫu thông báo vi phạm của Bot
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Soạn tin nhắn bot sẽ gửi vào nhóm khi phát hiện hành vi spam, kèm các biến tự động thay thế.
-              </Typography>
-            </Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Mẫu thông báo vi phạm
+            </Typography>
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
@@ -996,7 +987,7 @@ export default function ModerationStudio({
                       {warningNotice}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Biến hỗ trợ: <code>{`{user}`}</code>, <code>{`{chat}`}</code>, <code>{`{reason}`}</code>, <code>{`{count}`}</code>
+                      Biến: <code>{`{user}`}</code>, <code>{`{chat}`}</code>, <code>{`{reason}`}</code>, <code>{`{count}`}</code>
                     </Typography>
                     <MuiButton
                       variant="outlined"
@@ -1006,9 +997,9 @@ export default function ModerationStudio({
                         const r = getRow("warning_text");
                         if (r) startEdit(r);
                       }}
-                      sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                      sx={{ alignSelf: "flex-start", textTransform: "none", borderRadius: 1.5 }}
                     >
-                      Sửa mẫu tin này
+                      Sửa mẫu tin
                     </MuiButton>
                   </Stack>
                 </Paper>
@@ -1021,7 +1012,7 @@ export default function ModerationStudio({
                       Thời gian tự xóa tin cảnh báo
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Tin nhắn cảnh báo sẽ tự động biến mất sau {getVal("warning_notice_delete_seconds", "30")} giây để giữ group sạch sẽ.
+                      Tự động xóa sau {getVal("warning_notice_delete_seconds", "30")}s để tránh rác nhóm.
                     </Typography>
                     <MuiButton
                       variant="outlined"
@@ -1031,9 +1022,9 @@ export default function ModerationStudio({
                         const r = getRow("warning_notice_delete_seconds");
                         if (r) startEdit(r);
                       }}
-                      sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                      sx={{ alignSelf: "flex-start", textTransform: "none", borderRadius: 1.5 }}
                     >
-                      Đổi thời gian tự xóa
+                      Đổi thời gian
                     </MuiButton>
                   </Stack>
                 </Paper>

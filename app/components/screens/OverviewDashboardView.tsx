@@ -166,19 +166,19 @@ export default function OverviewDashboardView({
           <Box>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                {isHealthy ? "Hệ Thống Đang Vận Hành Ổn Định" : `Phát Hiện ${totalIssues} Mục Cần Xử Lý`}
+                {isHealthy ? "Hệ thống vận hành ổn định" : `Có ${totalIssues} mục cần xử lý`}
               </Typography>
               <Chip
                 size="small"
-                label={isHealthy ? "LIVE OPERATIONAL" : "ACTION REQUIRED"}
+                label={isHealthy ? "LIVE" : "ACTION REQUIRED"}
                 color={isHealthy ? "success" : "warning"}
                 sx={{ height: 20, fontSize: 10, fontWeight: 800, borderRadius: 1 }}
               />
             </Stack>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: "block" }}>
               {isHealthy
-                ? "Toàn bộ bot, tiến trình kiểm duyệt và kênh phát sóng hoạt động bình thường, không có backlog."
-                : `Hàng đợi có ${healthSummary.pendingScamReports} báo cáo scam, ${healthSummary.failedChannelPosts} bài phát sóng lỗi cần can thiệp.`}
+                ? "Tất cả bot và kênh hoạt động bình thường."
+                : `${healthSummary.pendingScamReports} báo cáo scam, ${healthSummary.failedChannelPosts} bài phát sóng lỗi cần can thiệp.`}
             </Typography>
           </Box>
         </Stack>
@@ -331,19 +331,14 @@ export default function OverviewDashboardView({
             gap: 2,
           }}
         >
-          <Box>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <Flame size={18} style={{ color: "#ef4444" }} />
-              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                Hàng Đợi Vận Hành Cần Xử Lý (Triage Queue)
-              </Typography>
-            </Stack>
-            <Typography variant="caption" color="text.secondary">
-              Các sự vụ, hàng đợi duyệt và cảnh báo cần admin thao tác trong ca trực
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Flame size={18} style={{ color: "#ef4444" }} />
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Hàng đợi vận hành
             </Typography>
-          </Box>
+          </Stack>
 
-          <Stack spacing={1.25}>
+          <Stack spacing={1}>
             {overviewActionCards.map((item) => {
               const isUrgent = item.tone === "scam" || item.tone === "danger";
               const isWarn = item.tone === "warning";
@@ -352,7 +347,7 @@ export default function OverviewDashboardView({
                   key={item.label}
                   variant="outlined"
                   sx={{
-                    p: 1.75,
+                    p: 1.5,
                     borderRadius: 1.5,
                     bgcolor: "background.paper",
                     border: "1px solid",
@@ -372,14 +367,11 @@ export default function OverviewDashboardView({
                           {item.label}
                         </Typography>
                         {isUrgent ? (
-                          <Chip size="small" label="Khẩn cấp" color="error" sx={{ height: 20, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
+                          <Chip size="small" label="Khẩn cấp" color="error" sx={{ height: 18, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
                         ) : isWarn ? (
-                          <Chip size="small" label="Cần xử lý" color="warning" sx={{ height: 20, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
+                          <Chip size="small" label="Cần xử lý" color="warning" sx={{ height: 18, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
                         ) : null}
                       </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        Đang tồn trong hàng đợi ca trực hiện tại
-                      </Typography>
                     </Box>
 
                     <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexShrink: 0 }}>
@@ -405,20 +397,6 @@ export default function OverviewDashboardView({
               );
             })}
           </Stack>
-
-          {/* Context Scope Quick Insight */}
-          <Divider sx={{ my: 0.5 }} />
-          <Box sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: "uppercase" }}>
-              Ngữ Cảnh Đang Chọn:
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.25 }}>
-              {String(selectedScopeRow?.group_name || selectedScope || "Toàn bộ nhóm (Global Scope)")}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Bot phụ trách: <strong>{selectedScopeRow?.bot_key || selectedBot || "main"}</strong>
-            </Typography>
-          </Box>
         </Paper>
 
         {/* Right Column: Unified Real-Time Incident & Audit Feed */}
@@ -433,18 +411,13 @@ export default function OverviewDashboardView({
             gap: 2,
           }}
         >
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1.5, flexWrap: "wrap" }}>
-            <Box>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Activity size={18} style={{ color: "#2563eb" }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  Dòng Sự Kiện Kiểm Toán Thời Gian Thực
-                </Typography>
-              </Stack>
-              <Typography variant="caption" color="text.secondary">
-                Toàn bộ biến động bảo vệ, can thiệp và cảnh báo trong ngày
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Activity size={18} style={{ color: "#2563eb" }} />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                Nhật ký kiểm toán trực tiếp
               </Typography>
-            </Box>
+            </Stack>
 
             <MuiButton
               size="small"

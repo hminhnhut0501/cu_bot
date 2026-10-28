@@ -279,7 +279,7 @@ export default function MemberWorkspace({
         }}
       >
         <Box>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
             <Box
               sx={{
                 width: 32,
@@ -293,16 +293,9 @@ export default function MemberWorkspace({
             >
               {systemBlacklistActive ? <ShieldAlert size={18} /> : <Users size={18} />}
             </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                {systemBlacklistActive ? "Blacklist Toàn Hệ Thống" : "Danh Bạ Thành Viên & Điểm Uy Tín"}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {systemBlacklistActive
-                  ? "Chặn triệt để trên toàn bộ các bot và nhóm thuộc quyền quản lý"
-                  : "Chấm điểm tín nhiệm thời gian thực, giám sát phát ngôn và bảo vệ cộng đồng"}
-              </Typography>
-            </Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              {systemBlacklistActive ? "Blacklist toàn hệ thống" : "Danh bạ thành viên"}
+            </Typography>
           </Stack>
         </Box>
 

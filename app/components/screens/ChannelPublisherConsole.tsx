@@ -125,28 +125,23 @@ export default function ChannelPublisherConsole({
           borderColor: "divider",
         }}
       >
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
           <Box
             sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
+              width: 34,
+              height: 34,
+              borderRadius: 1.5,
               display: "grid",
               placeItems: "center",
               bgcolor: "rgba(37, 99, 235, 0.12)",
               color: "primary.main",
             }}
           >
-            <Radio size={20} />
+            <Radio size={18} />
           </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Xưởng Phát Sóng Kênh (Channel Publisher Studio)
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Soạn thảo bài viết, lên lịch đăng tự động và xem trước thông điệp trên Telegram thời gian thực
-            </Typography>
-          </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Phát sóng kênh
+          </Typography>
         </Stack>
 
         <MuiButton

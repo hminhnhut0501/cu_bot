@@ -168,25 +168,20 @@ export default function AuditConsole({
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
           <Box
             sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2,
+              width: 34,
+              height: 34,
+              borderRadius: 1.5,
               display: "grid",
               placeItems: "center",
               bgcolor: "rgba(37, 99, 235, 0.12)",
               color: "primary.main",
             }}
           >
-            <Terminal size={20} />
+            <Terminal size={18} />
           </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Trung Tâm Nhật Ký Kiểm Toán (Audit Stream Inspector)
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Ghi nhận và tra cứu toàn bộ hành vi quản trị, can thiệp xử phạt và biến động hệ thống
-            </Typography>
-          </Box>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Nhật ký kiểm toán
+          </Typography>
         </Stack>
 
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
