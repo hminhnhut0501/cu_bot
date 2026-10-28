@@ -144,7 +144,7 @@ export type MemberFilterState = {
   status: "all" | "normal" | "muted" | "banned" | "blacklisted";
   source: "all" | "activity" | "state" | "audit" | "activity+state";
   reason: "all" | "has_reason" | "missing_reason";
-  sortBy: "last_seen_at" | "updated_at" | "display_name" | "status";
+  sortBy: "last_seen_at" | "updated_at" | "display_name" | "status" | "reputation";
   sortDir: "asc" | "desc";
 };
 

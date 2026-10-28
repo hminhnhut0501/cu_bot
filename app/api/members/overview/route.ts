@@ -51,7 +51,18 @@ function statusOf(row: Row) {
   return String(row.status || "").trim().toLowerCase() || "normal";
 }
 
+function computeReputation(row: Row): number {
+  if (typeof row.reputation === "number" && !isNaN(row.reputation)) return row.reputation;
+  const status = statusOf(row);
+  if (status === "blacklisted") return 5;
+  if (status === "banned") return 18;
+  if (status === "muted") return 42;
+  const msgCount = Number(row.message_count || 1);
+  return Math.min(100, Math.max(50, 82 + Math.min(18, msgCount * 2)));
+}
+
 function sortKeyOf(row: Row, sortBy: string) {
+  if (sortBy === "reputation") return computeReputation(row);
   if (sortBy === "display_name") return normalize(row.display_name || row.username || row.user_id);
   if (sortBy === "status") return statusOf(row);
   if (sortBy === "updated_at") return String(row.updated_at || row.last_seen_at || row.created_at || "");
@@ -62,19 +73,21 @@ function mergeMemberRows(activityRows: Row[], stateRows: Row[]) {
   const map = new Map<string, Row>();
   for (const row of activityRows) {
     const key = `${row.chat_id || ""}:${row.user_id || ""}`;
+    const rep = computeReputation(row);
     map.set(key, {
       ...row,
+      reputation: rep,
       status: "normal",
       source: "activity",
     });
   }
   for (const row of stateRows) {
     const key = `${row.chat_id || ""}:${row.user_id || ""}`;
-    map.set(key, {
-      ...(map.get(key) || {}),
-      ...row,
-      source: map.has(key) ? "activity+state" : "state",
-    });
+    const prev = map.get(key) || {};
+    const merged = { ...prev, ...row };
+    merged.reputation = computeReputation(merged);
+    merged.source = map.has(key) ? "activity+state" : "state";
+    map.set(key, merged);
   }
   return Array.from(map.values());
 }
@@ -196,7 +209,10 @@ function applyMemberFilters(rows: Row[], filters: {
   const sorted = [...filtered].sort((left, right) => {
     const leftKey = sortKeyOf(left, filters.sortBy);
     const rightKey = sortKeyOf(right, filters.sortBy);
-    return filters.sortDir === "asc" ? leftKey.localeCompare(rightKey) : rightKey.localeCompare(leftKey);
+    if (typeof leftKey === "number" && typeof rightKey === "number") {
+      return filters.sortDir === "asc" ? leftKey - rightKey : rightKey - leftKey;
+    }
+    return filters.sortDir === "asc" ? String(leftKey).localeCompare(String(rightKey)) : String(rightKey).localeCompare(String(leftKey));
   });
   return sorted;
 }

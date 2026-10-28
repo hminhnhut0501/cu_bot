@@ -38,6 +38,16 @@ function statusOf(action: string) {
   return "";
 }
 
+function computeReputation(row: Row): number {
+  if (typeof row.reputation === "number" && !isNaN(row.reputation)) return row.reputation;
+  const status = String(row.status || "").toLowerCase();
+  if (status === "blacklisted") return 5;
+  if (status === "banned") return 18;
+  if (status === "muted") return 42;
+  const msgCount = Number(row.message_count || 1);
+  return Math.min(100, Math.max(50, 82 + Math.min(18, msgCount * 2)));
+}
+
 function timelineLabel(action: string) {
   const labels: Record<string, string> = {
     member_joined: "Join group",
@@ -199,6 +209,7 @@ export async function GET(request: NextRequest) {
       scope: { botKey, groupId, userId },
       member: {
         ...(member || {}),
+        reputation: computeReputation({ ...(member || {}), status: status || String(member?.status || "normal") }),
         status: status || String(member?.status || "normal"),
         username: String(member?.username || activityRows?.[0]?.username || ""),
         display_name: String(member?.display_name || activityRows?.[0]?.display_name || member?.user_id || userId),

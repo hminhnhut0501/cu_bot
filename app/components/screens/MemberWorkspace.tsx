@@ -1,6 +1,6 @@
 "use client";
 
-import type { ElementType } from "react";
+import { useMemo, useState, type ElementType } from "react";
 import {
   Alert,
   Box,
@@ -11,6 +11,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  LinearProgress,
   MenuItem,
   Paper,
   Stack,
@@ -20,10 +21,12 @@ import {
 } from "@mui/material";
 import {
   AlertCircle,
+  Award,
   Ban,
   Clock,
   ExternalLink,
   Filter,
+  Gem,
   LogOut,
   MessageSquare,
   MicOff,
@@ -34,6 +37,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Star,
+  TrendingUp,
   Unlock,
   UserCheck,
   Users,
@@ -82,6 +87,97 @@ export type MemberWorkspaceProps = {
   memberUsername: (row: Row) => string;
   memberStatusBadgeLabel: (row: Row) => string;
 };
+
+export type ReputationTier = {
+  score: number;
+  tier: "diamond" | "gold" | "silver" | "warning" | "danger";
+  label: string;
+  shortLabel: string;
+  icon: string;
+  color: string;
+  barColor: "success" | "info" | "primary" | "warning" | "error";
+  bg: string;
+  border: string;
+};
+
+export function getReputationInfo(row: Row): ReputationTier {
+  let score = typeof row.reputation === "number" && !isNaN(row.reputation) ? row.reputation : null;
+  const status = String(row.status || "").toLowerCase();
+
+  if (score === null) {
+    if (status === "blacklisted") score = 5;
+    else if (status === "banned") score = 18;
+    else if (status === "muted") score = 42;
+    else {
+      const msgCount = Number(row.message_count || 1);
+      score = Math.min(100, Math.max(50, 82 + Math.min(18, msgCount * 2)));
+    }
+  }
+
+  if (score >= 90) {
+    return {
+      score,
+      tier: "diamond",
+      label: "Uy Tín Tuyệt Đối (Kim Cương)",
+      shortLabel: "Kim Cương",
+      icon: "💎",
+      color: "#059669",
+      barColor: "success",
+      bg: "rgba(16, 185, 129, 0.1)",
+      border: "rgba(16, 185, 129, 0.25)",
+    };
+  }
+  if (score >= 75) {
+    return {
+      score,
+      tier: "gold",
+      label: "Thành Viên Tích Cực (Vàng)",
+      shortLabel: "Tích Cực",
+      icon: "⭐",
+      color: "#2563eb",
+      barColor: "primary",
+      bg: "rgba(37, 99, 235, 0.1)",
+      border: "rgba(37, 99, 235, 0.25)",
+    };
+  }
+  if (score >= 50) {
+    return {
+      score,
+      tier: "silver",
+      label: "Tiêu Chuẩn (Bạc)",
+      shortLabel: "Tiêu Chuẩn",
+      icon: "🥈",
+      color: "#6b7280",
+      barColor: "info",
+      bg: "rgba(107, 114, 128, 0.1)",
+      border: "rgba(107, 114, 128, 0.25)",
+    };
+  }
+  if (score >= 30) {
+    return {
+      score,
+      tier: "warning",
+      label: "Cần Giám Sát / Cảnh Báo",
+      shortLabel: "Cảnh Báo",
+      icon: "⚠️",
+      color: "#d97706",
+      barColor: "warning",
+      bg: "rgba(245, 158, 11, 0.1)",
+      border: "rgba(245, 158, 11, 0.25)",
+    };
+  }
+  return {
+    score,
+    tier: "danger",
+    label: "Nguy Cơ Cao / Bị Khóa",
+    shortLabel: "Nguy Hiểm",
+    icon: "🚫",
+    color: "#dc2626",
+    barColor: "error",
+    bg: "rgba(239, 68, 68, 0.1)",
+    border: "rgba(239, 68, 68, 0.25)",
+  };
+}
 
 function getAvatarStyle(name: string, id: string) {
   const text = (name || id || "?").trim();
@@ -144,6 +240,26 @@ export default function MemberWorkspace({
 }: MemberWorkspaceProps) {
   const statsList = systemBlacklistActive ? systemBlacklistStats : memberStatsCards;
 
+  // Reputation tier distribution calculation
+  const reputationDistribution = useMemo(() => {
+    let diamond = 0;
+    let gold = 0;
+    let silver = 0;
+    let warning = 0;
+    let danger = 0;
+
+    for (const r of memberFilteredRows) {
+      const rep = getReputationInfo(r);
+      if (rep.tier === "diamond") diamond++;
+      else if (rep.tier === "gold") gold++;
+      else if (rep.tier === "silver") silver++;
+      else if (rep.tier === "warning") warning++;
+      else danger++;
+    }
+
+    return { diamond, gold, silver, warning, danger };
+  }, [memberFilteredRows]);
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       {/* SaaS Header & Quick Actions */}
@@ -179,12 +295,12 @@ export default function MemberWorkspace({
             </Box>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                {systemBlacklistActive ? "Blacklist Toàn Hệ Thống" : "Danh Bạ & Thành Viên Nhóm"}
+                {systemBlacklistActive ? "Blacklist Toàn Hệ Thống" : "Danh Bạ Thành Viên & Điểm Uy Tín"}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {systemBlacklistActive
                   ? "Chặn triệt để trên toàn bộ các bot và nhóm thuộc quyền quản lý"
-                  : "Quản lý hoạt động thành viên, tra cứu danh tính và xử lý vi phạm"}
+                  : "Chấm điểm tín nhiệm thời gian thực, giám sát phát ngôn và bảo vệ cộng đồng"}
               </Typography>
             </Box>
           </Stack>
@@ -270,6 +386,113 @@ export default function MemberWorkspace({
         </Alert>
       ) : null}
 
+      {/* Reputation Scoreboard & Distribution Strip */}
+      {!systemBlacklistActive ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1.75,
+            borderRadius: 2,
+            bgcolor: "background.paper",
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            alignItems: { xs: "flex-start", md: "center" },
+            justifyContent: "space-between",
+            gap: 1.5,
+            borderLeft: "4px solid",
+            borderLeftColor: "success.main",
+          }}
+        >
+          <Box>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Award size={18} style={{ color: "#10b981" }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                Hệ Thống Phân Hạng Uy Tín (Trust Score Distribution)
+              </Typography>
+            </Stack>
+            <Typography variant="caption" color="text.secondary">
+              Tỷ lệ điểm uy tín tổng hợp từ lịch sử phát ngôn, độ an toàn và trạng thái kiểm duyệt
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+            <Tooltip title="Thành viên uy tín xuất sắc (90-100đ): An toàn 100%, không vi phạm" arrow>
+              <Chip
+                size="small"
+                icon={<Gem size={12} style={{ color: "#059669" }} />}
+                label={`Kim Cương: ${reputationDistribution.diamond}`}
+                sx={{
+                  bgcolor: "rgba(16, 185, 129, 0.1)",
+                  color: "#059669",
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  border: "1px solid rgba(16, 185, 129, 0.25)",
+                }}
+              />
+            </Tooltip>
+
+            <Tooltip title="Thành viên tích cực (75-89đ): Hoạt động ổn định" arrow>
+              <Chip
+                size="small"
+                icon={<Star size={12} style={{ color: "#2563eb" }} />}
+                label={`Tích Cực: ${reputationDistribution.gold}`}
+                sx={{
+                  bgcolor: "rgba(37, 99, 235, 0.1)",
+                  color: "#2563eb",
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  border: "1px solid rgba(37, 99, 235, 0.25)",
+                }}
+              />
+            </Tooltip>
+
+            <Tooltip title="Tiêu chuẩn (50-74đ): Thành viên mới hoặc ít phát ngôn" arrow>
+              <Chip
+                size="small"
+                label={`Tiêu Chuẩn: ${reputationDistribution.silver}`}
+                sx={{
+                  bgcolor: "rgba(107, 114, 128, 0.1)",
+                  color: "#6b7280",
+                  fontWeight: 600,
+                  borderRadius: 1.5,
+                  border: "1px solid rgba(107, 114, 128, 0.25)",
+                }}
+              />
+            </Tooltip>
+
+            <Tooltip title="Cần cảnh báo (30-49đ): Từng có tiền lệ bị cấm phát ngôn" arrow>
+              <Chip
+                size="small"
+                icon={<AlertCircle size={12} style={{ color: "#d97706" }} />}
+                label={`Cảnh Báo: ${reputationDistribution.warning}`}
+                sx={{
+                  bgcolor: "rgba(245, 158, 11, 0.1)",
+                  color: "#d97706",
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  border: "1px solid rgba(245, 158, 11, 0.25)",
+                }}
+              />
+            </Tooltip>
+
+            <Tooltip title="Nguy hiểm (<30đ): Đang bị cấm vĩnh viễn hoặc đưa vào Blacklist" arrow>
+              <Chip
+                size="small"
+                icon={<Ban size={12} style={{ color: "#dc2626" }} />}
+                label={`Nguy Hiểm: ${reputationDistribution.danger}`}
+                sx={{
+                  bgcolor: "rgba(239, 68, 68, 0.1)",
+                  color: "#dc2626",
+                  fontWeight: 700,
+                  borderRadius: 1.5,
+                  border: "1px solid rgba(239, 68, 68, 0.25)",
+                }}
+              />
+            </Tooltip>
+          </Stack>
+        </Paper>
+      ) : null}
+
       {/* Filter & Search Console */}
       <Paper
         variant="outlined"
@@ -335,8 +558,10 @@ export default function MemberWorkspace({
                   sortDir: sortDir as MemberFilterState["sortDir"],
                 }));
               }}
-              sx={{ minWidth: 140, "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
+              sx={{ minWidth: 165, "& .MuiOutlinedInput-root": { borderRadius: 1.5 } }}
             >
+              <MenuItem value="reputation:desc">💎 Điểm uy tín (Cao → Thấp)</MenuItem>
+              <MenuItem value="reputation:asc">⚠️ Điểm uy tín (Thấp → Cao)</MenuItem>
               <MenuItem value="last_seen_at:desc">Hoạt động gần nhất</MenuItem>
               <MenuItem value="last_seen_at:asc">Lâu nhất</MenuItem>
               <MenuItem value="display_name:asc">Tên (A → Z)</MenuItem>
@@ -422,6 +647,7 @@ export default function MemberWorkspace({
             const username = memberUsername(row);
             const avatar = getAvatarStyle(displayName, userId);
             const releaseAction = memberReleaseActionFor(row);
+            const rep = getReputationInfo(row);
 
             return (
               <Paper
@@ -444,16 +670,16 @@ export default function MemberWorkspace({
                 }}
               >
                 <Stack
-                  direction={{ xs: "column", sm: "row" }}
+                  direction={{ xs: "column", lg: "row" }}
                   spacing={1.5}
-                  sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}
+                  sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", lg: "center" } }}
                 >
                   {/* Left: Avatar + Identity Info */}
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0 }}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", minWidth: 0, flex: 1 }}>
                     <Box
                       sx={{
-                        width: 42,
-                        height: 42,
+                        width: 44,
+                        height: 44,
                         borderRadius: "50%",
                         bgcolor: avatar.bg,
                         color: avatar.color,
@@ -509,6 +735,35 @@ export default function MemberWorkspace({
                     </Box>
                   </Stack>
 
+                  {/* Center: Reputation Score Gauge & Bar */}
+                  <Box
+                    sx={{
+                      minWidth: { xs: "100%", sm: 190 },
+                      p: 1,
+                      borderRadius: 1.5,
+                      bgcolor: rep.bg,
+                      border: `1px solid ${rep.border}`,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 0.5,
+                    }}
+                  >
+                    <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: rep.color, display: "flex", alignItems: "center", gap: 0.5 }}>
+                        <span>{rep.icon}</span> {rep.shortLabel}
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 800, fontFamily: "monospace", color: rep.color }}>
+                        {rep.score}/100đ
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={rep.score}
+                      color={rep.barColor}
+                      sx={{ height: 5, borderRadius: 1, bgcolor: "rgba(0,0,0,0.06)" }}
+                    />
+                  </Box>
+
                   {/* Right: Status Badges & Direct Action Buttons */}
                   <Stack
                     direction={{ xs: "column", sm: "row" }}
@@ -516,7 +771,7 @@ export default function MemberWorkspace({
                     sx={{
                       alignItems: { xs: "flex-start", sm: "center" },
                       justifyContent: "flex-end",
-                      width: { xs: "100%", sm: "auto" },
+                      width: { xs: "100%", lg: "auto" },
                     }}
                   >
                     <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>

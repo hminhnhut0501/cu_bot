@@ -7,16 +7,20 @@ import {
   Button as MuiButton,
   Chip,
   CircularProgress,
+  Divider,
   Drawer,
   Grid,
+  LinearProgress,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import { Award, CheckCircle2, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { MemberOverview, Row } from "@/lib/cp-types";
 import { formatDateTime } from "@/lib/cp-helpers";
+import { getReputationInfo } from "./MemberWorkspace";
 
 export type MemberDetailDrawerProps = {
   open: boolean;
@@ -115,6 +119,70 @@ export default function MemberDetailDrawer({
             </Box>
             <MuiButton size="small" onClick={onClose}>Đóng</MuiButton>
           </Stack>
+
+          {/* Member Reputation Dossier */}
+          {(() => {
+            const rep = getReputationInfo(memberSelectedRow);
+            return (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor: rep.bg,
+                  border: `1px solid ${rep.border}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1.25,
+                }}
+              >
+                <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <Typography variant="overline" sx={{ fontWeight: 800, color: rep.color, letterSpacing: 1 }}>
+                    HỒ SƠ TÍN NHIỆM (TRUST SCORE)
+                  </Typography>
+                  <Chip
+                    size="small"
+                    label={`${rep.icon} ${rep.shortLabel}`}
+                    sx={{
+                      fontWeight: 700,
+                      bgcolor: "background.paper",
+                      color: rep.color,
+                      border: `1px solid ${rep.border}`,
+                      borderRadius: 1,
+                    }}
+                  />
+                </Stack>
+
+                <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+                  <Typography variant="h3" sx={{ fontWeight: 900, color: rep.color, lineHeight: 1 }}>
+                    {rep.score}
+                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    / 100 điểm
+                  </Typography>
+                </Box>
+
+                <LinearProgress
+                  variant="determinate"
+                  value={rep.score}
+                  color={rep.barColor}
+                  sx={{ height: 6, borderRadius: 1, bgcolor: "rgba(0,0,0,0.08)" }}
+                />
+
+                <Typography variant="caption" sx={{ color: "text.secondary", mt: 0.5 }}>
+                  {rep.tier === "diamond"
+                    ? "Tài khoản uy tín tối đa: Không có tiền sử vi phạm, an toàn tham gia các sự kiện & giveaway."
+                    : rep.tier === "gold"
+                    ? "Tài khoản tích cực: Hoạt động gửi tin bình thường, độ tin cậy cao."
+                    : rep.tier === "silver"
+                    ? "Tài khoản tiêu chuẩn: Đang được giám sát bởi hệ thống kiểm duyệt tự động."
+                    : rep.tier === "warning"
+                    ? "Tài khoản có dấu hiệu vi phạm: Từng bị mute hoặc spam, cần chú ý theo dõi."
+                    : "Tài khoản nguy hiểm: Bị cấm hoạt động hoặc đưa vào danh sách đen toàn mạng."}
+                </Typography>
+              </Paper>
+            );
+          })()}
 
           <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default" }}>
             <Grid container spacing={1}>
