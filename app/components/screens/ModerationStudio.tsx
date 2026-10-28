@@ -26,9 +26,11 @@ import {
 import {
   AlertTriangle,
   Ban,
+  Bot,
   CheckCircle2,
   Clock,
   Copy,
+  Crown,
   Edit3,
   ExternalLink,
   Eye,
@@ -40,11 +42,14 @@ import {
   Play,
   RotateCcw,
   Save,
+  Settings2,
   Shield,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Smile,
   Sparkles,
+  Trash2,
   UserX,
   VolumeX,
   X,
@@ -103,7 +108,7 @@ export default function ModerationStudio({
   activeConfigSection,
   onUpdateSettings,
 }: ModerationStudioProps) {
-  const [activeTab, setActiveTab] = useState<"matrix" | "sandbox" | "templates">("matrix");
+  const [activeTab, setActiveTab] = useState<"matrix" | "sandbox" | "templates" | "advanced">("matrix");
 
   // Sandbox testing state
   const [testText, setTestText] = useState("Ủng hộ kênh t.me/airdrop_free_ton nhận 500 TON miễn phí!");
@@ -145,6 +150,13 @@ export default function ModerationStudio({
 
   const banAfterWarnings = getVal("ban_after_warnings", "3");
   const banSeconds = getVal("ban_seconds", "86400");
+
+  const deleteSystemMessages = isOn("delete_system_messages", true);
+  const emojiSpamEnabled = isOn("emoji_spam_enabled", true);
+  const emojiMaxCount = getVal("emoji_spam_max_count", "8");
+  const deleteMessagesFromBots = isOn("delete_messages_from_bots", true);
+  const removeUnknownBots = isOn("remove_unknown_bots", true);
+  const exemptAdmins = isOn("exempt_admins", true);
 
   const warningNotice = getVal("warning_text", "⚠️ {user} vui lòng không vi phạm quy định nhóm!");
 
@@ -346,7 +358,7 @@ export default function ModerationStudio({
       </Paper>
 
       {/* 2. Navigation Pills: Clean & icon-focused */}
-      <Stack direction="row" spacing={1} sx={{ borderBottom: "1px solid", borderColor: "divider", pb: 1 }}>
+      <Stack direction="row" spacing={1} sx={{ borderBottom: "1px solid", borderColor: "divider", pb: 1, flexWrap: "wrap", gap: 0.5 }}>
         <MuiButton
           variant={activeTab === "matrix" ? "contained" : "text"}
           onClick={() => setActiveTab("matrix")}
@@ -374,6 +386,15 @@ export default function ModerationStudio({
         >
           Mẫu cảnh báo
         </MuiButton>
+        <MuiButton
+          variant={activeTab === "advanced" ? "contained" : "text"}
+          onClick={() => setActiveTab("advanced")}
+          startIcon={<SlidersHorizontal size={16} />}
+          size="small"
+          sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+        >
+          Cấu hình nâng cao
+        </MuiButton>
       </Stack>
 
       {/* 3. TAB 1: POLICY RULE MATRIX */}
@@ -384,7 +405,7 @@ export default function ModerationStudio({
               <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                 Quy tắc kiểm duyệt thời gian thực
               </Typography>
-              <Chip label="8 quy tắc" size="small" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1 }} />
+              <Chip label="12 quy tắc" size="small" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 700, borderRadius: 1 }} />
             </Box>
 
             <Stack divider={<Divider />}>
@@ -702,6 +723,182 @@ export default function ModerationStudio({
                     values: {
                       ban_after_warnings: banAfterWarnings,
                       ban_seconds: banSeconds,
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 9: Service Message Cleaner */}
+              <RuleRow
+                icon={<Trash2 size={18} color="#059669" />}
+                title="Tự động dọn tin nhắn hệ thống"
+                desc="Xóa thông báo tham gia/rời nhóm, tin ghim và đổi ảnh để giữ nhóm sạch đẹp"
+                conditionChip="Tin hệ thống (Join/Leave/Pin)"
+                actionChip="TỰ ĐỘNG XÓA"
+                actionColor="info"
+                switchOn={deleteSystemMessages}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ delete_system_messages: deleteSystemMessages ? "false" : "true" });
+                  } else {
+                    const r = getRow("delete_system_messages");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Tự động dọn tin nhắn hệ thống",
+                    desc: "Tự động xóa các tin nhắn sự kiện từ Telegram để nhóm luôn sạch đẹp.",
+                    fields: [
+                      {
+                        key: "delete_system_messages",
+                        label: "Trạng thái tự động xóa",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật — Tự động xóa sạch tin hệ thống (Khuyên dùng)" },
+                          { value: "false", label: "Tắt — Giữ lại tin hệ thống" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      delete_system_messages: deleteSystemMessages ? "true" : "false",
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 10: Emoji Spam */}
+              <RuleRow
+                icon={<Smile size={18} color="#d97706" />}
+                title="Chống spam biểu tượng cảm xúc (Emoji Flood)"
+                desc={`Giới hạn tối đa ${emojiMaxCount} emoji/tin nhắn để tránh xả icon làm lag nhóm`}
+                conditionChip={`> ${emojiMaxCount} emoji/tin`}
+                actionChip="XÓA TIN"
+                actionColor="warning"
+                switchOn={emojiSpamEnabled}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ emoji_spam_enabled: emojiSpamEnabled ? "false" : "true" });
+                  } else {
+                    const r = getRow("emoji_spam_enabled");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Chống spam biểu tượng cảm xúc (Emoji Flood)",
+                    desc: "Phát hiện và xóa các tin nhắn chứa quá nhiều emoji gây trôi chat.",
+                    fields: [
+                      { key: "emoji_spam_max_count", label: "Số lượng emoji tối đa trong 1 tin", type: "number", unit: "emoji", hint: "Vượt quá ngưỡng này sẽ bị xóa (Mặc định 8)" },
+                      {
+                        key: "emoji_spam_enabled",
+                        label: "Trạng thái kiểm tra emoji",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật kiểm tra" },
+                          { value: "false", label: "Tắt kiểm tra" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      emoji_spam_max_count: emojiMaxCount,
+                      emoji_spam_enabled: emojiSpamEnabled ? "true" : "false",
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 11: Anti-Bot Shield */}
+              <RuleRow
+                icon={<Bot size={18} color="#dc2626" />}
+                title="Chặn bot lạ xâm nhập (Anti-Bot Shield)"
+                desc="Chặn tin nhắn từ bot chưa được cấp phép và tự động kick khỏi nhóm"
+                conditionChip="Tài khoản Bot trái phép"
+                actionChip="XÓA & KICK"
+                actionColor="error"
+                switchOn={deleteMessagesFromBots || removeUnknownBots}
+                onToggle={() => {
+                  const nextState = !(deleteMessagesFromBots || removeUnknownBots);
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({
+                      delete_messages_from_bots: nextState ? "true" : "false",
+                      remove_unknown_bots: nextState ? "true" : "false",
+                    });
+                  } else {
+                    const r = getRow("delete_messages_from_bots");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Chặn bot lạ xâm nhập (Anti-Bot Shield)",
+                    desc: "Ngăn chặn các bot quảng cáo hoặc userbot được add vào nhóm trái phép.",
+                    fields: [
+                      {
+                        key: "delete_messages_from_bots",
+                        label: "Tự động xóa tin nhắn từ bot lạ",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Có xóa tin (Khuyên dùng)" },
+                          { value: "false", label: "Không xóa tin" },
+                        ],
+                      },
+                      {
+                        key: "remove_unknown_bots",
+                        label: "Tự động kick bot lạ ra khỏi nhóm",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Có kick bot (Khuyên dùng)" },
+                          { value: "false", label: "Không kick" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      delete_messages_from_bots: deleteMessagesFromBots ? "true" : "false",
+                      remove_unknown_bots: removeUnknownBots ? "true" : "false",
+                    },
+                  });
+                }}
+                saving={saving}
+              />
+
+              {/* Rule 12: Admin Exemption */}
+              <RuleRow
+                icon={<Crown size={18} color="#16a34a" />}
+                title="Miễn trừ Quản trị viên (Admin Whitelist)"
+                desc="Bỏ qua toàn bộ bộ lọc và kiểm duyệt đối với Admin và Chủ sở hữu nhóm"
+                conditionChip="Là Admin / Owner"
+                actionChip="MIỄN TRỪ"
+                actionColor="default"
+                switchOn={exemptAdmins}
+                onToggle={() => {
+                  if (onUpdateSettings) {
+                    void onUpdateSettings({ exempt_admins: exemptAdmins ? "false" : "true" });
+                  } else {
+                    const r = getRow("exempt_admins");
+                    if (r) toggleConfigValue(r);
+                  }
+                }}
+                onEdit={() => {
+                  setEditingRule({
+                    title: "Miễn trừ Quản trị viên (Admin Whitelist)",
+                    desc: "Cấu hình xem Admin có chịu sự chi phối của các luật kiểm duyệt hay không.",
+                    fields: [
+                      {
+                        key: "exempt_admins",
+                        label: "Miễn trừ kiểm duyệt cho admin",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Bật miễn trừ — Admin thoải mái gửi tin/link (Khuyên dùng)" },
+                          { value: "false", label: "Tắt miễn trừ — Áp dụng kiểm duyệt cả với admin" },
+                        ],
+                      },
+                    ],
+                    values: {
+                      exempt_admins: exemptAdmins ? "true" : "false",
                     },
                   });
                 }}
@@ -1032,6 +1229,138 @@ export default function ModerationStudio({
             </Grid>
           </Stack>
         </Paper>
+      )}
+
+      {/* 6. TAB 4: ADVANCED SETTINGS */}
+      {activeTab === "advanced" && (
+        <Stack spacing={2}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                  Thông số xử lý & Tự hủy thông báo (Timers & Retention)
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Điều chỉnh chu kỳ lưu trữ tin nhắn cảnh báo và độ trễ xóa vi phạm để tối ưu hiệu năng nhóm
+                </Typography>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Tự xóa cảnh báo Spam
+                        </Typography>
+                        <Chip label={`${getVal("spam_notice_delete_seconds", "20")}s`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Thời gian bot tự hủy thông báo cảnh báo spam trong nhóm chat.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("spam_notice_delete_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Tự xóa cảnh báo Forward
+                        </Typography>
+                        <Chip label={`${getVal("forward_warning_delete_seconds", "180")}s`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Thời gian bot tự hủy thông báo vi phạm chia sẻ chuyển tiếp tin.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("forward_warning_delete_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Thử lại khi xóa tin lỗi (Retry)
+                        </Typography>
+                        <Chip label={`${getVal("violation_delete_retry_seconds", "2")}s`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Khoảng trễ thử lại lệnh deleteMessage nếu Telegram API gặp timeout hoặc rate-limit.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("violation_delete_retry_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: "background.default", borderRadius: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          Bộ nhớ đệm quét Bio (Cache)
+                        </Typography>
+                        <Chip label={`${Math.round(Number(getVal("bio_scan_cache_seconds", "3600")) / 60)} phút`} size="small" variant="outlined" sx={{ height: 22, fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Thời gian lưu kết quả kiểm tra tiểu sử để tránh gọi API liên tục cho cùng một người dùng.
+                      </Typography>
+                      <MuiButton
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Edit3 size={14} />}
+                        onClick={() => {
+                          const r = getRow("bio_scan_cache_seconds");
+                          if (r) startEdit(r);
+                        }}
+                        sx={{ alignSelf: "flex-start", textTransform: "none", mt: 0.5, borderRadius: 1.5 }}
+                      >
+                        Chỉnh sửa
+                      </MuiButton>
+                    </Stack>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Stack>
+          </Paper>
+        </Stack>
       )}
     </Box>
   );

@@ -4339,7 +4339,7 @@ export default function HomePage() {
         )}
             </Stack>
           </Paper>
-        ) : activeLayer !== "members" && activeLayer !== "blacklist" && table.key !== "audit_logs" ? (
+        ) : activeLayer !== "members" && activeLayer !== "blacklist" && table.key !== "audit_logs" && (!activeLayer.startsWith("module:") || showTaskData) ? (
         <Box
           sx={{
             display: "grid",
