@@ -3693,49 +3693,27 @@ export default function HomePage() {
             tone={activeLayerTone}
           />
 
-          <Box component="main" sx={{ p: { xs: 1.5, md: 3 }, maxWidth: "100%", overflowX: "hidden" }}>
+          <Box component="main" sx={{ p: { xs: 1.5, md: 2.5 }, maxWidth: "100%", overflowX: "hidden" }}>
             <Stack spacing={2}>
-              <Section
-                eyebrow={
-                  showOverview
-                    ? "Material operations"
-                    : activeLayer === "advanced"
-                      ? "Ngoại lệ"
-                      : "Tác vụ"
-                }
-                title={activeLayerHub.title}
-                subtitle={activeLayerHub.desc}
-                tone={activeLayerTone}
-                icon={!showOverview ? <ActiveLayerIcon size={20} /> : undefined}
-                actions={
-                  showOverview ? (
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                      <Chip label={`Bot: ${currentBot?.name || activeBotKey || "Chưa chọn"}`} />
-                      <Chip label={`Scope: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}`} />
-                      <Chip color="success" label={`${healthSummary.enabledModules} module ON`} />
-                      <Chip color="default" label={`${moduleCards.length - healthSummary.enabledModules} module OFF`} />
-                    </Stack>
-                  ) : activeLayer !== "modules" && !activeLayer.startsWith("module:") ? (
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                      {layerTables.map((item) => (
-                        <MuiButton
-                          key={item.key}
-                          variant={activeKey === item.key ? "contained" : "outlined"}
-                          onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
-                        >
-                          {activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
-                        </MuiButton>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-                      <Chip label={`Bot: ${currentBot?.name || activeBotKey || "Chưa chọn"}`} />
-                      <Chip label={`Scope: ${selectedScopeRow ? String(selectedScopeRow.group_name || selectedScope) : selectedScope || "Toàn hệ thống"}`} />
-                    </Stack>
-                  )
-                }
-                sx={{ py: 2.5 }}
-              />
+              {!showOverview && layerTables.length > 1 && !activeLayer.startsWith("module:") && activeLayer !== "modules" ? (
+                <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mr: 0.5 }}>
+                    Phân khu dữ liệu:
+                  </Typography>
+                  {layerTables.map((item) => (
+                    <Chip
+                      key={item.key}
+                      label={activeLayer === "advanced" ? item.label : TABLE_TASK_LABELS[item.key] || item.label}
+                      clickable
+                      color={activeKey === item.key ? "primary" : "default"}
+                      variant={activeKey === item.key ? "filled" : "outlined"}
+                      onClick={() => ((moduleWorkbenchActive || setupWorkbench) ? openTaskData(item.key) : setActiveKey(item.key))}
+                      size="small"
+                      sx={{ fontWeight: activeKey === item.key ? 700 : 500 }}
+                    />
+                  ))}
+                </Stack>
+              ) : null}
 
         {showOverview ? (
           <OverviewDashboardView

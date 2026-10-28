@@ -1,10 +1,33 @@
 "use client";
 
-import { Box, Button as MuiButton, Checkbox, FormControlLabel, IconButton, InputAdornment, MenuItem, Stack, TextField, Typography } from "@mui/material";
-import { Check, Command, Database, Loader2, MoonStar, MoreHorizontal, Plus, RefreshCcw, Search, Send, SunMedium, Trash2, X } from "lucide-react";
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
-
-import PageHeader from "@/app/components/ui/PageHeader";
+import {
+  Box,
+  Button as MuiButton,
+  Chip,
+  Divider,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import {
+  ArrowLeft,
+  Bot,
+  Command,
+  MoonStar,
+  Plus,
+  RefreshCcw,
+  Search,
+  Send,
+  SunMedium,
+  Users,
+} from "lucide-react";
+import type { ChangeEvent, ReactNode } from "react";
 import { moduleAccents } from "@/app/theme";
 
 type TableConfigLike = { key: string; label: string };
@@ -78,220 +101,250 @@ export default function Topbar(props: TopbarProps) {
     setSelected,
     setDraft,
     setSelectedIds,
-    topbarMenuOpen,
-    setTopbarMenuOpen,
-    scanMode,
-    setScanMode,
     openChannelComposer,
     readOnlyTable,
     startCreate,
-    visibleRows,
-    selectedVisibleRows,
-    toggleAllVisible,
-    removeSelected,
-    draft,
-    closeFocusedPanel,
     bulkOpen,
     setBulkOpen,
     tableTaskLabel,
     tablePrimaryAction,
     bulkTables,
-    quickFilter,
-    quickFilters,
-    setQuickFilter,
     envStatus,
     openCommand,
     selectBot,
     themeMode,
     toggleThemeMode,
-    tone,
   } = props;
 
-  const isMessageLibrary = table.key === "messages" || table.key === "video_messages";
-  const currentTone = tone || "main";
+  const currentBotKey = activeBotKey || selectedBot || "main";
+  const matchedGroup = groups.find((g) => String(g.group_id || g.chat_id || "") === selectedScope);
+  const scopeLabel = selectedScope ? (matchedGroup?.group_name || selectedScope) : "Toàn hệ thống";
 
   return (
-    <PageHeader
-      eyebrow={table.key === "channel_posts" ? "Channel publisher" : "Hoạt động"}
-      title={props.activeLayer === "advanced" ? table.label : tableTaskLabel[table.key] || table.label}
-      subtitle={getTableDescription(table.key)}
-      icon={<Database size={20} />}
-      breadcrumbs={scopeBreadcrumb(groups, selectedScope)}
-      tone={currentTone}
-      actions={
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", justifyContent: { xs: "flex-start", md: "flex-end" }, width: { xs: "100%", md: "auto" } }}>
-          {props.showTaskData && (props.moduleWorkbenchActive || props.setupWorkbench || props.activeLayer === "bot" || props.activeLayer === "group") ? (
-            <MuiButton
-              variant="outlined"
-              startIcon={<X size={16} />}
-              onClick={onBack}
-            >
-              Về workbench
-            </MuiButton>
-          ) : null}
-
-          <TextField
-            size="small"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") loadRows(search);
-            }}
-            placeholder="Tìm kiếm"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={16} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ minWidth: { xs: "100%", sm: 220 } }}
-          />
-
-          <IconButton onClick={() => loadRows(search)} title="Tải lại">
-            <RefreshCcw size={17} />
-          </IconButton>
-
-          {bulkTables.has(table.key) ? (
-            isMessageLibrary ? (
-              <MuiButton
-                variant={bulkOpen ? "contained" : "outlined"}
-                onClick={() => setBulkOpen((value) => !value)}
-              >
-                {bulkOpen ? (table.key === "messages" ? "Đóng nhập nhiều tin" : "Đóng nhập nhiều video") : (table.key === "messages" ? "Nhập nhiều tin" : "Nhập nhiều video")}
-              </MuiButton>
-            ) : (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={Boolean(bulkOpen)}
-                    onChange={() => setBulkOpen((value) => !value)}
-                  />
-                }
-                label="Bulk"
-              />
-            )
-          ) : null}
-
-          <MuiButton
-            variant="outlined"
-            onClick={openCommand}
-            startIcon={<Command size={14} />}
-            sx={{ textTransform: "none", px: 1.25 }}
-          >
-            Lệnh nhanh <Box component="span" sx={{ ml: 0.75, px: 0.6, py: 0.1, bgcolor: "action.hover", borderRadius: 1, fontSize: "0.72rem", fontWeight: 700, border: "1px solid", borderColor: "divider" }}>⌘K</Box>
-          </MuiButton>
-
-          <IconButton onClick={toggleThemeMode} title={themeMode === "dark" ? "Chuyển sang light theme" : "Chuyển sang dark theme"}>
-            {themeMode === "dark" ? <SunMedium size={17} /> : <MoonStar size={17} />}
-          </IconButton>
-
-          {table.key === "channel_posts" ? (
-            <MuiButton variant="contained" startIcon={<Send size={16} />} onClick={openChannelComposer}>
-              Đăng bài
-            </MuiButton>
-          ) : !readOnlyTable && table.key !== "config" && table.key !== "scam_reports" ? (
-            <MuiButton variant="contained" startIcon={<Plus size={16} />} onClick={startCreate}>
-              {tablePrimaryAction[table.key] || "Tạo mới"}
-            </MuiButton>
-          ) : null}
-        </Stack>
-      }
+    <Box
+      component="header"
+      sx={{
+        position: "sticky",
+        top: 0,
+        zIndex: 1100,
+        height: 56,
+        px: { xs: 1.5, md: 2.5 },
+        bgcolor: "background.paper",
+        borderBottom: "1px solid",
+        borderColor: "divider",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 1.5,
+        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+      }}
     >
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={1.5}
-        sx={{ alignItems: { md: "center" }, flexWrap: "wrap" }}
-      >
-        <TextField
-          select
-          size="small"
-          label="Bot"
-            value={activeBotKey || selectedBot || ""}
-            slotProps={{
-              select: {
-                MenuProps: {
-                  disablePortal: true,
-                  slotProps: {
-                    paper: { sx: { maxHeight: 320, zIndex: 2000 } },
-                  },
-                },
+      {/* Left: Context Pills (Bot + Group Selector) */}
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
+        {props.showTaskData && (
+          <Tooltip title="Quay lại">
+            <IconButton size="small" onClick={onBack} sx={{ mr: 0.5 }}>
+              <ArrowLeft size={17} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {/* Bot selector pill */}
+        <FormControl size="small">
+          <Select
+            value={currentBotKey}
+            onChange={(e) => selectBot(e.target.value)}
+            displayEmpty
+            sx={{
+              height: 32,
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              bgcolor: "background.default",
+              borderRadius: 1.5,
+              "& .MuiSelect-select": {
+                py: 0.5,
+                px: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.75,
               },
             }}
-            onChange={(event) => selectBot(event.target.value)}
-            sx={{ minWidth: { xs: "100%", md: 200 } }}
           >
-          {bots.map((bot) => (
-            <MenuItem key={bot.bot_key || bot.id} value={String(bot.bot_key || "")}>
-              {bot.name || bot.bot_key}
-            </MenuItem>
-          ))}
-          {!bots.length ? <MenuItem value="">Chưa có bot</MenuItem> : null}
-        </TextField>
+            {bots.map((b) => (
+              <MenuItem key={b.bot_key || b.id} value={String(b.bot_key || "")}>
+                <Bot size={14} style={{ opacity: 0.7 }} />
+                {b.name || b.bot_key}
+              </MenuItem>
+            ))}
+            {!bots.length && <MenuItem value="main">Bot chính (main)</MenuItem>}
+          </Select>
+        </FormControl>
 
-        <TextField
-          select
-          size="small"
-          label="Scope"
-          value={selectedScope}
-          slotProps={{
-            select: {
-              MenuProps: {
-                disablePortal: true,
-                slotProps: {
-                  paper: { sx: { maxHeight: 320, zIndex: 2000 } },
-                },
+        {/* Scope selector pill */}
+        <FormControl size="small" sx={{ display: { xs: "none", sm: "block" } }}>
+          <Select
+            value={selectedScope}
+            onChange={(e) => {
+              setSelectedScope(e.target.value);
+              setSelected(null);
+              setDraft({});
+              setSelectedIds(new Set());
+            }}
+            displayEmpty
+            sx={{
+              height: 32,
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              bgcolor: "background.default",
+              borderRadius: 1.5,
+              maxWidth: 200,
+              "& .MuiSelect-select": {
+                py: 0.5,
+                px: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.75,
               },
-            },
-          }}
-          onChange={(event) => {
-            setSelectedScope(event.target.value);
-            setSelected(null);
-            setDraft({});
-            setSelectedIds(new Set());
-          }}
-          sx={{ minWidth: { xs: "100%", md: 240 } }}
-        >
-          <MenuItem value="">Toàn hệ thống</MenuItem>
-          {groups
-            .filter((group) => !activeBotKey || !group.bot_key || group.bot_key === activeBotKey)
-            .map((group) => {
-              const value = String(group.group_id || group.chat_id || "");
-              return value ? (
-                <MenuItem key={value} value={value}>
-                  {group.group_name || value}
-                </MenuItem>
-              ) : null;
-            })}
-        </TextField>
+            }}
+          >
+            <MenuItem value="">
+              <Users size={14} style={{ opacity: 0.7 }} />
+              Toàn hệ thống
+            </MenuItem>
+            {groups
+              .filter((g) => !activeBotKey || !g.bot_key || g.bot_key === activeBotKey)
+              .map((g) => {
+                const val = String(g.group_id || g.chat_id || "");
+                return val ? (
+                  <MenuItem key={val} value={val}>
+                    {g.group_name || val}
+                  </MenuItem>
+                ) : null;
+              })}
+          </Select>
+        </FormControl>
 
-        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", sm: "block" } }}>
-          Runtime: {envStatus?.runtimeMode || "fallback"}
+        <Divider orientation="vertical" flexItem sx={{ height: 20, my: "auto", display: { xs: "none", md: "block" } }} />
+
+        {/* Current View Title Tag */}
+        <Typography
+          variant="subtitle2"
+          noWrap
+          sx={{
+            display: { xs: "none", lg: "block" },
+            fontWeight: 700,
+            fontSize: "0.85rem",
+            color: "text.primary",
+          }}
+        >
+          {tableTaskLabel[table.key] || table.label}
         </Typography>
       </Stack>
-    </PageHeader>
-  );
-}
 
-function getTableDescription(key: string): string {
-  const map: Record<string, string> = {
-    bots: "Quản lý bot Telegram đang vận hành.",
-    groups: "Group và channel bot đang phục vụ.",
-    config: "Cấu hình bot dùng chung.",
-    audit_logs: "Nhật ký hoạt động gần nhất.",
-    scam_reports: "Báo cáo scam chờ duyệt.",
-    bot_metrics: "Số liệu vận hành.",
-  };
-  return map[key] || "";
-}
+      {/* Center: Search & Command Shortcut */}
+      <Box sx={{ flex: 1, maxWidth: { xs: 200, sm: 340, md: 420 }, mx: 1 }}>
+        <TextField
+          size="small"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") loadRows(search);
+          }}
+          placeholder="Tìm kiếm dữ liệu hoặc bấm ⌘K..."
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={15} style={{ opacity: 0.6 }} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Box
+                    onClick={openCommand}
+                    sx={{
+                      cursor: "pointer",
+                      px: 0.6,
+                      py: 0.1,
+                      bgcolor: "action.hover",
+                      borderRadius: 1,
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      color: "text.secondary",
+                      userSelect: "none",
+                    }}
+                  >
+                    ⌘K
+                  </Box>
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{
+            width: "100%",
+            "& .MuiOutlinedInput-root": {
+              height: 34,
+              fontSize: "0.82rem",
+              borderRadius: 2,
+              bgcolor: "background.default",
+            },
+          }}
+        />
+      </Box>
 
-function scopeBreadcrumb(groups: GroupLike[], selectedScope: string): ReactNode {
-  if (!selectedScope) return "Toàn hệ thống";
-  const matched = groups.find(
-    (group) => String(group.group_id || group.chat_id || "") === selectedScope,
+      {/* Right: Actions, Theme, Status */}
+      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexShrink: 0 }}>
+        {/* Bulk Toggle Button */}
+        {bulkTables.has(table.key) && (
+          <MuiButton
+            size="small"
+            variant={bulkOpen ? "contained" : "outlined"}
+            onClick={() => setBulkOpen((v) => !v)}
+            sx={{ height: 32, textTransform: "none", fontSize: "0.78rem", display: { xs: "none", sm: "flex" } }}
+          >
+            {bulkOpen ? "Đóng Bulk" : "Nhập hàng loạt"}
+          </MuiButton>
+        )}
+
+        {/* Reload button */}
+        <Tooltip title="Tải lại dữ liệu">
+          <IconButton size="small" onClick={() => loadRows(search)} sx={{ width: 32, height: 32 }}>
+            <RefreshCcw size={15} />
+          </IconButton>
+        </Tooltip>
+
+        {/* Theme toggle */}
+        <Tooltip title={themeMode === "dark" ? "Chuyển giao diện sáng" : "Chuyển giao diện tối"}>
+          <IconButton size="small" onClick={toggleThemeMode} sx={{ width: 32, height: 32 }}>
+            {themeMode === "dark" ? <SunMedium size={16} /> : <MoonStar size={16} />}
+          </IconButton>
+        </Tooltip>
+
+        {/* Primary Action Button */}
+        {table.key === "channel_posts" ? (
+          <MuiButton
+            variant="contained"
+            size="small"
+            startIcon={<Send size={14} />}
+            onClick={openChannelComposer}
+            sx={{ height: 32, textTransform: "none", fontWeight: 700, fontSize: "0.8rem", px: 1.5 }}
+          >
+            Đăng bài
+          </MuiButton>
+        ) : !readOnlyTable && table.key !== "config" && table.key !== "scam_reports" ? (
+          <MuiButton
+            variant="contained"
+            size="small"
+            startIcon={<Plus size={14} />}
+            onClick={startCreate}
+            sx={{ height: 32, textTransform: "none", fontWeight: 700, fontSize: "0.8rem", px: 1.5 }}
+          >
+            {tablePrimaryAction[table.key] || "Tạo mới"}
+          </MuiButton>
+        ) : null}
+      </Stack>
+    </Box>
   );
-  return matched?.group_name || selectedScope;
 }
