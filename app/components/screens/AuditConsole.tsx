@@ -206,15 +206,15 @@ export default function AuditConsole({
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Tổng Sự Kiện</Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>{auditStats.total}</Typography>
         </Paper>
-        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper", borderLeft: "4px solid", borderLeftColor: "error.main" }}>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Nghiêm Trọng (Critical)</Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "error.main" }}>{auditStats.critical}</Typography>
         </Paper>
-        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper", borderLeft: "4px solid", borderLeftColor: "warning.main" }}>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Cần Chú Ý (Warning)</Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "warning.main" }}>{auditStats.warning}</Typography>
         </Paper>
-        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper", borderLeft: "4px solid", borderLeftColor: "info.main" }}>
+        <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, bgcolor: "background.paper" }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>Khớp Bộ Lọc</Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, color: "info.main" }}>{filteredLogs.length}</Typography>
         </Paper>
@@ -353,8 +353,6 @@ export default function AuditConsole({
                       cursor: "pointer",
                       border: "1px solid",
                       borderColor: active ? "primary.main" : "divider",
-                      borderLeft: "4px solid",
-                      borderLeftColor: isCrit ? "error.main" : isWarn ? "warning.main" : "primary.main",
                       bgcolor: active ? "rgba(37, 99, 235, 0.05)" : "background.paper",
                       transition: "all 0.15s ease",
                       "&:hover": {

@@ -298,8 +298,6 @@ export default function ModerationStudio({
           bgcolor: "background.paper",
           borderRadius: 2,
           backgroundImage: "linear-gradient(135deg, rgba(15, 118, 110, 0.05), transparent 60%)",
-          borderLeft: "4px solid",
-          borderLeftColor: "primary.main",
         }}
       >
         <Stack

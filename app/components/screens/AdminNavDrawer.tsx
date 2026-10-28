@@ -227,8 +227,6 @@ export default function AdminNavDrawer({
                       fontWeight: active ? 700 : 500,
                       color: active ? "primary.main" : "text.secondary",
                       bgcolor: active ? "action.selected" : "transparent",
-                      borderLeft: active ? "3px solid" : "3px solid transparent",
-                      borderLeftColor: active ? "primary.main" : "transparent",
                       px: sidebarCollapsed ? 0.75 : 1.25,
                       opacity: moduleOff ? 0.45 : 1,
                       pointerEvents: locked ? "none" : "auto",

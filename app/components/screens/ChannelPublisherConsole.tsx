@@ -219,8 +219,6 @@ export default function ChannelPublisherConsole({
                   bgcolor: active ? "rgba(37, 99, 235, 0.04)" : "background.paper",
                   border: "1px solid",
                   borderColor: active ? "primary.main" : "divider",
-                  borderLeft: "4px solid",
-                  borderLeftColor: active ? "primary.main" : `${style.color}.main`,
                   cursor: "pointer",
                   transition: "all 0.15s ease",
                   "&:hover": {

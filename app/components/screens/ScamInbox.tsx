@@ -266,8 +266,6 @@ export default function ScamInbox({
             p: 1.75,
             borderRadius: 2,
             bgcolor: "background.paper",
-            borderLeft: "4px solid",
-            borderLeftColor: "warning.main",
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
@@ -284,8 +282,6 @@ export default function ScamInbox({
             p: 1.75,
             borderRadius: 2,
             bgcolor: "background.paper",
-            borderLeft: "4px solid",
-            borderLeftColor: "success.main",
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
@@ -302,8 +298,6 @@ export default function ScamInbox({
             p: 1.75,
             borderRadius: 2,
             bgcolor: "background.paper",
-            borderLeft: "4px solid",
-            borderLeftColor: "error.main",
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
@@ -320,8 +314,6 @@ export default function ScamInbox({
             p: 1.75,
             borderRadius: 2,
             bgcolor: "background.paper",
-            borderLeft: "4px solid",
-            borderLeftColor: "info.main",
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
@@ -590,8 +582,6 @@ export default function ScamInbox({
                   p: 2,
                   borderRadius: 1.5,
                   bgcolor: "rgba(241, 245, 249, 0.5)",
-                  borderLeft: "4px solid",
-                  borderLeftColor: "error.main",
                   lineHeight: 1.7,
                   whiteSpace: "pre-wrap",
                 }}

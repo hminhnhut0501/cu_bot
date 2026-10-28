@@ -337,8 +337,6 @@ export default function MemberDetailDrawer({
                     sx={{
                       p: 1.25,
                       bgcolor: index === 0 ? "rgba(13, 148, 136, 0.04)" : "background.paper",
-                      borderLeft: "4px solid",
-                      borderColor: item.source === "activity" ? "success.main" : item.source === "audit" ? "info.main" : timelineToneForType(item.type, item.source) === "error" ? "error.main" : "warning.main",
                     }}
                   >
                     <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between", alignItems: "flex-start" }}>

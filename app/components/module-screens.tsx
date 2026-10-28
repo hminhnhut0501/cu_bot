@@ -1790,8 +1790,6 @@ export function AutoReplyScreen(props: {
                           p: 1.25,
                           borderRadius: 1.5,
                           bgcolor: "action.hover",
-                          borderLeft: "3px solid",
-                          borderLeftColor: "primary.main",
                           fontSize: 13,
                           lineHeight: 1.6,
                           whiteSpace: "pre-wrap",

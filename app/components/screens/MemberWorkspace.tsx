@@ -399,8 +399,6 @@ export default function MemberWorkspace({
             alignItems: { xs: "flex-start", md: "center" },
             justifyContent: "space-between",
             gap: 1.5,
-            borderLeft: "4px solid",
-            borderLeftColor: "success.main",
           }}
         >
           <Box>
