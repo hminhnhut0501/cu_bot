@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button as MuiButton,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
@@ -125,6 +127,70 @@ export type DomainItem = {
 
 export type StudioTab = "matrix" | "keywords" | "domains" | "sandbox" | "templates" | "advanced";
 
+export const FORWARD_SOURCE_OPTIONS = [
+  {
+    key: "bot",
+    label: "Tin nhắn từ Bot",
+    desc: "Tin nhắn gửi bởi bot hoặc chuyển tiếp qua bot (via @bot).",
+    badge: "Khuyên dùng",
+    color: "primary" as const,
+  },
+  {
+    key: "channel_public",
+    label: "Kênh công khai (Public Channel)",
+    desc: "Kênh Telegram có @username công khai.",
+    badge: "Khuyên dùng",
+    color: "primary" as const,
+  },
+  {
+    key: "group_public",
+    label: "Nhóm công khai (Public Group)",
+    desc: "Nhóm / Supergroup có @username công khai.",
+    badge: "Khuyên dùng",
+    color: "primary" as const,
+  },
+  {
+    key: "channel_private",
+    label: "Kênh riêng tư (Private Channel)",
+    desc: "Kênh nội bộ hoặc dùng link mời kín (thường bị spam dẫn link kín kéo mem).",
+    badge: "Rủi ro kéo mem",
+    color: "warning" as const,
+  },
+  {
+    key: "group_private",
+    label: "Nhóm riêng tư (Private Group)",
+    desc: "Nhóm không có username công khai, dùng link mời kín.",
+    badge: "Rủi ro kéo mem",
+    color: "warning" as const,
+  },
+  {
+    key: "user",
+    label: "Người dùng cá nhân (User)",
+    desc: "Tin nhắn chuyển tiếp từ tài khoản người dùng cá nhân.",
+    badge: "Dễ spam",
+    color: "error" as const,
+  },
+  {
+    key: "hidden_user",
+    label: "Người dùng ẩn danh (Hidden Profile)",
+    desc: "Người gửi bật tính năng bảo mật ẩn danh khi forward của Telegram.",
+    badge: "Rủi ro cao",
+    color: "error" as const,
+  },
+];
+
+export const FORWARD_CONTENT_OPTIONS = [
+  { key: "text", label: "Văn bản (Text)" },
+  { key: "photo", label: "Hình ảnh (Photo)" },
+  { key: "video", label: "Video" },
+  { key: "document", label: "Tệp tài liệu (File)" },
+  { key: "sticker", label: "Nhãn dán (Sticker)" },
+  { key: "animation", label: "Ảnh động (GIF)" },
+  { key: "voice", label: "Tin thoại (Voice)" },
+  { key: "audio", label: "Âm thanh (Audio)" },
+  { key: "video_note", label: "Video tròn (Note)" },
+];
+
 export default function ModerationStudio({
   moderationConfigRowMap,
   saving,
@@ -176,6 +242,16 @@ export default function ModerationStudio({
     enabled: true,
     notes: "",
   });
+
+  // Forward settings modal state
+  const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [forwardAllowedSourcesDraft, setForwardAllowedSourcesDraft] = useState<string[]>([]);
+  const [forwardAllowedTypesDraft, setForwardAllowedTypesDraft] = useState<string[]>([]);
+  const [forwardActionDraft, setForwardActionDraft] = useState("warn");
+  const [forwardReasonDraft, setForwardReasonDraft] = useState("");
+  const [forwardSpamMaxDraft, setForwardSpamMaxDraft] = useState(3);
+  const [forwardSpamWindowDraft, setForwardSpamWindowDraft] = useState(30);
+  const [forwardModalSaving, setForwardModalSaving] = useState(false);
 
   const callApi = async (path: string, init: RequestInit = {}) => {
     if (api) {
@@ -442,6 +518,70 @@ export default function ModerationStudio({
   const antiRaidWindowSeconds = getVal("anti_raid_window_seconds", "30");
   const antiRaidAction = getVal("anti_raid_action", "kick");
 
+  const currentAllowedSources = useMemo(() => {
+    const raw = getVal("forward_allowed_sources", "");
+    if (!raw.trim()) return ["bot", "channel_public", "group_public"];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  }, [moderationConfigRowMap]);
+
+  const allowedSourcesSummary = useMemo(() => {
+    const labels: Record<string, string> = {
+      bot: "Bot",
+      channel_public: "Kênh công khai",
+      group_public: "Nhóm công khai",
+      channel_private: "Kênh riêng tư",
+      group_private: "Nhóm riêng tư",
+      user: "User",
+      hidden_user: "User ẩn danh",
+    };
+    if (currentAllowedSources.length === 0) return "Không giới hạn";
+    return currentAllowedSources.map((s) => labels[s] || s).join(", ");
+  }, [currentAllowedSources]);
+
+  const openForwardModal = () => {
+    const rawSources = getVal("forward_allowed_sources", "");
+    if (rawSources.trim()) {
+      setForwardAllowedSourcesDraft(rawSources.split(",").map((s) => s.trim()).filter(Boolean));
+    } else {
+      setForwardAllowedSourcesDraft(["bot", "channel_public", "group_public"]);
+    }
+
+    const rawTypes = getVal("forward_allowed_content_types", "");
+    if (rawTypes.trim()) {
+      setForwardAllowedTypesDraft(rawTypes.split(",").map((s) => s.trim()).filter(Boolean));
+    } else {
+      setForwardAllowedTypesDraft(["text", "photo", "video", "document", "sticker", "animation", "voice", "audio"]);
+    }
+
+    setForwardActionDraft(getVal("forward_action", "warn"));
+    setForwardReasonDraft(getVal("forward_warning_reason", "Nguồn hoặc định dạng forward không được phép trong nhóm."));
+    setForwardSpamMaxDraft(Number(getVal("forward_spam_max_messages", "3")));
+    setForwardSpamWindowDraft(Number(getVal("forward_spam_window_seconds", "30")));
+    setForwardModalOpen(true);
+  };
+
+  const handleSaveForwardSettings = async () => {
+    setForwardModalSaving(true);
+    try {
+      const updates = {
+        forward_allowed_sources: forwardAllowedSourcesDraft.join(","),
+        forward_allowed_content_types: forwardAllowedTypesDraft.join(","),
+        forward_action: forwardActionDraft,
+        forward_warning_reason: forwardReasonDraft,
+        forward_spam_max_messages: String(forwardSpamMaxDraft),
+        forward_spam_window_seconds: String(forwardSpamWindowDraft),
+      };
+      if (onUpdateSettings) {
+        await onUpdateSettings(updates);
+      }
+      setForwardModalOpen(false);
+    } catch (e: any) {
+      alert(e.message || "Không thể lưu cài đặt forward");
+    } finally {
+      setForwardModalSaving(false);
+    }
+  };
+
   const blockZeroWidth = isOn("block_zero_width_space", true);
   const zeroWidthThreshold = getVal("zero_width_threshold", "3");
 
@@ -585,21 +725,45 @@ export default function ModerationStudio({
       if (kw.enabled === false || String(kw.enabled) === "false") continue;
       const kwVal = String(kw.keyword || "").trim();
       if (!kwVal) continue;
+      const terms = kwVal.split(/[\n,]+/).map((t) => t.trim()).filter(Boolean);
       let matched = false;
-      if (kw.match === "regex") {
-        try {
-          const rx = new RegExp(kwVal, "i");
-          matched = rx.test(testText);
-        } catch {
-          // ignore invalid regex
+      let matchedTerm = "";
+      for (const term of (terms.length > 0 ? terms : [kwVal])) {
+        if (kw.match === "regex") {
+          try {
+            const rx = new RegExp(term, "i");
+            if (rx.test(testText)) {
+              matched = true;
+              matchedTerm = term;
+              break;
+            }
+          } catch {
+            // ignore invalid regex
+          }
+        } else {
+          const lowerTerm = term.toLowerCase();
+          const lowerText = testText.toLowerCase();
+          if (lowerTerm.length <= 3) {
+            const escaped = lowerTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const rx = new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i");
+            if (rx.test(lowerText)) {
+              matched = true;
+              matchedTerm = term;
+              break;
+            }
+          } else {
+            if (lowerText.includes(lowerTerm)) {
+              matched = true;
+              matchedTerm = term;
+              break;
+            }
+          }
         }
-      } else {
-        matched = testText.toLowerCase().includes(kwVal.toLowerCase());
       }
       if (matched) {
         violations.push({
-          rule: `Từ khóa cấm: "${kwVal}"`,
-          detail: kw.reason || "Phát hiện từ khóa cấm trong nội dung tin nhắn.",
+          rule: `Từ khóa cấm: "${matchedTerm}"`,
+          detail: kw.reason || `Phát hiện từ khóa "${matchedTerm}" (thuộc quy tắc "${kwVal}") trong nội dung tin nhắn.`,
           action: kw.action || "delete",
         });
         break;
@@ -916,9 +1080,13 @@ export default function ModerationStudio({
               {/* Rule 4: Hidden Link & Text Mention */}
               <RuleRow
                 icon={<Link2 size={18} color="#ec4899" />}
-                title="Chặn link ẩn & mention tàng hình"
-                desc={`Tự động bóc tách link lồng văn bản hoặc mention ẩn · Phạt: ${hiddenLinkAction.toUpperCase()}`}
-                conditionChip="Có link ẩn / @mention"
+                title="Chặn link ẩn & spam tag kênh/group ngoài"
+                desc={
+                  isOn("allow_in_group_mentions", true)
+                    ? `Cho phép tag thành viên trong nhóm · Chặn link ẩn & spam tag kênh/group ngoài · Phạt: ${hiddenLinkAction.toUpperCase()}`
+                    : `Chặn toàn bộ @mention & link ẩn · Phạt: ${hiddenLinkAction.toUpperCase()}`
+                }
+                conditionChip="Có link ẩn / tag ngoài"
                 actionChip={hiddenLinkAction}
                 actionColor={actionColor(hiddenLinkAction)}
                 switchOn={scanHiddenLink}
@@ -932,20 +1100,36 @@ export default function ModerationStudio({
                 }}
                 onEdit={() => {
                   setEditingRule({
-                    title: "Chặn link ẩn & mention tàng hình",
-                    desc: "Bóc tách siêu liên kết ẩn trong ký tự hoặc mention vô hình.",
+                    title: "Chặn link ẩn & spam tag kênh/group ngoài",
+                    desc: "Kiểm soát mention và siêu liên kết. Cho phép thành viên trong nhóm tag nhau, chỉ chặn spam tag bên ngoài.",
                     fields: [
-                      { key: "hidden_link_action", label: "Hành vi xử lý", type: "select", options: [
-                        { value: "delete", label: "Xóa tin (Delete)" },
-                        { value: "warn", label: "Cảnh báo (Warn)" },
-                        { value: "restrict", label: "Khóa chat (Mute)" },
-                        { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
-                      ]},
+                      {
+                        key: "allow_in_group_mentions",
+                        label: "Tag thành viên trong nhóm",
+                        type: "select",
+                        options: [
+                          { value: "true", label: "Cho phép (Chỉ chặn spam tag kênh/group/người dùng bên ngoài)" },
+                          { value: "false", label: "Cấm tất cả (Chặn toàn bộ mọi lượt @mention)" },
+                        ],
+                        hint: "Khuyên dùng: Cho phép thành viên trong nhóm tag nhau trao đổi tự nhiên.",
+                      },
+                      {
+                        key: "hidden_link_action",
+                        label: "Hành vi xử lý",
+                        type: "select",
+                        options: [
+                          { value: "delete", label: "Xóa tin (Delete)" },
+                          { value: "warn", label: "Cảnh báo (Warn)" },
+                          { value: "restrict", label: "Khóa chat (Mute)" },
+                          { value: "ban", label: "Cấm vĩnh viễn (Ban)" },
+                        ],
+                      },
                       { key: "hidden_link_reason", label: "Lý do ghi log và thông báo", type: "text" },
                     ],
                     values: {
+                      allow_in_group_mentions: isOn("allow_in_group_mentions", true) ? "true" : "false",
                       hidden_link_action: hiddenLinkAction,
-                      hidden_link_reason: getVal("hidden_link_reason", "Chứa liên kết ẩn hoặc mention vô hình trái phép."),
+                      hidden_link_reason: getVal("hidden_link_reason", "Chứa liên kết ẩn hoặc spam tag kênh/group ngoài nhóm."),
                     },
                   });
                 }}
@@ -1038,10 +1222,15 @@ export default function ModerationStudio({
                       <Typography variant="caption" color="text.secondary">
                         Chặn chia sẻ từ kênh/nhóm khác tránh spam kéo mem
                       </Typography>
+                      {forwardMode === "controlled" && (
+                        <Typography variant="caption" sx={{ color: "primary.main", display: "block", mt: 0.25, fontWeight: 600 }}>
+                          ✓ Nguồn cho phép: {allowedSourcesSummary}
+                        </Typography>
+                      )}
                     </Box>
                   </Stack>
 
-                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", alignItems: "center" }}>
                     <Chip
                       label="Chặn toàn bộ"
                       size="small"
@@ -1069,6 +1258,15 @@ export default function ModerationStudio({
                       onClick={() => setForwardMode("allow")}
                       sx={{ fontWeight: 700, borderRadius: 1.5 }}
                     />
+                    <MuiButton
+                      variant="outlined"
+                      size="small"
+                      startIcon={<SlidersHorizontal size={14} />}
+                      onClick={openForwardModal}
+                      sx={{ textTransform: "none", borderRadius: 1.5, ml: 0.5, fontWeight: 700 }}
+                    >
+                      Cài đặt chi tiết
+                    </MuiButton>
                   </Stack>
                 </Stack>
               </Box>
@@ -2583,7 +2781,8 @@ export default function ModerationStudio({
               fullWidth
               value={keywordDraft.keyword || ""}
               onChange={(e) => setKeywordDraft((prev) => ({ ...prev, keyword: e.target.value }))}
-              placeholder="ví dụ: airdrop nhận quà, casino, tele"
+              placeholder="ví dụ: ib, inbox, i.b, i_b, casino, airdrop"
+              helperText="💡 Hỗ trợ nhập nhiều từ khóa cách nhau bởi dấu phẩy (ví dụ: ib, inbox, inb, i.b). Hệ thống sẽ tự động tách và kiểm duyệt từng từ!"
               autoFocus
             />
 
@@ -2758,6 +2957,227 @@ export default function ModerationStudio({
             sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
           >
             Lưu domain
+          </MuiButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* DIALOG: FORWARD SETTINGS */}
+      <Dialog
+        open={forwardModalOpen}
+        onClose={() => setForwardModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 0.5 } } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+            <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: "rgba(99, 102, 241, 0.12)", color: "#6366f1", display: "grid", placeItems: "center" }}>
+              <Forward size={20} />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                Cấu hình chi tiết Kiểm soát Forward
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Kiểm soát nguồn gốc gửi và loại nội dung được phép chia sẻ vào nhóm
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogTitle>
+        <Divider />
+        <DialogContent dividers sx={{ pt: 2, pb: 2.5 }}>
+          <Stack spacing={3}>
+            {/* 1. Nguồn forward được phép */}
+            <Box>
+              <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                  1. Nguồn tin nhắn được phép (Forward Sources)
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${forwardAllowedSourcesDraft.length} nguồn được chọn`}
+                  color="primary"
+                  variant="outlined"
+                  sx={{ height: 20, fontSize: "0.72rem", fontWeight: 700 }}
+                />
+              </Stack>
+              <Alert severity="info" sx={{ mb: 2, py: 0.5, borderRadius: 2, fontSize: "0.8rem" }}>
+                💡 <strong>Khuyên dùng:</strong> Cho phép <strong>Bot</strong> và <strong>Kênh/Nhóm công khai</strong> để chia sẻ tin tức chính thống. Hạn chế <strong>Kênh riêng tư</strong> và <strong>User cá nhân</strong> để triệt tiêu nạn spam kéo mem, dẫn link mời kín vào nhóm.
+              </Alert>
+
+              <Grid container spacing={1.5}>
+                {FORWARD_SOURCE_OPTIONS.map((opt) => {
+                  const isChecked = forwardAllowedSourcesDraft.includes(opt.key);
+                  return (
+                    <Grid key={opt.key} size={{ xs: 12, sm: 6 }}>
+                      <Paper
+                        variant="outlined"
+                        onClick={() => {
+                          setForwardAllowedSourcesDraft((prev) =>
+                            isChecked ? prev.filter((k) => k !== opt.key) : [...prev, opt.key]
+                          );
+                        }}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          cursor: "pointer",
+                          bgcolor: isChecked ? "background.paper" : "background.default",
+                          border: "1.5px solid",
+                          borderColor: isChecked ? "primary.main" : "divider",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            borderColor: "primary.main",
+                            bgcolor: "background.paper",
+                          },
+                        }}
+                      >
+                        <Stack direction="row" spacing={1.5} sx={{ alignItems: "flex-start" }}>
+                          <Checkbox
+                            checked={isChecked}
+                            size="small"
+                            sx={{ p: 0.25, mt: 0.25 }}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setForwardAllowedSourcesDraft((prev) =>
+                                checked ? [...prev.filter((k) => k !== opt.key), opt.key] : prev.filter((k) => k !== opt.key)
+                              );
+                            }}
+                          />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {opt.label}
+                              </Typography>
+                              <Chip
+                                size="small"
+                                label={opt.badge}
+                                color={opt.color}
+                                sx={{ height: 18, fontSize: "0.68rem", fontWeight: 700, borderRadius: 1 }}
+                              />
+                            </Stack>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                              {opt.desc}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                      </Paper>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            {/* 2. Loại nội dung được phép */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                2. Loại nội dung được phép (Content Types)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                Chỉ cho phép các loại định dạng này đi qua khi người dùng chia sẻ tin.
+              </Typography>
+              <Grid container spacing={1}>
+                {FORWARD_CONTENT_OPTIONS.map((opt) => {
+                  const isChecked = forwardAllowedTypesDraft.includes(opt.key);
+                  return (
+                    <Grid key={opt.key} size={{ xs: 6, sm: 4, md: 3 }}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={isChecked}
+                            size="small"
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setForwardAllowedTypesDraft((prev) =>
+                                checked ? [...prev.filter((k) => k !== opt.key), opt.key] : prev.filter((k) => k !== opt.key)
+                              );
+                            }}
+                          />
+                        }
+                        label={<Typography variant="body2">{opt.label}</Typography>}
+                      />
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            {/* 3. Xử phạt & Ngưỡng chống spam */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
+                3. Xử phạt & Chống spam dồn dập
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    select
+                    label="Hành vi khi vi phạm nguồn/nội dung"
+                    size="small"
+                    fullWidth
+                    value={forwardActionDraft}
+                    onChange={(e) => setForwardActionDraft(e.target.value)}
+                  >
+                    <MenuItem value="delete">Xóa tin vi phạm (Delete)</MenuItem>
+                    <MenuItem value="warn">Xóa tin + Cảnh báo nhắc nhở (Warn)</MenuItem>
+                    <MenuItem value="mute">Xóa tin + Khóa chat (Mute)</MenuItem>
+                    <MenuItem value="ban">Cấm khỏi nhóm vĩnh viễn (Ban)</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Lý do cảnh báo gửi đến thành viên"
+                    size="small"
+                    fullWidth
+                    value={forwardReasonDraft}
+                    onChange={(e) => setForwardReasonDraft(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Số tin forward tối đa liên tiếp"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={forwardSpamMaxDraft}
+                    onChange={(e) => setForwardSpamMaxDraft(Number(e.target.value))}
+                    helperText="Đặt 0 để không giới hạn tốc độ"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Trong khoảng thời gian (giây)"
+                    type="number"
+                    size="small"
+                    fullWidth
+                    value={forwardSpamWindowDraft}
+                    onChange={(e) => setForwardSpamWindowDraft(Number(e.target.value))}
+                    helperText="Ví dụ: Tối đa 3 tin trong 30 giây"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <MuiButton
+            onClick={() => setForwardModalOpen(false)}
+            variant="outlined"
+            disabled={forwardModalSaving}
+            sx={{ textTransform: "none", borderRadius: 1.5 }}
+          >
+            Hủy
+          </MuiButton>
+          <MuiButton
+            onClick={() => void handleSaveForwardSettings()}
+            variant="contained"
+            disabled={forwardModalSaving}
+            sx={{ textTransform: "none", borderRadius: 1.5, fontWeight: 700 }}
+          >
+            {forwardModalSaving ? "Đang lưu..." : "Lưu cấu hình forward"}
           </MuiButton>
         </DialogActions>
       </Dialog>

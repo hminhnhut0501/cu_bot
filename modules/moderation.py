@@ -143,6 +143,11 @@ class ModerationModule(BotModule):
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
     URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
 
+    def __init__(self, app):
+        super().__init__(app)
+        self._member_cache = {}
+        self._username_cache = {}
+
     def is_enabled(self):
         return self.module_enabled("moderation", True)
 
@@ -792,19 +797,54 @@ class ModerationModule(BotModule):
         normalized = normalize_text(text)
         for row in self.store.enabled_rows("keywords"):
             raw_keyword = row.get("keyword") or row.get("word")
-            keyword = normalize_text(raw_keyword)
-            if not keyword:
+            if not raw_keyword:
                 continue
             match_type = (row.get("match") or "contains").strip().lower()
-            matched = bool(re.search(keyword, normalized)) if match_type == "regex" else keyword in normalized
+
+            # Hỗ trợ danh sách từ khóa phân tách bằng dấu phẩy hoặc xuống dòng
+            # ví dụ người dùng nhập: "ib, inbox, i.b, i_b, inb, in box"
+            terms = [t.strip() for t in re.split(r"[\n,]+", str(raw_keyword)) if t.strip()]
+            if match_type == "regex" and len(terms) <= 1:
+                terms = [str(raw_keyword).strip()]
+
+            matched = False
+            matched_term = ""
+            for term in terms:
+                if not term:
+                    continue
+                if match_type == "regex":
+                    try:
+                        if re.search(term, normalized, re.IGNORECASE) or re.search(term, text, re.IGNORECASE):
+                            matched = True
+                            matched_term = term
+                            break
+                    except Exception:
+                        pass
+                else:
+                    norm_term = normalize_text(term)
+                    if not norm_term:
+                        continue
+                    # Đối với từ quá ngắn (<= 3 ký tự như "ib", "dm"), bắt buộc khớp theo ranh giới từ để tránh nhận diện nhầm bên trong từ khác
+                    if len(norm_term) <= 3:
+                        pattern = r"(?<![a-z0-9])" + re.escape(norm_term) + r"(?![a-z0-9])"
+                        if re.search(pattern, normalized):
+                            matched = True
+                            matched_term = term
+                            break
+                    else:
+                        if norm_term in normalized:
+                            matched = True
+                            matched_term = term
+                            break
+
             if matched:
                 action = row.get("action") or "warn"
                 reason = row.get("reason") or "Từ khóa cấm."
                 self.delete_violation_message(
                     message,
-                    f"keyword:{keyword}:before_{action}",
+                    f"keyword:{matched_term}:before_{action}",
                     reason_label=reason,
-                    matched_keyword=keyword,
+                    matched_keyword=matched_term,
                     matched_keyword_raw=raw_keyword,
                     keyword_rule_id=row.get("id"),
                     match_type=match_type,
@@ -903,6 +943,9 @@ class ModerationModule(BotModule):
                 user = getattr(entity, "user", None)
                 if not user:
                     continue
+                # Cho phép tag thành viên có mặt trong group
+                if self.setting_bool(message.chat.id, "allow_in_group_mentions", True) and self.is_chat_member(message.chat.id, getattr(user, "id", None)):
+                    continue
                 detail["entity_user_id"] = getattr(user, "id", "")
                 detail["entity_user_username"] = getattr(user, "username", "")
                 detail["entity_user_is_bot"] = getattr(user, "is_bot", False)
@@ -914,14 +957,10 @@ class ModerationModule(BotModule):
             if not mention_name:
                 continue
             detail["entity_mention"] = mention_name
-            if self.setting_bool(message.chat.id, "allow_in_group_mentions", True) and mention_name in current_group_usernames:
+            # Cho phép tag thành viên có mặt trong group
+            if self.setting_bool(message.chat.id, "allow_in_group_mentions", True) and self.is_username_in_group(message.chat.id, mention_name):
                 continue
-            if mention_name in known_bot_usernames:
-                detail["matched_target"] = "bot"
-            elif mention_name in known_group_usernames:
-                detail["matched_target"] = "group"
-            else:
-                detail["matched_target"] = "unknown"
+            detail["matched_target"] = self.resolve_mention_target(message.chat.id, mention_name)
             detail["rule_action"] = self.setting(message.chat.id, "hidden_link_action", "warn")
             matched.append(detail)
 
@@ -931,13 +970,13 @@ class ModerationModule(BotModule):
         reason = self.setting(
             message.chat.id,
             "hidden_link_reason",
-            "Không được gắn link ẩn hoặc tag bot/user/channel/group bên ngoài.",
+            "Không được gắn link ẩn hoặc spam tag kênh/group/người dùng bên ngoài.",
         )
         action = self.setting(message.chat.id, "hidden_link_action", "warn")
         self.delete_violation_message(
             message,
             "hidden_link_or_mention",
-            reason_label="Link/mention ẩn trong tin",
+            reason_label="Link/mention ẩn hoặc tag ngoài nhóm",
             matched_entities=json.dumps(matched, ensure_ascii=False),
         )
         for item in matched:
@@ -1005,12 +1044,121 @@ class ModerationModule(BotModule):
             usernames.add(username)
         return usernames
 
+    def is_chat_member(self, chat_id, user_id):
+        if not user_id:
+            return False
+        try:
+            user_id = int(user_id)
+            chat_id = int(chat_id)
+        except Exception:
+            return False
+
+        cache_key = (chat_id, user_id)
+        now = time()
+        cached = self._member_cache.get(cache_key)
+        if cached and (now - cached[1] < 300):
+            return cached[0]
+
+        # 1. Local state active users
+        chat_active = self.state.active_users.get(chat_id, {})
+        if user_id in chat_active:
+            self._member_cache[cache_key] = (True, now)
+            return True
+
+        # 2. Check Telegram API
+        try:
+            member = self.bot.get_chat_member(chat_id, user_id)
+            status = getattr(member, "status", "")
+            is_in = status in {"creator", "administrator", "member", "restricted"}
+            self._member_cache[cache_key] = (is_in, now)
+            return is_in
+        except Exception:
+            self._member_cache[cache_key] = (False, now)
+            return False
+
+    def is_username_in_group(self, chat_id, username):
+        norm_name = self.normalize_mention_name(username)
+        if not norm_name:
+            return False
+
+        try:
+            chat_id = int(chat_id)
+        except Exception:
+            return False
+
+        cache_key = (chat_id, norm_name)
+        now = time()
+        cached = self._username_cache.get(cache_key)
+        if cached and (now - cached[1] < 300):
+            return cached[0]
+
+        # 1. Current scope (admins & member roles)
+        if norm_name in self.current_scope_usernames(chat_id):
+            self._username_cache[cache_key] = (True, now)
+            return True
+
+        # 2. Bot usernames (mentioning bot itself is fine)
+        if norm_name in self.known_bot_usernames():
+            self._username_cache[cache_key] = (True, now)
+            return True
+
+        # 3. Memory tracking in state
+        chat_active = self.state.active_users.get(chat_id, {})
+        for uinfo in chat_active.values():
+            if self.normalize_mention_name(uinfo.get("username", "")) == norm_name:
+                self._username_cache[cache_key] = (True, now)
+                return True
+
+        # 4. Database analytics_member_activity for this chat
+        for row in self.store.rows("analytics_member_activity"):
+            if str(row.get("chat_id") or "") == str(chat_id):
+                if self.normalize_mention_name(row.get("username") or "") == norm_name:
+                    self._username_cache[cache_key] = (True, now)
+                    return True
+
+        # 5. Check Telegram API: resolve username
+        try:
+            target_chat = self.bot.get_chat(f"@{norm_name}")
+            chat_type = getattr(target_chat, "type", "")
+            if chat_type in {"channel", "supergroup", "group"}:
+                # External channel or group -> NOT a member!
+                self._username_cache[cache_key] = (False, now)
+                return False
+            if chat_type == "private":
+                is_member = self.is_chat_member(chat_id, target_chat.id)
+                self._username_cache[cache_key] = (is_member, now)
+                return is_member
+        except Exception:
+            pass
+
+        self._username_cache[cache_key] = (False, now)
+        return False
+
+    def resolve_mention_target(self, chat_id, mention_name):
+        norm_name = self.normalize_mention_name(mention_name)
+        if norm_name in self.known_bot_usernames():
+            return "bot"
+        if norm_name in self.known_group_usernames(chat_id):
+            return "group"
+        try:
+            target_chat = self.bot.get_chat(f"@{norm_name}")
+            t = getattr(target_chat, "type", "")
+            if t == "channel":
+                return "channel"
+            if t in {"group", "supergroup"}:
+                return "group"
+        except Exception:
+            pass
+        return "external"
+
     def detect_forward(self, message):
         forwarded, forward_flags = self.forward_detection_flags(message)
         if not forwarded:
             return False
         if self.is_automatic_forward_allowed(message):
             return False
+
+        # Chế độ: Chặn toàn bộ forward
         if self.setting_bool(message.chat.id, "delete_forwarded_messages", True) and not self.setting_bool(message.chat.id, "allow_forward_messages", False):
             self.delete_violation_message(
                 message,
@@ -1023,16 +1171,14 @@ class ModerationModule(BotModule):
             self.apply_action(message, action, reason, trigger="forwarded_message")
             return True
 
-        if self.forward_from_bot(message):
-            self.handle_forward_violation(message, "Forward từ bot không được phép.", forward_flags)
-            return True
-
+        # Chế độ: Có kiểm soát nguồn forward
         if not self.forward_source_allowed(message):
+            source = self.forward_source(message)
             allowed = self.forward_allowed_sources(message)
-            allowed_text = ", ".join(sorted(allowed)) if allowed else "không giới hạn"
+            allowed_text = ", ".join(sorted(allowed)) if allowed else "nguồn được phép"
             self.handle_forward_violation(
                 message,
-                f"Chỉ cho phép forward từ: {allowed_text}.",
+                f"Nguồn forward ({source}) không được phép. Chỉ chấp nhận nguồn: {allowed_text}.",
                 forward_flags,
             )
             return True
@@ -1064,7 +1210,7 @@ class ModerationModule(BotModule):
     def forward_from_bot(self, message):
         origin = getattr(message, "forward_origin", None)
         sender_user = getattr(origin, "sender_user", None) or getattr(message, "forward_from", None)
-        sender_chat = getattr(origin, "sender_chat", None) or getattr(message, "forward_from_chat", None)
+        sender_chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None) or getattr(message, "forward_from_chat", None)
         if getattr(message, "via_bot", None):
             return True
         if getattr(sender_user, "is_bot", False):
@@ -1076,7 +1222,7 @@ class ModerationModule(BotModule):
     def forward_source(self, message):
         origin = getattr(message, "forward_origin", None)
         sender_user = getattr(origin, "sender_user", None) or getattr(message, "forward_from", None)
-        sender_chat = getattr(origin, "sender_chat", None) or getattr(message, "forward_from_chat", None)
+        sender_chat = getattr(origin, "sender_chat", None) or getattr(origin, "chat", None) or getattr(message, "forward_from_chat", None)
         if getattr(message, "via_bot", None) or getattr(sender_user, "is_bot", False) or getattr(sender_chat, "type", "") == "bot":
             return "bot"
         chat_type = str(getattr(sender_chat, "type", "") or "").lower()
@@ -1086,11 +1232,16 @@ class ModerationModule(BotModule):
             return "group_public" if getattr(sender_chat, "username", None) else "group_private"
         if getattr(sender_user, "id", None):
             return "user"
+        if getattr(origin, "type", "") == "hidden_user" or getattr(message, "forward_sender_name", None):
+            return "hidden_user"
         return "unknown"
 
     def forward_allowed_sources(self, message):
         raw = self.setting(message.chat.id, "forward_allowed_sources", "").strip()
         if not raw:
+            # Mặc định khi bật có kiểm soát: cho phép bot, kênh công khai, nhóm công khai
+            if self.setting_bool(message.chat.id, "allow_forward_messages", False):
+                return {"bot", "channel_public", "group_public"}
             return set()
         aliases = {
             "channel": "channel_private",
@@ -1101,6 +1252,7 @@ class ModerationModule(BotModule):
             "group_public": "group_public",
             "user": "user",
             "bot": "bot",
+            "hidden_user": "hidden_user",
             "kênh": "channel_private",
             "kênh riêng": "channel_private",
             "kênh công khai": "channel_public",
