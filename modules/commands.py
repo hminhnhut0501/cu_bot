@@ -28,6 +28,9 @@ COMMAND_CATALOG = {
     "shareprogress": ("shareprogress", "Xem tiến độ mở khóa"),
     "check": ("check", "Tra cứu scam"),
     "report": ("report", "Báo cáo scam"),
+    "dexuat": ("dexuat", "Đề xuất Idol mới cho bình chọn tháng"),
+    "idol": ("idol", "Danh sách và bình chọn Idol tháng"),
+    "topidol": ("topidol", "Bảng xếp hạng Idol tháng này"),
 }
 
 

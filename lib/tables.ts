@@ -463,6 +463,60 @@ export const TABLES: TableConfig[] = [
     ]
   },
   {
+    key: "care_seasons",
+    label: "Mùa Idol Care",
+    description: "Chiến dịch bình chọn Idol theo từng tháng cho group care.",
+    titleField: "title",
+    summaryFields: ["bot_key", "chat_id", "season_code", "status"],
+    fields: [
+      botKey,
+      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Mùa" },
+      { key: "season_code", label: "Mã tháng (YYYY-MM)", type: "text", required: true, section: "Mùa" },
+      { key: "title", label: "Tiêu đề", type: "text", required: true, section: "Mùa" },
+      { key: "description", label: "Mô tả", type: "textarea", section: "Mùa" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["open", "closed", "tallied"], section: "Mùa" },
+      { key: "start_date", label: "Ngày bắt đầu", type: "text", section: "Thời gian" },
+      { key: "end_date", label: "Ngày kết thúc", type: "text", section: "Thời gian" },
+      { key: "winner_idol_id", label: "Idol chiến thắng ID", type: "number", section: "Kết quả" },
+      { key: "winner_name", label: "Tên Idol thắng", type: "text", section: "Kết quả" },
+      { key: "winner_votes", label: "Số phiếu thắng", type: "number", section: "Kết quả" }
+    ]
+  },
+  {
+    key: "care_idols",
+    label: "Danh sách đề cử Idol",
+    description: "Các ứng viên idol được thành viên đề xuất trong tháng.",
+    titleField: "name",
+    summaryFields: ["bot_key", "season_id", "name", "vote_count", "status"],
+    fields: [
+      botKey,
+      { key: "season_id", label: "Mùa ID", type: "number", required: true, section: "Idol" },
+      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Idol" },
+      { key: "name", label: "Tên Idol", type: "text", required: true, section: "Idol" },
+      { key: "description", label: "Mô tả / Profile", type: "textarea", section: "Idol" },
+      { key: "photo_url", label: "Link ảnh đại diện", type: "text", section: "Media" },
+      { key: "nominated_by_id", label: "User ID đề cử", type: "text", section: "Đề cử" },
+      { key: "nominated_by_name", label: "Tên người đề cử", type: "text", section: "Đề cử" },
+      { key: "vote_count", label: "Số phiếu", type: "number", section: "Kết quả" },
+      { key: "status", label: "Trạng thái", type: "select", options: ["approved", "pending", "hidden"], section: "Trạng thái" }
+    ]
+  },
+  {
+    key: "care_votes",
+    label: "Lượt bình chọn",
+    description: "Nhật ký phiếu bầu của thành viên cho từng idol trong mùa.",
+    titleField: "user_name",
+    summaryFields: ["bot_key", "season_id", "idol_id", "user_id"],
+    fields: [
+      botKey,
+      { key: "season_id", label: "Mùa ID", type: "number", required: true, section: "Phiếu bầu" },
+      { key: "idol_id", label: "Idol ID", type: "number", required: true, section: "Phiếu bầu" },
+      { key: "chat_id", label: "Chat ID", type: "text", required: true, section: "Phiếu bầu" },
+      { key: "user_id", label: "User ID", type: "text", required: true, section: "Cử tri" },
+      { key: "user_name", label: "Tên cử tri", type: "text", section: "Cử tri" }
+    ]
+  },
+  {
     key: "entertainment_events",
     label: "Giải trí",
     description: "Module con: giveaway, bình chọn, check-in, mini quiz, số may mắn, leaderboard.",

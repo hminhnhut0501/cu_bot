@@ -18,6 +18,9 @@ BOT_SCOPED_TABLES = {
     "bot_allowlist",
     "bot_metrics",
     "captcha_questions",
+    "care_idols",
+    "care_seasons",
+    "care_votes",
     "channel_posts",
     "channel_post_events",
     "config",
@@ -45,6 +48,7 @@ BOT_SCOPED_TABLES = {
 # Capped to prevent exhausting Free Tier PostgREST egress and container RAM.
 LOG_TABLE_LIMITS = {
     "audit_logs": 200,
+    "care_votes": 300,
     "channel_post_events": 200,
     "entertainment_events": 200,
     "reputation_events": 200,

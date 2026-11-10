@@ -550,6 +550,15 @@ export const MODULE_HUBS = [
     icon: Gift,
     tone: "fun",
     tables: ["share_unlock_campaigns", "share_unlock_invites", "share_unlock_referrals"],
+  },
+  {
+    key: "care_events",
+    moduleKeys: ["care_events"],
+    title: "Group Care & Idol",
+    desc: "Bình chọn Idol tháng, danh sách đề cử, chống clone và tự động vinh danh cuối tháng.",
+    icon: Sparkles,
+    tone: "fun",
+    tables: ["care_seasons", "care_idols", "care_votes", "config"],
   }
 ];
 export const MODULE_TABLE_OWNER: Record<string, string> = {
@@ -573,6 +582,9 @@ export const MODULE_TABLE_OWNER: Record<string, string> = {
   share_unlock_campaigns: "share_unlock",
   share_unlock_invites: "share_unlock",
   share_unlock_referrals: "share_unlock",
+  care_seasons: "care_events",
+  care_idols: "care_events",
+  care_votes: "care_events",
   bot_metrics: "analytics",
   audit_logs: "analytics",
   admins: "members",

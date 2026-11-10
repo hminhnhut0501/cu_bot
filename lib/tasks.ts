@@ -119,7 +119,10 @@ export const TABLE_TASK_LABELS: Record<string, string> = {
   giveaway_campaigns: "Vận hành giveaway",
   giveaway_entries: "Xem người tham gia",
   entertainment_events: "Vận hành sự kiện",
-  reputation_rules: "Thiết lập điểm thành viên"
+  reputation_rules: "Thiết lập điểm thành viên",
+  care_seasons: "Mùa Idol Care",
+  care_idols: "Danh sách đề cử Idol",
+  care_votes: "Lượt bình chọn"
 };
 
 export const TABLE_PRIMARY_ACTIONS: Record<string, string> = {
@@ -140,5 +143,8 @@ export const TABLE_PRIMARY_ACTIONS: Record<string, string> = {
   scam_reports: "Duyệt báo cáo",
   giveaway_campaigns: "Tạo giveaway",
   entertainment_events: "Tạo sự kiện",
-  reputation_rules: "Thêm luật điểm"
+  reputation_rules: "Thêm luật điểm",
+  care_seasons: "Tạo mùa mới",
+  care_idols: "Đề cử Idol",
+  care_votes: "Xem phiếu bầu"
 };
