@@ -5,6 +5,7 @@ import threading
 import time
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
+from functools import wraps
 from html import escape
 
 import telebot
@@ -75,6 +76,42 @@ class CareEventsModule(BotModule):
         if not self.bot_active():
             return
         self.app.run_background("care-event-scheduler", self.scheduler_loop)
+
+    def is_admin(self, chat_id, user_id):
+        if not user_id:
+            return False
+        if int(user_id) in getattr(self.settings, "owner_ids", set()):
+            return True
+        for row in self.store.enabled_rows("admins"):
+            row_chat = row.get("chat_id") or row.get("group_id")
+            if row_chat and str(row_chat) != str(chat_id):
+                continue
+            if row.get("user_id") == str(user_id):
+                return True
+        try:
+            member = self.bot.get_chat_member(chat_id, user_id)
+            return getattr(member, "status", "") in {"creator", "administrator"}
+        except Exception:
+            return False
+
+    def admin_only(self, handler):
+        @wraps(handler)
+        def wrapped(message):
+            user = getattr(message, "from_user", None)
+            if user and self.is_admin(message.chat.id, user.id):
+                return handler(message)
+            try:
+                self.bot.reply_to(message, "Lệnh này chỉ dành cho quản trị viên.")
+            except Exception:
+                pass
+            return None
+
+        return wrapped
+
+    @staticmethod
+    def command_text(message):
+        parts = (getattr(message, "text", None) or "").split(maxsplit=1)
+        return parts[1].strip() if len(parts) > 1 else ""
 
     def scheduler_loop(self):
         """Background loop to check and auto-close expired monthly seasons, then announce winners."""

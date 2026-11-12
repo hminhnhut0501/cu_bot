@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import keep_alive
+from modules.care_events import CareEventsModule
 from modules.moderation import ModerationModule
 
 
@@ -59,6 +60,21 @@ class BotResilienceTests(unittest.TestCase):
         self.assertFalse(module.is_admin(-1001, 42))
         self.assertFalse(module.is_admin(-1001, 42))
         module.bot.get_chat_member.assert_called_once_with(-1001, 42)
+
+    def test_care_events_register_and_command_text(self):
+        app = SimpleNamespace(
+            bot=SimpleNamespace(
+                message_handler=lambda *a, **k: (lambda fn: fn),
+                callback_query_handler=lambda *a, **k: (lambda fn: fn),
+            ),
+            store=SimpleNamespace(enabled_rows=Mock(return_value=[])),
+            state=SimpleNamespace(),
+            settings=SimpleNamespace(owner_ids=set()),
+        )
+        module = CareEventsModule(app)
+        module.register()
+        self.assertEqual(module.command_text(SimpleNamespace(text="/moduacare Mùa 11")), "Mùa 11")
+        self.assertEqual(module.command_text(SimpleNamespace(text="/moduacare")), "")
 
 
 if __name__ == "__main__":
