@@ -1,5 +1,6 @@
 import logging
 import json
+import queue
 import random
 import re
 import threading
@@ -140,13 +141,58 @@ class ModerationModule(BotModule):
 
     name = "moderation"
     priority = 0
+    ADMIN_CACHE_TTL_SECONDS = 300
     BIO_LINK_PATTERN = re.compile(r"(?i)(?:https?://)?(?:t\.me|telegram\.me|telegram\.dog)/[^\s]+")
     URL_PATTERN = re.compile(r"(?i)\b(?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:/[^\s]*)?")
+    KNOWN_COMMANDS = {
+        "start", "help", "menu",
+        "policy", "rules", "quydinh", "noiquy",
+        "warn", "canhbao", "ban", "cam", "unban", "bocam",
+        "checkbio", "scanbio", "kiemtrabio",
+        "debuggroup", "groupdebug", "kiemtragroup",
+        "reload", "refresh",
+        "shareunlock", "moikhoashare", "shareprogress", "tiendoshare",
+        "giveaway", "taogiveaway", "giveaways", "giveawaylist",
+        "join", "thamgia", "draw", "quayso", "closegiveaway", "donggiveaway",
+        "dexuat", "nominate", "idol", "idols", "vote", "binhchon",
+        "topidol", "bxh", "leaderboard", "moduacare", "openseason",
+        "chotcare", "closeseason",
+        "check", "kiemtra", "tra", "report", "baocao",
+        "addscam", "themscam", "scamconfirm", "scamreject", "scamdup", "scamneed",
+    }
 
     def __init__(self, app):
         super().__init__(app)
         self._member_cache = {}
         self._username_cache = {}
+        self._admin_cache = {}
+        self._cache_lock = threading.Lock()
+        self._bot_user_id = None
+        self._audit_queue = queue.Queue(maxsize=500)
+
+    def _ensure_caches(self):
+        if not hasattr(self, "_cache_lock"):
+            self._cache_lock = threading.Lock()
+        if not hasattr(self, "_admin_cache"):
+            self._admin_cache = {}
+        if not hasattr(self, "_member_cache"):
+            self._member_cache = {}
+        if not hasattr(self, "_username_cache"):
+            self._username_cache = {}
+
+    def start(self):
+        if hasattr(self, "app") and self.app and hasattr(self, "_audit_queue"):
+            self.app.run_background("moderation-audit-writer", self._audit_worker)
+
+    def _audit_worker(self):
+        while True:
+            payload = self._audit_queue.get()
+            try:
+                self.store.insert("audit_logs", payload)
+            except Exception as exc:
+                LOGGER.debug("Async audit insert failed: %s", exc)
+            finally:
+                self._audit_queue.task_done()
 
     def is_enabled(self):
         return self.module_enabled("moderation", True)
@@ -400,8 +446,16 @@ class ModerationModule(BotModule):
         self.send_policy(message.chat.id, message.message_id)
 
     def handle_reload_command(self, message):
-        self.store._cache.clear()
-        self.safe_reply(message, "Đã tải lại cấu hình.")
+        if hasattr(self.store, "clear_cache"):
+            self.store.clear_cache()
+        else:
+            self.store._cache.clear()
+        self._ensure_caches()
+        with self._cache_lock:
+            self._admin_cache.clear()
+            self._member_cache.clear()
+            self._username_cache.clear()
+        self.safe_reply(message, "Đã tải lại cấu hình và làm mới bộ nhớ đệm.")
 
     def handle_warn_command(self, message):
         target_id = self.target_user_id(message)
@@ -593,8 +647,12 @@ class ModerationModule(BotModule):
         )
 
     def is_command_message(self, message):
-        text = getattr(message, "text", None) or ""
-        return text.strip().startswith("/")
+        text = (getattr(message, "text", None) or "").strip()
+        if not text.startswith("/"):
+            return False
+        token = text.split(maxsplit=1)[0]
+        cmd = token.lstrip("/").split("@", 1)[0].strip().lower()
+        return cmd in self.KNOWN_COMMANDS
 
     def is_anonymous_admin_message(self, message):
         sender_chat = getattr(message, "sender_chat", None)
@@ -2113,14 +2171,23 @@ class ModerationModule(BotModule):
         return None
 
     def audit(self, chat_id, action, target_user_id="", details="", actor_user_id=""):
+        payload = {
+            "chat_id": str(chat_id),
+            "actor_user_id": str(actor_user_id or ""),
+            "action": action,
+            "target_user_id": str(target_user_id or ""),
+            "details": details,
+        }
+        audit_queue = getattr(self, "_audit_queue", None)
+        if audit_queue is not None and getattr(self, "app", None) is not None:
+            try:
+                audit_queue.put_nowait(payload)
+                return
+            except queue.Full:
+                LOGGER.warning("Audit log queue full; dropping audit action=%s chat_id=%s", action, chat_id)
+                return
         try:
-            self.store.insert("audit_logs", {
-                "chat_id": str(chat_id),
-                "actor_user_id": str(actor_user_id or ""),
-                "action": action,
-                "target_user_id": str(target_user_id or ""),
-                "details": details,
-            })
+            self.store.insert("audit_logs", payload)
         except Exception:
             pass
 
@@ -2192,7 +2259,14 @@ class ModerationModule(BotModule):
         return as_int(self.setting(chat_id, key, default), default)
 
     def bot_allowed(self, chat_id, user):
-        if getattr(user, "id", None) == self.bot.get_me().id:
+        bot_id = getattr(self, "_bot_user_id", None)
+        if bot_id is None:
+            try:
+                bot_id = self.bot.get_me().id
+                self._bot_user_id = bot_id
+            except Exception:
+                bot_id = None
+        if bot_id is not None and getattr(user, "id", None) == bot_id:
             return True
         rows = self.store.enabled_rows("bot_allowlist")
         if not rows:
@@ -2217,9 +2291,21 @@ class ModerationModule(BotModule):
                 continue
             if row.get("user_id") == str(user_id):
                 return True
+
+        self._ensure_caches()
+        cache_key = (str(chat_id), str(user_id))
+        now = time()
+        with self._cache_lock:
+            cached = self._admin_cache.get(cache_key)
+            if cached and now < cached[0]:
+                return cached[1]
+
         try:
             member = self.bot.get_chat_member(chat_id, user_id)
-            return member.status in {"creator", "administrator"}
+            is_chat_admin = getattr(member, "status", "") in {"creator", "administrator"}
+            with self._cache_lock:
+                self._admin_cache[cache_key] = (time() + self.ADMIN_CACHE_TTL_SECONDS, is_chat_admin)
+            return is_chat_admin
         except Exception:
             return False
 

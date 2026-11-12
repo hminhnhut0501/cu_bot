@@ -57,8 +57,10 @@ class Settings:
     bot_key: str = "main"
     owner_ids: set[int] = field(default_factory=set)
     parse_mode: str | None = None
-    polling_retry_seconds: int = 45
-    polling_startup_delay_seconds: int = 5
+    polling_retry_seconds: int = 10
+    polling_startup_delay_seconds: int = 2
+    skip_pending_on_boot: bool = False
+    bot_num_threads: int = 8
     keep_alive_enabled: bool = True
     keep_alive_port: int = 8080
     data_refresh_seconds: int = 120
@@ -85,8 +87,10 @@ def load_settings(require_bot_token=True):
         bot_key=bot_key,
         owner_ids=owner_ids,
         parse_mode=os.environ.get("PARSE_MODE") or "HTML",
-        polling_retry_seconds=_int_env("POLLING_RETRY_SECONDS", 45),
-        polling_startup_delay_seconds=_int_env("POLLING_STARTUP_DELAY_SECONDS", 5),
+        polling_retry_seconds=_int_env("POLLING_RETRY_SECONDS", 10),
+        polling_startup_delay_seconds=_int_env("POLLING_STARTUP_DELAY_SECONDS", 2),
+        skip_pending_on_boot=_bool_env("SKIP_PENDING_ON_BOOT", False),
+        bot_num_threads=max(2, _int_env("BOT_NUM_THREADS", 8)),
         keep_alive_enabled=_bool_env("KEEP_ALIVE_ENABLED", True),
         keep_alive_port=_int_env("PORT", _int_env("KEEP_ALIVE_PORT", 8080)),
         data_refresh_seconds=_int_env("DATA_REFRESH_SECONDS", 120),

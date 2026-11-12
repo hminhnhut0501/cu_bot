@@ -11,6 +11,7 @@ import telebot
 
 from core.app import BotApplication
 from core.config import load_settings
+from keep_alive import mark_bot_error
 
 
 LOGGER = logging.getLogger(__name__)
@@ -162,14 +163,32 @@ def attach_raw_update_logger(bot, bot_key):
     LOGGER.info("Attached raw update logger for bot_key=%s.", bot_key)
 
 
-def start_bot(settings, keep_alive_enabled=None):
+def _run_bot_once(settings, keep_alive_enabled=None):
     runtime_settings = settings
     if keep_alive_enabled is not None:
         runtime_settings = replace(settings, keep_alive_enabled=keep_alive_enabled)
-    bot = telebot.TeleBot(runtime_settings.bot_token, parse_mode=runtime_settings.parse_mode)
+    num_threads = max(2, int(getattr(runtime_settings, "bot_num_threads", 8) or 8))
+    bot = telebot.TeleBot(
+        runtime_settings.bot_token,
+        parse_mode=runtime_settings.parse_mode,
+        num_threads=num_threads,
+    )
     attach_raw_update_logger(bot, runtime_settings.bot_key)
     app = BotApplication(bot, runtime_settings)
     app.start()
+
+
+def start_bot(settings, keep_alive_enabled=None):
+    retry_delay = 5
+    while True:
+        try:
+            _run_bot_once(settings, keep_alive_enabled=keep_alive_enabled)
+            retry_delay = 5
+        except Exception as exc:
+            LOGGER.exception("Bot worker crashed for bot_key=%s: %s", settings.bot_key, exc)
+            mark_bot_error(settings.bot_key, exc)
+        time.sleep(retry_delay)
+        retry_delay = min(retry_delay * 2, 60)
 
 
 def start_multi_bot_mode():
@@ -196,6 +215,8 @@ def start_multi_bot_mode():
         unique_rows.append(row)
     rows = unique_rows
 
+    bot_configs = {}
+    bot_threads = {}
     for index, row in enumerate(rows):
         settings = replace(
             base_settings,
@@ -203,6 +224,7 @@ def start_multi_bot_mode():
             bot_token=row["bot_token"],
             keep_alive_enabled=index == 0 and base_settings.keep_alive_enabled,
         )
+        bot_configs[settings.bot_key] = (row, settings)
         thread = threading.Thread(
             name=f"bot:{settings.bot_key}",
             target=start_bot,
@@ -210,10 +232,24 @@ def start_multi_bot_mode():
             daemon=True,
         )
         thread.start()
+        bot_threads[settings.bot_key] = thread
         logging.info("Started bot %s (%s).", row.get("name") or settings.bot_key, settings.bot_key)
 
     while True:
-        time.sleep(3600)
+        time.sleep(15)
+        for bot_key, thread in list(bot_threads.items()):
+            if not thread.is_alive():
+                row, settings = bot_configs[bot_key]
+                logging.error("Watchdog detected dead bot thread bot:%s. Respawning...", bot_key)
+                mark_bot_error(bot_key, "Thread exited unexpectedly; respawning")
+                new_thread = threading.Thread(
+                    name=f"bot:{bot_key}",
+                    target=start_bot,
+                    args=(settings,),
+                    daemon=True,
+                )
+                new_thread.start()
+                bot_threads[bot_key] = new_thread
 
 
 def main():

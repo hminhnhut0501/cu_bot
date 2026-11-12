@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 import requests
@@ -66,16 +67,35 @@ class SupabaseStore:
         self.refresh_seconds = refresh_seconds
         self.bot_key = bot_key
         self._cache = {}
+        self._lock = threading.RLock()
+        self._thread_local = threading.local()
+
+    def _http(self):
+        sess = getattr(self._thread_local, "session", None)
+        if sess is None:
+            sess = requests.Session()
+            self._thread_local.session = sess
+        return sess
+
+    def _invalidate(self, table):
+        with self._lock:
+            self._cache.pop(table.lower(), None)
+
+    def clear_cache(self):
+        with self._lock:
+            self._cache.clear()
 
     def rows(self, name):
         name = name.lower()
-        cached = self._cache.get(name)
-        if cached and time.time() - cached["loaded_at"] < self.refresh_seconds:
-            return cached["rows"]
+        with self._lock:
+            cached = self._cache.get(name)
+            if cached and time.time() - cached["loaded_at"] < self.refresh_seconds:
+                return cached["rows"]
 
         try:
             rows = self._load_rows(name)
-            self._cache[name] = {"loaded_at": time.time(), "rows": rows}
+            with self._lock:
+                self._cache[name] = {"loaded_at": time.time(), "rows": rows}
             return rows
         except Exception as exc:
             LOGGER.warning("Cannot load Supabase table %s: %s", name, exc)
@@ -118,7 +138,7 @@ class SupabaseStore:
             params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key},bot_key.eq.*)"
         elif table in BOT_SCOPED_TABLES:
             params["or"] = f"(bot_key.is.null,bot_key.eq.{self.bot_key})"
-        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response = self._http().get(url, headers=headers, params=params, timeout=15)
         response.raise_for_status()
         return [self._clean_row(row) for row in response.json()]
 
@@ -133,9 +153,9 @@ class SupabaseStore:
         data = dict(payload)
         if table in BOT_SCOPED_TABLES and not data.get("bot_key"):
             data["bot_key"] = self.bot_key
-        response = requests.post(url, headers=headers, json=data, timeout=15)
+        response = self._http().post(url, headers=headers, json=data, timeout=15)
         response.raise_for_status()
-        self._cache.pop(table.lower(), None)
+        self._invalidate(table)
         rows = response.json()
         return rows[0] if rows else {}
 
@@ -154,9 +174,9 @@ class SupabaseStore:
             if table in BOT_SCOPED_TABLES and not row.get("bot_key"):
                 row["bot_key"] = self.bot_key
             data.append(row)
-        response = requests.post(url, headers=headers, params={"on_conflict": on_conflict}, json=data, timeout=20)
+        response = self._http().post(url, headers=headers, params={"on_conflict": on_conflict}, json=data, timeout=20)
         response.raise_for_status()
-        self._cache.pop(table.lower(), None)
+        self._invalidate(table)
         rows = response.json()
         return rows if isinstance(payload, list) else (rows[0] if rows else {})
 
@@ -169,9 +189,9 @@ class SupabaseStore:
             "prefer": "return=representation",
         }
         params = {"id": f"eq.{row_id}"}
-        response = requests.patch(url, headers=headers, params=params, json=payload, timeout=15)
+        response = self._http().patch(url, headers=headers, params=params, json=payload, timeout=15)
         response.raise_for_status()
-        self._cache.pop(table.lower(), None)
+        self._invalidate(table)
         rows = response.json()
         return rows[0] if rows else {}
 
@@ -186,9 +206,9 @@ class SupabaseStore:
         params = {"id": f"eq.{row_id}"}
         for key, value in conditions.items():
             params[key] = f"eq.{value}"
-        response = requests.patch(url, headers=headers, params=params, json=payload, timeout=15)
+        response = self._http().patch(url, headers=headers, params=params, json=payload, timeout=15)
         response.raise_for_status()
-        self._cache.pop(table.lower(), None)
+        self._invalidate(table)
         rows = response.json()
         return rows[0] if rows else {}
 
@@ -205,14 +225,15 @@ class SupabaseStore:
                 params[key] = value
             else:
                 params[key] = value if isinstance(value, str) and "." in value else f"eq.{value}"
-        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response = self._http().get(url, headers=headers, params=params, timeout=15)
         response.raise_for_status()
         return [self._clean_row(row) for row in response.json()]
 
     def fresh_rows(self, name):
         name = name.lower()
         rows = self._load_rows(name)
-        self._cache[name] = {"loaded_at": time.time(), "rows": rows}
+        with self._lock:
+            self._cache[name] = {"loaded_at": time.time(), "rows": rows}
         return rows
 
     def _clean_row(self, row):

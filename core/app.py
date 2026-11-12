@@ -10,7 +10,7 @@ from telebot.apihelper import ApiTelegramException
 
 from core.supabase_store import SupabaseStore
 from core.state import RuntimeState
-from keep_alive import keep_alive
+from keep_alive import keep_alive, mark_bot_error, record_heartbeat, register_bot
 from modules.base import BotModule
 
 
@@ -55,9 +55,11 @@ class BotApplication:
             self.settings.bot_key,
             sorted(self.settings.enabled_modules) if self.settings.enabled_modules else "ALL",
         )
+        register_bot(self.settings.bot_key)
         if self.settings.keep_alive_enabled:
             keep_alive(self.settings.keep_alive_port)
 
+        self._hook_polling_heartbeat()
         self.modules = self._load_modules()
         LOGGER.info(
             "Loaded modules for bot_key=%s: %s",
@@ -74,6 +76,20 @@ class BotApplication:
         LOGGER.info("Bot is running with %s module(s).", len(self.modules))
         self.run_polling()
 
+    def _hook_polling_heartbeat(self):
+        original_get_updates = getattr(self.bot, "get_updates", None)
+        if not callable(original_get_updates) or getattr(self.bot, "_heartbeat_hooked", False):
+            return
+        bot_key = self.settings.bot_key
+
+        def wrapped_get_updates(*args, **kwargs):
+            result = original_get_updates(*args, **kwargs)
+            record_heartbeat(bot_key)
+            return result
+
+        self.bot.get_updates = wrapped_get_updates
+        self.bot._heartbeat_hooked = True
+
     def run_polling(self):
         if self.settings.polling_startup_delay_seconds > 0:
             LOGGER.info("Waiting %s second(s) before polling.", self.settings.polling_startup_delay_seconds)
@@ -81,18 +97,21 @@ class BotApplication:
 
         self.remove_existing_webhook()
         LOGGER.info(
-            "Polling bot_key=%s with allowed_updates=%s",
+            "Polling bot_key=%s with allowed_updates=%s (skip_pending_on_boot=%s)",
             self.settings.bot_key,
             POLLING_ALLOWED_UPDATES,
+            getattr(self.settings, "skip_pending_on_boot", False),
         )
 
         first_run = True
         conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))
-        conflict_retry_max = max(conflict_retry_seconds, 90)
+        conflict_retry_max = max(conflict_retry_seconds, 60)
         while True:
             try:
+                skip_pending = bool(getattr(self.settings, "skip_pending_on_boot", False)) and first_run
+                record_heartbeat(self.settings.bot_key)
                 self.bot.infinity_polling(
-                    skip_pending=first_run,
+                    skip_pending=skip_pending,
                     timeout=25,
                     long_polling_timeout=20,
                     logger_level=logging.ERROR,
@@ -100,6 +119,7 @@ class BotApplication:
                 )
                 first_run = False
                 conflict_retry_seconds = max(2, int(self.settings.polling_retry_seconds))
+                time.sleep(2)
             except ApiTelegramException as exc:
                 if self.is_polling_conflict_error(exc):
                     LOGGER.warning(
@@ -116,7 +136,12 @@ class BotApplication:
                         conflict_retry_seconds,
                     )
                 else:
-                    raise
+                    LOGGER.exception(
+                        "Unexpected Telegram API error during polling for bot_key=%s: %s",
+                        self.settings.bot_key,
+                        exc,
+                    )
+                    mark_bot_error(self.settings.bot_key, exc)
                 time.sleep(conflict_retry_seconds)
                 conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
                 self.remove_existing_webhook()
@@ -142,12 +167,19 @@ class BotApplication:
                         self.settings.bot_key,
                         conflict_retry_seconds,
                     )
-                    time.sleep(conflict_retry_seconds)
-                    conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
-                    self.remove_existing_webhook()
-                    first_run = False
-                    continue
-                raise
+                else:
+                    LOGGER.exception(
+                        "Unexpected polling exception for bot_key=%s: %s. Retrying in %s second(s).",
+                        self.settings.bot_key,
+                        exc,
+                        conflict_retry_seconds,
+                    )
+                    mark_bot_error(self.settings.bot_key, exc)
+                time.sleep(conflict_retry_seconds)
+                conflict_retry_seconds = min(conflict_retry_seconds * 2, conflict_retry_max)
+                self.remove_existing_webhook()
+                first_run = False
+                continue
 
     def remove_existing_webhook(self):
         try:
