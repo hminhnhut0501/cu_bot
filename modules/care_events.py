@@ -38,6 +38,7 @@ class CareEventsModule(BotModule):
         super().__init__(app)
         self._vote_locks = {}
         self._global_lock = threading.Lock()
+        self._user_cooldowns = {}
 
     def register(self):
         # User & Group Commands
@@ -48,6 +49,8 @@ class CareEventsModule(BotModule):
         # Admin Management Commands
         self.bot.message_handler(commands=["moduacare", "openseason"])(self.active(self.admin_only(self.handle_open_season_command)))
         self.bot.message_handler(commands=["chotcare", "closeseason"])(self.active(self.admin_only(self.handle_close_season_command)))
+        self.bot.message_handler(commands=["xoaidol", "caredelete"])(self.active(self.admin_only(self.handle_delete_idol_command)))
+        self.bot.message_handler(commands=["careconfig"])(self.active(self.admin_only(self.handle_config_command)))
 
         # Inline Button Callbacks
         self.bot.callback_query_handler(func=lambda call: (call.data or "").startswith("care_vote:"))(
@@ -130,6 +133,67 @@ class CareEventsModule(BotModule):
                 self._vote_locks[chat_id] = threading.Lock()
             return self._vote_locks[chat_id]
 
+    def check_user_cooldown(self, user_id, cooldown_seconds=2.0):
+        """Rate limit checks to prevent rapid clicking / click-jacking."""
+        now_ts = time.time()
+        last_ts = self._user_cooldowns.get(user_id, 0)
+        if now_ts - last_ts < cooldown_seconds:
+            return False
+        self._user_cooldowns[user_id] = now_ts
+        return True
+
+    def check_vote_eligibility(self, chat_id, user, season=None):
+        """Strict anti-fraud validation for voting."""
+        # 1. Reject bots
+        if getattr(user, "is_bot", False):
+            return False, "⛔ Bot không có quyền tham gia bình chọn."
+
+        # 2. Rate limit cooldown (2s)
+        if not self.check_user_cooldown(user.id, cooldown_seconds=2.0):
+            return False, "⏳ Thao tác quá nhanh, vui lòng chờ 2 giây rồi bấm lại."
+
+        # 3. Verify chat membership (prevent external forward clicks)
+        try:
+            member = self.bot.get_chat_member(chat_id, user.id)
+            status = getattr(member, "status", "")
+            if status in {"left", "kicked"}:
+                return False, "⛔ Bạn cần là thành viên đang sinh hoạt trong nhóm để bình chọn!"
+        except Exception as err:
+            LOGGER.debug("Could not verify chat member %s in %s: %s", user.id, chat_id, err)
+
+        # 4. Check user violation / restriction status in group
+        user_id_str = str(user.id)
+        chat_id_str = str(chat_id)
+        for r in self.store.rows("member_moderation_state"):
+            if str(r.get("chat_id") or "") == chat_id_str and str(r.get("user_id") or "") == user_id_str:
+                state_status = (r.get("status") or "").lower()
+                if state_status in {"restricted", "muted", "banned"}:
+                    return False, "⛔ Tài khoản đang trong danh sách kỷ luật/hạn chế, không thể bỏ phiếu."
+
+        # 5. Check season min membership requirements if configured
+        if season:
+            try:
+                settings = json.loads(season.get("settings") or "{}")
+                min_days = int(settings.get("min_member_days") or 0)
+                if min_days > 0:
+                    first_seen = None
+                    for act in self.store.rows("analytics_member_activity"):
+                        if str(act.get("chat_id") or "") == chat_id_str and str(act.get("user_id") or "") == user_id_str:
+                            first_seen = act.get("first_seen_at")
+                            break
+                    if first_seen:
+                        try:
+                            joined_dt = datetime.fromisoformat(str(first_seen).replace("Z", "+00:00"))
+                            now_dt = datetime.now(timezone.utc)
+                            if (now_dt - joined_dt).days < min_days:
+                                return False, f"⛔ Mùa giải yêu cầu thành viên tham gia nhóm ít nhất {min_days} ngày để bỏ phiếu."
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        return True, ""
+
     # ==========================================
     # SEASON MANAGEMENT & STORAGE HELPERS
     # ==========================================
@@ -148,7 +212,6 @@ class CareEventsModule(BotModule):
             and as_bool(s.get("enabled"), True)
         ]
         if seasons:
-            # Sort by id desc to get latest
             seasons.sort(key=lambda s: int(s.get("id") or 0), reverse=True)
             active_season = seasons[0]
             # Verify if season is still within expiration date
@@ -174,6 +237,7 @@ class CareEventsModule(BotModule):
             "status": "open",
             "settings": json.dumps({
                 "votes_per_user": 1,
+                "max_nominations_per_user": 3,
                 "min_member_days": 0,
                 "allow_change_vote": True,
                 "require_approval": False,
@@ -201,6 +265,8 @@ class CareEventsModule(BotModule):
 
         idols = self.get_season_idols(season_id, None, only_approved=False)
         for idol in idols:
+            if idol.get("status") in {"deleted", "rejected"}:
+                continue
             existing_norm = normalize_text(idol.get("name") or "").replace(" ", "")
             if not existing_norm:
                 continue
@@ -223,8 +289,22 @@ class CareEventsModule(BotModule):
         """Handle member nominating a new idol: /dexuat <Tên Idol> | [Mô tả/Lý do]"""
         chat_id = message.chat.id
         user = message.from_user
-        if not user:
+        if not user or getattr(user, "is_bot", False):
             return
+
+        # Cooldown check
+        if not self.check_user_cooldown(user.id, cooldown_seconds=3.0):
+            self.bot.reply_to(message, "⏳ Thao tác quá nhanh, vui lòng chờ ít giây rồi thử lại.")
+            return
+
+        # Member status check
+        try:
+            member = self.bot.get_chat_member(chat_id, user.id)
+            if getattr(member, "status", "") in {"left", "kicked"}:
+                self.bot.reply_to(message, "⛔ Bạn cần là thành viên đang sinh hoạt trong nhóm để đề xuất Idol.")
+                return
+        except Exception:
+            pass
 
         text = (getattr(message, "text", "") or "").strip()
         parts = text.split(maxsplit=1)
@@ -247,6 +327,30 @@ class CareEventsModule(BotModule):
             self.bot.reply_to(message, "⚠️ Tên Idol phải có độ dài từ 2 đến 60 ký tự.")
             return
 
+        # Anti-spam: check links, URLs or username tags
+        if re.search(r"(https?://|t\.me/|@[a-zA-Z0-9_]{3,}|bit\.ly|t\.co|\.com|\.vn|\.net)", idol_name + " " + description, re.IGNORECASE):
+            self.bot.reply_to(message, "⛔ Tên hoặc mô tả đề xuất không được chứa liên kết, website hoặc username!")
+            return
+
+        # Check banned keywords
+        combined_text = (idol_name + " " + description).lower()
+        for kw in self.store.enabled_rows("keywords"):
+            kw_word = (kw.get("keyword") or "").strip().lower()
+            if not kw_word:
+                continue
+            mtype = (kw.get("match_type") or "contains").lower()
+            if mtype == "regex":
+                try:
+                    if re.search(kw_word, combined_text, re.IGNORECASE):
+                        self.bot.reply_to(message, "⛔ Đề xuất chứa từ ngữ không phù hợp với quy chế của nhóm.")
+                        return
+                except Exception:
+                    pass
+            else:
+                if kw_word in combined_text:
+                    self.bot.reply_to(message, "⛔ Đề xuất chứa từ ngữ không phù hợp với quy chế của nhóm.")
+                    return
+
         lock = self.get_lock(chat_id)
         with lock:
             season = self.get_or_create_current_season(chat_id)
@@ -255,6 +359,30 @@ class CareEventsModule(BotModule):
                 return
 
             season_id = season.get("id")
+
+            # Check nomination quota per user
+            settings = {}
+            try:
+                settings = json.loads(season.get("settings") or "{}")
+            except Exception:
+                pass
+            max_nominations = int(settings.get("max_nominations_per_user") or 3)
+
+            existing_nominations = [
+                i for i in self.store.rows("care_idols")
+                if str(i.get("season_id") or "") == str(season_id)
+                and str(i.get("nominated_by_user_id") or "") == str(user.id)
+                and i.get("status") not in {"deleted", "rejected"}
+            ]
+            if len(existing_nominations) >= max_nominations:
+                self.bot.reply_to(
+                    message,
+                    f"⚠️ Bạn đã đạt giới hạn tối đa <b>{max_nominations} đề xuất</b> trong mùa giải này.\n"
+                    "Hãy kêu gọi thành viên khác ủng hộ các Idol bạn đã đề cử!",
+                    parse_mode="HTML"
+                )
+                return
+
             # Deduplication check
             duplicate = self.find_similar_idol(season_id, idol_name)
             if duplicate:
@@ -263,7 +391,7 @@ class CareEventsModule(BotModule):
                 dup_votes = duplicate.get("vote_count", 0)
                 markup = InlineKeyboardMarkup()
                 markup.add(
-                    InlineKeyboardButton(f"⭐ Bấm để vote ngay cho {dup_name}", callback_data=f"care_vote:{season_id}:{dup_id}"),
+                    InlineKeyboardButton(f"⭐ Bấm để vote ngay cho {dup_name}", callback_data=f"care_vote:{season_id}:{dup_id}:1"),
                     InlineKeyboardButton("🏆 Xem Bảng Xếp Hạng", callback_data=f"care_top:{season_id}"),
                 )
                 self.bot.reply_to(
@@ -294,7 +422,7 @@ class CareEventsModule(BotModule):
             new_id = new_idol.get("id")
             markup = InlineKeyboardMarkup()
             markup.row(
-                InlineKeyboardButton(f"⭐ Vote cho {idol_name} (0)", callback_data=f"care_vote:{season_id}:{new_id}"),
+                InlineKeyboardButton(f"⭐ Vote cho {idol_name} (0)", callback_data=f"care_vote:{season_id}:{new_id}:1"),
                 InlineKeyboardButton("🗳️ Danh sách Vote", callback_data=f"care_page:{season_id}:1"),
             )
 
@@ -303,7 +431,7 @@ class CareEventsModule(BotModule):
                 message,
                 f"🎉 <b>ĐỀ XUẤT THÀNH CÔNG!</b>\n\n"
                 f"👤 <b>Idol:</b> <code>{escape(idol_name)}</code>{desc_text}\n"
-                f"🎖️ <b>Người đề xuất:</b> {escape(user_display)}\n"
+                f"🎖️ <b>Người đề xuất:</b> {escape(user_display)} ({len(existing_nominations) + 1}/{max_nominations})\n"
                 f"📅 <b>Mùa giải:</b> {escape(season.get('title', 'Tháng này'))}\n\n"
                 f"👉 Idol đã sẵn sàng trên bảng vote. Hãy bấm nút dưới để kêu gọi bạn bè bình chọn!",
                 parse_mode="HTML",
@@ -357,7 +485,12 @@ class CareEventsModule(BotModule):
             "start_at": start_at.isoformat(),
             "end_at": end_at.isoformat(),
             "status": "open",
-            "settings": json.dumps({"votes_per_user": 1, "min_member_days": 0, "allow_change_vote": True}, ensure_ascii=False),
+            "settings": json.dumps({
+                "votes_per_user": 1,
+                "max_nominations_per_user": 3,
+                "min_member_days": 0,
+                "allow_change_vote": True,
+            }, ensure_ascii=False),
             "enabled": True,
         })
 
@@ -381,21 +514,92 @@ class CareEventsModule(BotModule):
         self.close_and_announce_season(season)
         self.bot.reply_to(message, "✅ Đã chốt sổ và phát sóng vinh danh Idol thành công!")
 
+    def handle_delete_idol_command(self, message):
+        """Admin command to remove an idol from the active season: /xoaidol <ID hoặc Tên>"""
+        chat_id = message.chat.id
+        query = self.command_text(message).strip()
+        if not query:
+            self.bot.reply_to(message, "💡 Cú pháp: <code>/xoaidol &lt;ID hoặc Tên Idol&gt;</code>", parse_mode="HTML")
+            return
+
+        lock = self.get_lock(chat_id)
+        with lock:
+            season = self.get_or_create_current_season(chat_id)
+            if not season:
+                self.bot.reply_to(message, "Không tìm thấy mùa giải đang diễn ra.")
+                return
+
+            season_id = str(season.get("id"))
+            target = None
+            for idol in self.store.rows("care_idols"):
+                if str(idol.get("season_id") or "") != season_id:
+                    continue
+                if str(idol.get("id") or "") == query or normalize_text(idol.get("name") or "") == normalize_text(query):
+                    target = idol
+                    break
+
+            if not target:
+                self.bot.reply_to(message, f"⚠️ Không tìm thấy Idol '<code>{escape(query)}</code>' trong mùa này.", parse_mode="HTML")
+                return
+
+            self.store.update("care_idols", target.get("id"), {"status": "deleted"})
+            self.bot.reply_to(
+                message,
+                f"✅ <b>ĐÃ XÓA IDOL THÀNH CÔNG!</b>\n"
+                f"👤 Idol: <b>{escape(target.get('name', ''))}</b> (ID: {target.get('id')})\n"
+                f"Phiếu vote của Idol này đã được ẩn khỏi danh mục bình chọn.",
+                parse_mode="HTML"
+            )
+
+    def handle_config_command(self, message):
+        """Admin command to view current season rules & anti-cheat settings."""
+        chat_id = message.chat.id
+        season = self.get_or_create_current_season(chat_id)
+        if not season:
+            self.bot.reply_to(message, "Không có mùa giải nào đang mở.")
+            return
+
+        settings = {}
+        try:
+            settings = json.loads(season.get("settings") or "{}")
+        except Exception:
+            pass
+
+        votes_per_user = settings.get("votes_per_user", 1)
+        max_nominations = settings.get("max_nominations_per_user", 3)
+        min_days = settings.get("min_member_days", 0)
+        allow_change = "Có" if settings.get("allow_change_vote", True) else "Không"
+
+        self.bot.reply_to(
+            message,
+            f"⚙️ <b>CẤU HÌNH SỰ KIỆN: {escape(season.get('title', ''))}</b>\n\n"
+            f"• <b>Mã mùa giải:</b> <code>{escape(season.get('season_code', ''))}</code>\n"
+            f"• <b>Trạng thái:</b> <code>{escape(season.get('status', 'open'))}</code>\n"
+            f"• <b>Số phiếu mỗi thành viên:</b> {votes_per_user} phiếu\n"
+            f"• <b>Cho phép đổi phiếu vote:</b> {allow_change}\n"
+            f"• <b>Giới hạn đề xuất/thành viên:</b> {max_nominations} Idol\n"
+            f"• <b>Yêu cầu ngày vào nhóm:</b> {min_days} ngày\n"
+            f"• <b>Hạn chốt sổ:</b> {escape(season.get('end_at', ''))}\n\n"
+            f"<i>Cơ chế chống gian lận (Anti-cheat) tự động kiểm tra tư cách thành viên, cooldown 2s, và chống nhân bản phiếu.</i>",
+            parse_mode="HTML"
+        )
+
     # ==========================================
     # CALLBACK HANDLERS (VOTE, PAGINATION, REFRESH)
     # ==========================================
 
     def handle_vote_callback(self, call):
-        """Handle member clicking on a vote button: care_vote:<season_id>:<idol_id>"""
+        """Handle member clicking on a vote button: care_vote:<season_id>:<idol_id>:<page>"""
         user = call.from_user
         chat = call.message.chat
-        data_parts = call.data.split(":")
+        data_parts = (call.data or "").split(":")
         if len(data_parts) < 3:
             self.bot.answer_callback_query(call.id, "Dữ liệu không hợp lệ.")
             return
 
         season_id = data_parts[1]
         idol_id = data_parts[2]
+        current_page = as_int(data_parts[3], 1) if len(data_parts) > 3 else 1
 
         lock = self.get_lock(chat.id)
         with lock:
@@ -406,7 +610,13 @@ class CareEventsModule(BotModule):
                 return
             season = seasons[0]
 
-            # 2. Fetch Idol
+            # 2. Strict Anti-Fraud & Eligibility check
+            eligible, err_msg = self.check_vote_eligibility(chat.id, user, season)
+            if not eligible:
+                self.bot.answer_callback_query(call.id, err_msg, show_alert=True)
+                return
+
+            # 3. Fetch Idol
             idols = [i for i in self.store.rows("care_idols") if str(i.get("id")) == str(idol_id)]
             if not idols or idols[0].get("status") not in {"approved", "active"}:
                 self.bot.answer_callback_query(call.id, "⚠️ Idol này không tồn tại hoặc đã bị ẩn.", show_alert=True)
@@ -414,7 +624,7 @@ class CareEventsModule(BotModule):
             target_idol = idols[0]
             idol_name = target_idol.get("name", "Idol")
 
-            # 3. Check existing vote
+            # 4. Check existing vote
             user_id_str = str(user.id)
             user_votes = [
                 v for v in self.store.rows("care_votes")
@@ -428,10 +638,10 @@ class CareEventsModule(BotModule):
                 current_vote = user_votes[0]
                 current_voted_idol_id = str(current_vote.get("idol_id"))
                 if current_voted_idol_id == str(idol_id):
-                    self.bot.answer_callback_query(call.id, f"⭐️ Bạn đã bình chọn cho {idol_name} trước đó rồi!", show_alert=False)
+                    self.bot.answer_callback_query(call.id, f"⭐️ Bạn đang bình chọn cho {idol_name} rồi!", show_alert=False)
                     return
 
-                # User changing vote
+                # Check if changing vote is allowed
                 settings = {}
                 try:
                     settings = json.loads(season.get("settings") or "{}")
@@ -463,7 +673,7 @@ class CareEventsModule(BotModule):
                     "user_name": user_display,
                 })
 
-                self.bot.answer_callback_query(call.id, f"🔄 Đã chuyển phiếu bình chọn sang: {idol_name}!", show_alert=False)
+                self.bot.answer_callback_query(call.id, f"🔄 Đã chuyển phiếu sang: {idol_name}!", show_alert=False)
             else:
                 # First time voting
                 new_count = int(target_idol.get("vote_count") or 0) + 1
@@ -479,11 +689,16 @@ class CareEventsModule(BotModule):
                 })
                 self.bot.answer_callback_query(call.id, f"⭐ Đã vote thành công cho {idol_name}!", show_alert=False)
 
-        # Refresh message UI quietly
+        # Refresh message UI in real-time keeping the user's current page
         try:
-            # Extract page from current view or default 1
-            text, markup = self.build_vote_catalog_ui(season, page=1)
-            self.bot.edit_message_reply_markup(chat.id, call.message.message_id, reply_markup=markup)
+            text, markup = self.build_vote_catalog_ui(season, page=current_page)
+            self.bot.edit_message_text(
+                text,
+                chat.id,
+                call.message.message_id,
+                parse_mode="HTML",
+                reply_markup=markup,
+            )
         except Exception:
             pass
 
@@ -545,6 +760,7 @@ class CareEventsModule(BotModule):
         total_idols = len(idols)
         total_pages = max(1, (total_idols + page_size - 1) // page_size)
         current_page = max(1, min(page, total_pages))
+        total_season_votes = sum(int(i.get("vote_count") or 0) for i in idols)
 
         start_idx = (current_page - 1) * page_size
         page_idols = idols[start_idx: start_idx + page_size]
@@ -564,6 +780,7 @@ class CareEventsModule(BotModule):
         text = (
             f"🌟 <b>{escape(title).upper()}</b> 🌟\n"
             f"{days_left_text}"
+            f"📊 <i>Tổng cộng: <b>{total_season_votes}</b> phiếu bầu ({total_idols} Idol)</i>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"💡 <i>Bấm trực tiếp vào tên Idol bên dưới để bỏ phiếu. Mỗi thành viên được 1 phiếu bình chọn!</i>\n"
         )
@@ -576,8 +793,8 @@ class CareEventsModule(BotModule):
             name = idol.get("name")
             votes = int(idol.get("vote_count") or 0)
             idol_id = idol.get("id")
-            # 1 button per idol with vote count
-            markup.row(InlineKeyboardButton(f"⭐ {name}  [{votes} phiếu]", callback_data=f"care_vote:{season_id}:{idol_id}"))
+            pct = f"({round(votes * 100 / total_season_votes)}%)" if total_season_votes > 0 else "(0%)"
+            markup.row(InlineKeyboardButton(f"⭐ {name}  [{votes} phiếu {pct}]", callback_data=f"care_vote:{season_id}:{idol_id}:{current_page}"))
 
         # Navigation row
         nav_buttons = []
@@ -603,6 +820,7 @@ class CareEventsModule(BotModule):
         season_id = season.get("id")
         idols = self.get_season_idols(season_id, season.get("chat_id"), only_approved=True)
         title = season.get("title", "Cuộc Đua Idol")
+        total_votes = sum(int(i.get("vote_count") or 0) for i in idols)
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
         lines = []
@@ -611,14 +829,16 @@ class CareEventsModule(BotModule):
             medal = medals[idx] if idx < len(medals) else f"#{idx + 1}"
             name = idol.get("name")
             votes = int(idol.get("vote_count") or 0)
+            pct = f"({round(votes * 100 / total_votes)}%)" if total_votes > 0 else "(0%)"
             nominator = idol.get("nominated_by_name", "")
-            nom_text = f" <i>(bởi {escape(nominator)})</i>" if nominator else ""
-            lines.append(f"{medal} <b>{escape(name)}</b> — <b>{votes}</b> phiếu{nom_text}")
+            nom_text = f" <i>(đề cử: {escape(nominator)})</i>" if nominator else ""
+            lines.append(f"{medal} <b>{escape(name)}</b> — <b>{votes}</b> phiếu {pct}{nom_text}")
 
         ranking_content = "\n".join(lines) if lines else "<i>Chưa có dữ liệu bình chọn.</i>"
 
         return (
             f"🏆 <b>BẢNG XẾP HẠNG: {escape(title).upper()}</b>\n"
+            f"📊 <i>Tổng số phiếu đã bầu: <b>{total_votes}</b> phiếu</i>\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
             f"{ranking_content}\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"

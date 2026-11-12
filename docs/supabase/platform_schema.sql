@@ -434,6 +434,51 @@ create table entertainment_events (
   created_at timestamptz not null default now()
 );
 
+create table care_seasons (
+  id bigserial primary key,
+  bot_key text not null default 'main',
+  chat_id text not null,
+  season_code text not null,
+  title text not null,
+  start_at timestamptz not null default now(),
+  end_at timestamptz not null,
+  status text not null default 'open',
+  settings jsonb not null default '{}'::jsonb,
+  enabled boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table care_idols (
+  id bigserial primary key,
+  season_id bigint not null,
+  bot_key text not null default 'main',
+  chat_id text not null,
+  name text not null,
+  normalized_name text not null default '',
+  description text default '',
+  nominated_by_user_id text not null,
+  nominated_by_name text default '',
+  vote_count integer not null default 0,
+  status text not null default 'approved',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table care_votes (
+  id bigserial primary key,
+  season_id bigint not null,
+  idol_id bigint not null,
+  bot_key text not null default 'main',
+  chat_id text not null,
+  user_id text not null,
+  user_name text default '',
+  vote_weight integer not null default 1,
+  voted_at timestamptz not null default now(),
+  unique (season_id, user_id)
+);
+
 create table audit_logs (
   id bigserial primary key,
   bot_key text not null default 'main',

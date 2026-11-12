@@ -108,6 +108,55 @@ class BotResilienceTests(unittest.TestCase):
         self.assertTrue(module.group_allowed(-100555))
         self.assertFalse(module.group_allowed(-100111))
 
+    def test_care_events_anti_fraud_and_cooldown(self):
+        app = SimpleNamespace(
+            bot=SimpleNamespace(
+                message_handler=lambda *a, **k: (lambda fn: fn),
+                callback_query_handler=lambda *a, **k: (lambda fn: fn),
+                get_chat_member=Mock(return_value=SimpleNamespace(status="member")),
+            ),
+            store=SimpleNamespace(
+                enabled_rows=Mock(return_value=[]),
+                rows=Mock(return_value=[]),
+            ),
+            state=SimpleNamespace(),
+            settings=SimpleNamespace(owner_ids=set(), bot_key="main"),
+        )
+        module = CareEventsModule(app)
+
+        # 1. Reject bots
+        bot_user = SimpleNamespace(id=999, is_bot=True)
+        ok, err = module.check_vote_eligibility(-1001, bot_user)
+        self.assertFalse(ok)
+        self.assertIn("Bot", err)
+
+        # 2. Accept normal member
+        human_user = SimpleNamespace(id=123, is_bot=False)
+        ok, err = module.check_vote_eligibility(-1001, human_user)
+        self.assertTrue(ok)
+
+        # 3. Rate limiting cooldown rejects rapid subsequent clicks
+        ok, err = module.check_vote_eligibility(-1001, human_user)
+        self.assertFalse(ok)
+        self.assertIn("nhanh", err)
+
+        # 4. Reject left or kicked members
+        module._user_cooldowns.clear()
+        app.bot.get_chat_member = Mock(return_value=SimpleNamespace(status="left"))
+        ok, err = module.check_vote_eligibility(-1001, human_user)
+        self.assertFalse(ok)
+        self.assertIn("thành viên", err)
+
+        # 5. Reject disciplined/restricted members
+        module._user_cooldowns.clear()
+        app.bot.get_chat_member = Mock(return_value=SimpleNamespace(status="member"))
+        app.store.rows = Mock(return_value=[
+            {"chat_id": "-1001", "user_id": "123", "status": "restricted"}
+        ])
+        ok, err = module.check_vote_eligibility(-1001, human_user)
+        self.assertFalse(ok)
+        self.assertIn("kỷ luật", err)
+
 
 if __name__ == "__main__":
     unittest.main()
