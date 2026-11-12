@@ -32,7 +32,7 @@ import { moduleAccents } from "@/app/theme";
 
 type TableConfigLike = { key: string; label: string };
 type BotLike = { bot_key?: string; id?: string | number; name?: string };
-type GroupLike = { bot_key?: string; group_id?: string; chat_id?: string; group_name?: string };
+type GroupLike = { bot_key?: string; group_id?: string; chat_id?: string; group_name?: string; enabled?: boolean | string | null };
 type RowLike = { id?: string | number } & Record<string, unknown>;
 
 export type TopbarProps = {
@@ -212,6 +212,7 @@ export default function Topbar(props: TopbarProps) {
               Toàn hệ thống
             </MenuItem>
             {groups
+              .filter((g) => g.enabled !== false && String(g.enabled) !== "false")
               .filter((g) => !activeBotKey || !g.bot_key || g.bot_key === activeBotKey)
               .map((g) => {
                 const val = String(g.group_id || g.chat_id || "");

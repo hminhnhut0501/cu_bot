@@ -211,7 +211,7 @@ class ModerationModule(BotModule):
                 self.active(self.handle_rich_message)
             )
         self.bot.message_handler(content_types=SERVICE_CONTENT_TYPES)(self.active(self.handle_service_message))
-        self.bot.my_chat_member_handler()(self.active(self.handle_my_chat_member))
+        self.bot.my_chat_member_handler()(self.active(self.handle_my_chat_member, check_group=False))
         self.bot.message_handler(commands=["policy", "rules", "quydinh", "noiquy"])(self.active(self.handle_policy))
         self.bot.message_handler(commands=["warn", "canhbao"])(self.active(self.admin_only(self.handle_warn_command)))
         self.bot.message_handler(commands=["ban", "cam"])(self.active(self.admin_only(self.handle_ban_command)))
@@ -383,19 +383,26 @@ class ModerationModule(BotModule):
         try:
             existing = None
             for row in self.store.rows("groups"):
-                row_group_id = str(row.get("group_id") or row.get("chat_id") or "").strip()
-                if row_group_id == group_id and (row.get("bot_key") or self.settings.bot_key) == self.settings.bot_key:
+                row_group_id = normalize_id(row.get("group_id") or row.get("chat_id"))
+                row_bot_key = (row.get("bot_key") or "").strip()
+                if row_group_id == normalize_id(group_id) and (not row_bot_key or row_bot_key == self.settings.bot_key):
                     existing = row
                     break
 
-            payload = {
-                "bot_key": self.settings.bot_key,
-                "group_id": group_id,
-                "group_name": group_name,
-                "notes": note,
-            }
+            auto_leave = getattr(self.settings, "auto_leave_unauthorized_groups", False) or as_bool(
+                self.store.value("auto_leave_unauthorized_groups", "false"),
+                False,
+            )
 
             if existing:
+                if not as_bool(existing.get("enabled"), True):
+                    if auto_leave and status in {"member", "administrator", "restricted"}:
+                        try:
+                            self.bot.leave_chat(chat.id)
+                            LOGGER.info("Left disabled group %s (%s) for bot_key=%s.", group_id, group_name, self.settings.bot_key)
+                        except Exception as exc:
+                            LOGGER.warning("Cannot leave disabled group %s: %s", group_id, exc)
+                    return
                 updates = {}
                 if group_name and group_name != existing.get("group_name"):
                     updates["group_name"] = group_name
@@ -404,7 +411,28 @@ class ModerationModule(BotModule):
                 if updates:
                     self.store.update("groups", existing["id"], updates)
             else:
-                payload["enabled"] = True
+                if auto_leave and status in {"member", "administrator", "restricted"}:
+                    try:
+                        self.bot.leave_chat(chat.id)
+                        LOGGER.info("Left unauthorized group %s (%s) for bot_key=%s.", group_id, group_name, self.settings.bot_key)
+                    except Exception as exc:
+                        LOGGER.warning("Cannot leave unauthorized group %s: %s", group_id, exc)
+                    return
+                if not getattr(self.settings, "auto_register_discovered_groups", False):
+                    LOGGER.info(
+                        "Ignored discovered group %s (%s) for bot_key=%s because auto_register_discovered_groups is disabled.",
+                        group_id,
+                        group_name,
+                        self.settings.bot_key,
+                    )
+                    return
+                payload = {
+                    "bot_key": self.settings.bot_key,
+                    "group_id": group_id,
+                    "group_name": group_name,
+                    "notes": note,
+                    "enabled": True,
+                }
                 self.store.insert("groups", payload)
         except Exception as exc:
             LOGGER.info("Cannot sync discovered group %s: %s", group_id, exc)

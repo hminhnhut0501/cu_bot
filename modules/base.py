@@ -3,6 +3,8 @@ import logging
 import threading
 import time
 
+from core.utils import as_bool, normalize_id
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,11 +26,51 @@ class BotModule:
     def bot_active(self):
         return self.store.bot_active()
 
-    def active(self, handler):
+    @staticmethod
+    def _extract_chat(obj):
+        if obj is None:
+            return None
+        chat = getattr(obj, "chat", None)
+        if chat is not None:
+            return chat
+        message = getattr(obj, "message", None)
+        if message is not None:
+            return getattr(message, "chat", None)
+        return None
+
+    def group_allowed(self, chat_id):
+        target_id = normalize_id(chat_id)
+        if not target_id:
+            return False
+
+        env_allowed = getattr(self.settings, "allowed_chat_ids", None)
+        if env_allowed:
+            return target_id in {normalize_id(item) for item in env_allowed if item}
+
+        bot_key = getattr(self.settings, "bot_key", "main")
+        scoped_rows = [
+            row for row in self.store.rows("groups")
+            if not (row.get("bot_key") or "").strip() or (row.get("bot_key") or "").strip() == bot_key
+        ]
+        if not scoped_rows:
+            return True
+
+        return any(
+            as_bool(row.get("enabled"), True)
+            and normalize_id(row.get("group_id") or row.get("chat_id")) == target_id
+            for row in scoped_rows
+        )
+
+    def active(self, handler, check_group=True):
         @wraps(handler)
         def wrapped(*args, **kwargs):
             if not self.bot_active():
                 return None
+            if check_group and args:
+                chat = self._extract_chat(args[0])
+                if chat is not None and getattr(chat, "type", "") in {"group", "supergroup", "channel"}:
+                    if not self.group_allowed(getattr(chat, "id", None)):
+                        return None
             return handler(*args, **kwargs)
 
         return wrapped

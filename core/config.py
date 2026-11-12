@@ -66,6 +66,9 @@ class Settings:
     data_refresh_seconds: int = 120
     module_package: str = "modules"
     enabled_modules: set[str] = field(default_factory=set)
+    allowed_chat_ids: set[str] = field(default_factory=set)
+    auto_register_discovered_groups: bool = False
+    auto_leave_unauthorized_groups: bool = False
     supabase_url: str | None = None
     supabase_service_role_key: str | None = None
     timezone: str = "Asia/Ho_Chi_Minh"
@@ -80,6 +83,7 @@ def load_settings(require_bot_token=True):
         raise RuntimeError("Missing BOT_TOKEN environment variable or bots.bot_token for BOT_KEY.")
 
     enabled_modules = set(_csv_env("ENABLED_MODULES"))
+    allowed_chat_ids = {item for item in _csv_env("ALLOWED_CHAT_IDS")}
     owner_ids = {int(item) for item in _csv_env("OWNER_IDS")}
 
     return Settings(
@@ -95,6 +99,9 @@ def load_settings(require_bot_token=True):
         keep_alive_port=_int_env("PORT", _int_env("KEEP_ALIVE_PORT", 8080)),
         data_refresh_seconds=_int_env("DATA_REFRESH_SECONDS", 120),
         enabled_modules=enabled_modules,
+        allowed_chat_ids=allowed_chat_ids,
+        auto_register_discovered_groups=_bool_env("AUTO_REGISTER_DISCOVERED_GROUPS", False),
+        auto_leave_unauthorized_groups=_bool_env("AUTO_LEAVE_UNAUTHORIZED_GROUPS", False),
         supabase_url=os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or None,
         supabase_service_role_key=os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or None,
         timezone=os.environ.get("TZ", "Asia/Ho_Chi_Minh"),
