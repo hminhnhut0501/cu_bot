@@ -157,6 +157,42 @@ class BotResilienceTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("kỷ luật", err)
 
+    def test_moderation_ban_deduplication(self):
+        module = ModerationModule.__new__(ModerationModule)
+        module.state = SimpleNamespace(
+            get_warning=Mock(return_value=0),
+            set_warning=Mock(),
+            add_warning=Mock(return_value=3),
+            reset_warnings=Mock(),
+        )
+        module.store = SimpleNamespace(rows=Mock(return_value=[]))
+        module.bot = SimpleNamespace(
+            ban_chat_member=Mock(),
+            send_message=Mock(return_value=SimpleNamespace(message_id=999)),
+        )
+        module.settings = SimpleNamespace(owner_ids=set(), bot_key="main")
+        module.setting_int = Mock(return_value=3)
+        module.actor_for_system = Mock(return_value="system")
+        module.audit_details = Mock(return_value={})
+        module.record_member_moderation_state = Mock()
+        module.delete_later = Mock()
+        module.audit = Mock()
+
+        # First ban should succeed and record user as banned
+        module.ban_user(-1001, 777, reason="Spam", warning_count=3, warning_limit=3)
+        self.assertEqual(module.bot.ban_chat_member.call_count, 1)
+        self.assertEqual(module.bot.send_message.call_count, 1)
+        self.assertTrue(module.is_user_banned_or_handled(-1001, 777))
+
+        # Subsequent ban attempts for the same burst should be ignored (no duplicate notifications)
+        module.ban_user(-1001, 777, reason="Spam", warning_count=5, warning_limit=3)
+        self.assertEqual(module.bot.ban_chat_member.call_count, 1)
+        self.assertEqual(module.bot.send_message.call_count, 1)
+
+        # warn_user should also ignore already banned user
+        res = module.warn_user(-1001, 777, reason="Spam")
+        self.assertEqual(res, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

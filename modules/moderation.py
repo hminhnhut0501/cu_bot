@@ -515,6 +515,36 @@ class ModerationModule(BotModule):
         )
         self.safe_reply(message, f"Đã cấm user {target_id}.")
 
+    def is_user_banned_or_handled(self, chat_id, user_id):
+        if not user_id:
+            return False
+        key = (int(chat_id), int(user_id))
+        now = time()
+        last_banned = getattr(self, "_recently_banned_users", {}).get(key)
+        if last_banned and (now - last_banned < 180):
+            return True
+        chat_str = str(chat_id)
+        user_str = str(user_id)
+        for row in self.store.rows("member_moderation_state"):
+            if str(row.get("chat_id") or "") == chat_str and str(row.get("user_id") or "") == user_str:
+                if str(row.get("status") or "").lower() == "banned":
+                    if not hasattr(self, "_recently_banned_users"):
+                        self._recently_banned_users = {}
+                    self._recently_banned_users[key] = now
+                    return True
+        return False
+
+    def mark_user_banned(self, chat_id, user_id):
+        key = (int(chat_id), int(user_id))
+        if not hasattr(self, "_recently_banned_users"):
+            self._recently_banned_users = {}
+        self._recently_banned_users[key] = time()
+
+    def clear_user_banned(self, chat_id, user_id):
+        key = (int(chat_id), int(user_id))
+        if hasattr(self, "_recently_banned_users"):
+            self._recently_banned_users.pop(key, None)
+
     def handle_unban_command(self, message):
         target_id = self.target_user_id(message)
         if not target_id:
@@ -522,6 +552,7 @@ class ModerationModule(BotModule):
             return
         try:
             self.bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
+            self.clear_user_banned(message.chat.id, target_id)
             self.state.reset_warnings(message.chat.id, target_id)
             self.record_member_moderation_state(
                 message.chat.id,
@@ -590,6 +621,9 @@ class ModerationModule(BotModule):
     def handle_group_message(self, message):
         from_user = getattr(message, "from_user", None)
         if not self.moderation_enabled(message.chat.id):
+            return
+        if from_user and self.is_user_banned_or_handled(message.chat.id, from_user.id):
+            self.safe_delete(message, "already_banned_leftover")
             return
         if self.is_automatic_forward_allowed(message):
             self.mark_member_activity(message)
@@ -807,6 +841,8 @@ class ModerationModule(BotModule):
         if count <= limit:
             return False
         self.delete_violation_message(message, "spam", reason_label="Spam quá ngưỡng")
+        if self.is_user_banned_or_handled(message.chat.id, message.from_user.id):
+            return True
         action = self.setting(message.chat.id, "spam_action", "warn")
         self.apply_action(message, action, "Gửi quá nhiều tin trong thời gian ngắn.")
         return True
@@ -1863,6 +1899,8 @@ class ModerationModule(BotModule):
         user_str = str(user_id)
         for row in self.store.rows("member_moderation_state"):
             if str(row.get("chat_id") or "") == chat_str and str(row.get("user_id") or "") == user_str:
+                if str(row.get("status") or "").lower() in {"banned", "kicked"}:
+                    return 0
                 payload = row.get("payload")
                 if isinstance(payload, str):
                     try:
@@ -1903,6 +1941,8 @@ class ModerationModule(BotModule):
             return
 
     def warn_user(self, chat_id, user_id, reason="", user=None, actor_user_id="", trigger="automatic_rule", send_notice=True):
+        if self.is_user_banned_or_handled(chat_id, user_id):
+            return 0
         if self.state.get_warning(chat_id, user_id) == 0:
             self.get_or_load_warning_count(chat_id, user_id)
         count = self.state.add_warning(chat_id, user_id)
@@ -2008,6 +2048,9 @@ class ModerationModule(BotModule):
         return count
 
     def ban_user(self, chat_id, user_id, reason="", actor_user_id="", trigger="automatic_rule", warning_count=None, warning_limit=None, permanent=False):
+        if self.is_user_banned_or_handled(chat_id, user_id):
+            return
+        self.mark_user_banned(chat_id, user_id)
         try:
             seconds = 0 if permanent else self.setting_int(chat_id, "ban_seconds", 0)
             until_date_int = int((datetime.now() + timedelta(seconds=seconds)).timestamp()) if seconds > 0 else None
@@ -2022,13 +2065,14 @@ class ModerationModule(BotModule):
                 actor_user_id=actor_user_id or self.actor_for_system(),
                 until_at=until_date_dt.isoformat() if until_date_dt else "",
                 trigger=trigger,
-                payload={"warning_count": warning_count or 0},
+                payload={"warning_count": 0, "final_violation_count": warning_count or 0},
             )
             # Public ban notice
             try:
                 ban_text = f"🚫 Đã cấm thành viên khỏi nhóm do vi phạm: {reason}"
                 if warning_count and warning_limit:
-                    ban_text = f"🚫 Đã cấm thành viên khỏi nhóm do vượt ngưỡng vi phạm ({warning_count}/{warning_limit}): {reason}"
+                    display_count = min(warning_count, warning_limit)
+                    ban_text = f"🚫 Đã cấm thành viên khỏi nhóm do vượt ngưỡng vi phạm ({display_count}/{warning_limit}): {reason}"
                 sent = self.bot.send_message(chat_id, ban_text)
                 delete_after = self.setting_int(chat_id, "warning_notice_delete_seconds", 30)
                 if delete_after > 0:
