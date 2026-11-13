@@ -55,6 +55,9 @@ export type Lookups = {
   shareUnlockCampaigns: Row[];
   shareUnlockInvites: Row[];
   shareUnlockReferrals: Row[];
+  careSeasons?: Row[];
+  careIdols?: Row[];
+  careVotes?: Row[];
 };
 export type CommandInsight = {
   severity: "critical" | "high" | "warning" | "info" | "healthy";

@@ -73,6 +73,7 @@ import {
 import { FieldConfig, FieldType, TableConfig, TABLES } from "@/lib/tables";
 import { ADMIN_TASKS, TABLE_PRIMARY_ACTIONS, TABLE_TASK_LABELS } from "@/lib/tasks";
 import { AutomationScreen, AutoReplyScreen, BotScreen, GroupScreen, InspectorPanel, ModerationScreen, WelcomeScreen, GiveawayScreen, ShareUnlockScreen } from "./components/module-screens";
+import CareEventsStudio from "./components/screens/CareEventsStudio";
 import AuditConsole from "./components/screens/AuditConsole";
 import ScamInbox from "./components/screens/ScamInbox";
 import BulkPanel from "./components/screens/BulkPanel";
@@ -299,7 +300,7 @@ export default function HomePage() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandSearch, setCommandSearch] = useState("");
   const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
-  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
+  const [lookups, setLookups] = useState<Lookups>({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [], careSeasons: [], careIdols: [], careVotes: [] });
   const [analyticsSummary, setAnalyticsSummary] = useState<AnalyticsSummary | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [memberOverview, setMemberOverview] = useState<MemberOverview | null>(null);
@@ -1442,7 +1443,7 @@ export default function HomePage() {
       const scopedBotQuery = selectedBot ? `?bot_key=${encodeURIComponent(selectedBot)}` : "";
       const scopedGroupQuery = selectedScope ? `${scopedBotQuery ? "&" : "?"}group_id=${encodeURIComponent(selectedScope)}` : "";
       const auditQuery = selectedScope ? `?group_id=${encodeURIComponent(selectedScope)}` : "";
-      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, scamBroadcastsPayload, auditPayload, channelPostsPayload, giveawayEntriesPayload, shareUnlockCampaignsPayload, shareUnlockInvitesPayload, shareUnlockReferralsPayload] = await Promise.all([
+      const [botsPayload, groupsPayload, messagesPayload, videosPayload, modulePayload, scamReportsPayload, scamBroadcastsPayload, auditPayload, channelPostsPayload, giveawayEntriesPayload, shareUnlockCampaignsPayload, shareUnlockInvitesPayload, shareUnlockReferralsPayload, careSeasonsPayload, careIdolsPayload, careVotesPayload] = await Promise.all([
         api("/api/bots"),
         api(`/api/groups${scopedBotQuery}`),
         api(`/api/messages${scopedBotQuery}`),
@@ -1455,7 +1456,10 @@ export default function HomePage() {
         api(`/api/giveaway_entries${scopedBotQuery}`),
         api(`/api/share_unlock_campaigns${scopedBotQuery}`),
         api(`/api/share_unlock_invites${scopedBotQuery}`),
-        api(`/api/share_unlock_referrals${scopedBotQuery}`)
+        api(`/api/share_unlock_referrals${scopedBotQuery}`),
+        api(`/api/care_seasons${scopedBotQuery}`).catch(() => ({ rows: [] })),
+        api(`/api/care_idols${scopedBotQuery}`).catch(() => ({ rows: [] })),
+        api(`/api/care_votes${scopedBotQuery}`).catch(() => ({ rows: [] }))
       ]);
       const deleteFailedRows = (auditPayload.rows || [])
         .filter((row: Row) => ["delete_message_failed", "delete_message"].includes(String(row.action || "").toLowerCase()))
@@ -1486,11 +1490,14 @@ export default function HomePage() {
         giveawayEntries: giveawayEntriesPayload.rows || [],
         shareUnlockCampaigns: shareUnlockCampaignsPayload.rows || [],
         shareUnlockInvites: shareUnlockInvitesPayload.rows || [],
-        shareUnlockReferrals: shareUnlockReferralsPayload.rows || []
+        shareUnlockReferrals: shareUnlockReferralsPayload.rows || [],
+        careSeasons: careSeasonsPayload.rows || [],
+        careIdols: careIdolsPayload.rows || [],
+        careVotes: careVotesPayload.rows || []
       });
     } catch {
       setDeleteFailureAlert({ recentCount: 0, latestAt: "", latestReason: "" });
-      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [] });
+      setLookups({ bots: [], groups: [], messages: [], videos: [], moduleSettings: [], scamReports: [], scamBroadcasts: [], auditLogs: [], channelPosts: [], giveawayEntries: [], shareUnlockCampaigns: [], shareUnlockInvites: [], shareUnlockReferrals: [], careSeasons: [], careIdols: [], careVotes: [] });
     }
   }
 
@@ -2772,6 +2779,158 @@ export default function HomePage() {
     }
   }
 
+  async function createCareSeason(draft: {
+    chat_id: string;
+    title: string;
+    season_code: string;
+    start_at: string;
+    end_at: string;
+    description: string;
+    settings: {
+      votes_per_user: number;
+      max_nominations_per_user: number;
+      min_member_days: number;
+      allow_change_vote: boolean;
+    };
+  }) {
+    setSaving(true);
+    try {
+      await api("/api/care_seasons", {
+        method: "POST",
+        body: JSON.stringify({
+          bot_key: selectedBot || activeBotKey || "main",
+          chat_id: draft.chat_id,
+          title: draft.title,
+          season_code: draft.season_code,
+          start_at: draft.start_at,
+          end_at: draft.end_at,
+          description: draft.description,
+          status: "open",
+          settings: JSON.stringify(draft.settings),
+          enabled: true,
+        }),
+      });
+      flashToast("Đã khởi tạo mùa giải Idol mới.");
+      await refreshAfterMutation("care_seasons", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể tạo mùa giải.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function closeCareSeason(seasonId: string, currentStatus: string) {
+    setSaving(true);
+    try {
+      const nextStatus = currentStatus === "open" ? "closed" : "open";
+      await api("/api/care_seasons", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: seasonId,
+          values: { status: nextStatus },
+        }),
+      });
+      flashToast(nextStatus === "open" ? "Đã mở lại bình chọn." : "Đã đóng mùa giải.");
+      await refreshAfterMutation("care_seasons", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể cập nhật mùa giải.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function tallyCareSeason(seasonId: string) {
+    setSaving(true);
+    try {
+      const idols = (lookups.careIdols || []).filter((i) => String(i.season_id) === String(seasonId) && i.status !== "deleted");
+      idols.sort((a, b) => Number(b.vote_count || 0) - Number(a.vote_count || 0));
+      const winner = idols.length > 0 ? idols[0] : null;
+      await api("/api/care_seasons", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: seasonId,
+          values: {
+            status: "tallied",
+            winner_idol_id: winner ? winner.id : null,
+            winner_name: winner ? winner.name : "",
+            winner_votes: winner ? Number(winner.vote_count || 0) : 0,
+          },
+        }),
+      });
+      flashToast("Đã chốt sổ và ghi nhận Quán quân thành công.");
+      await refreshAfterMutation("care_seasons", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể chốt mùa giải.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createCareIdol(draft: {
+    season_id: string;
+    chat_id: string;
+    name: string;
+    description: string;
+  }) {
+    setSaving(true);
+    try {
+      await api("/api/care_idols", {
+        method: "POST",
+        body: JSON.stringify({
+          season_id: draft.season_id,
+          bot_key: selectedBot || activeBotKey || "main",
+          chat_id: draft.chat_id,
+          name: draft.name,
+          description: draft.description,
+          nominated_by_user_id: "admin",
+          nominated_by_name: "Admin CP",
+          vote_count: 0,
+          status: "approved",
+        }),
+      });
+      flashToast("Đã thêm Idol vào danh sách bình chọn.");
+      await refreshAfterMutation("care_idols", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể thêm Idol.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateCareIdolStatus(idolId: string, status: "approved" | "pending" | "hidden" | "deleted") {
+    setSaving(true);
+    try {
+      await api("/api/care_idols", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: idolId,
+          values: { status },
+        }),
+      });
+      flashToast(`Đã cập nhật trạng thái Idol: ${status}`);
+      await refreshAfterMutation("care_idols", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể cập nhật Idol.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteCareIdol(idolId: string) {
+    setSaving(true);
+    try {
+      await api(`/api/care_idols?id=${encodeURIComponent(idolId)}`, {
+        method: "DELETE",
+      });
+      flashToast("Đã xóa Idol.");
+      await refreshAfterMutation("care_idols", { reloadRows: true, reloadLookups: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : "Không thể xóa Idol.", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function openShareUnlockInvites(campaignId: string) {
     setActiveLayer("module:share_unlock");
     setActiveModule("share_unlock");
@@ -3988,6 +4147,27 @@ export default function HomePage() {
             onCreateCampaign={createShareUnlockCampaign}
             onOpenInvites={openShareUnlockInvites}
             onOpenReferrals={openShareUnlockReferrals}
+          />
+        ) : null}
+
+        {activeLayer.startsWith("module:") && activeModuleHub.key === "care_events" ? (
+          <CareEventsStudio
+            moduleEnabled={moduleEnabled}
+            saving={saving}
+            selectedScope={selectedScope}
+            selectedScopeName={selectedScopeRow?.group_name || ""}
+            groups={lookups.groups}
+            seasons={lookups.careSeasons || []}
+            idols={lookups.careIdols || []}
+            votes={lookups.careVotes || []}
+            onToggleModule={() => void toggleModule("care_events")}
+            onCreateSeason={createCareSeason}
+            onCloseSeason={closeCareSeason}
+            onTallySeason={tallyCareSeason}
+            onCreateIdol={createCareIdol}
+            onUpdateIdolStatus={updateCareIdolStatus}
+            onDeleteIdol={deleteCareIdol}
+            onRefreshData={() => void refreshAfterMutation("care_seasons", { reloadRows: true, reloadLookups: true })}
           />
         ) : null}
 

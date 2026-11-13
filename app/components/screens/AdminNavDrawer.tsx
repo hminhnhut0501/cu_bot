@@ -81,6 +81,7 @@ export default function AdminNavDrawer({
           CORE_LAYERS.find((l) => l.key === "members"),
           allModuleLayers.find((l) => l.moduleKey === "welcome"),
           allModuleLayers.find((l) => l.moduleKey === "share_unlock"),
+          allModuleLayers.find((l) => l.moduleKey === "care_events"),
         ].filter(Boolean),
       },
       {
