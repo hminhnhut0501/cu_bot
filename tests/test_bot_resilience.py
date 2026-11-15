@@ -1,7 +1,23 @@
+import sys
 import time
+import types
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
+
+if 'flask' not in sys.modules:
+    sys.modules['flask'] = MagicMock()
+if 'emoji' not in sys.modules:
+    sys.modules['emoji'] = MagicMock()
+if 'telebot' not in sys.modules:
+    t = types.ModuleType('telebot')
+    t.__path__ = []
+    t.types = MagicMock()
+    t.util = types.ModuleType('telebot.util')
+    t.util.content_type_service = []
+    sys.modules['telebot'] = t
+    sys.modules['telebot.types'] = t.types
+    sys.modules['telebot.util'] = t.util
 
 import keep_alive
 from modules.base import BotModule
@@ -192,6 +208,14 @@ class BotResilienceTests(unittest.TestCase):
         # warn_user should also ignore already banned user
         res = module.warn_user(-1001, 777, reason="Spam")
         self.assertEqual(res, 0)
+
+        # After burst window (15 seconds), user is no longer considered in-flight banned
+        module._recently_banned_users[(-1001, 777)] -= 20
+        self.assertFalse(module.is_user_banned_or_handled(-1001, 777))
+
+        # Even if DB has a historical status='banned' record, normal messages are NOT deleted
+        module.store.rows = Mock(return_value=[{"chat_id": "-1001", "user_id": "777", "status": "banned"}])
+        self.assertFalse(module.is_user_banned_or_handled(-1001, 777))
 
 
 if __name__ == "__main__":

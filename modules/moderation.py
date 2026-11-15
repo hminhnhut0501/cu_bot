@@ -521,17 +521,11 @@ class ModerationModule(BotModule):
         key = (int(chat_id), int(user_id))
         now = time()
         last_banned = getattr(self, "_recently_banned_users", {}).get(key)
-        if last_banned and (now - last_banned < 180):
+        # Drop only in-flight messages queued within 15 seconds of the ban event
+        if last_banned and (now - last_banned < 15):
             return True
-        chat_str = str(chat_id)
-        user_str = str(user_id)
-        for row in self.store.rows("member_moderation_state"):
-            if str(row.get("chat_id") or "") == chat_str and str(row.get("user_id") or "") == user_str:
-                if str(row.get("status") or "").lower() == "banned":
-                    if not hasattr(self, "_recently_banned_users"):
-                        self._recently_banned_users = {}
-                    self._recently_banned_users[key] = now
-                    return True
+        if last_banned and (now - last_banned >= 15):
+            self._recently_banned_users.pop(key, None)
         return False
 
     def mark_user_banned(self, chat_id, user_id):
