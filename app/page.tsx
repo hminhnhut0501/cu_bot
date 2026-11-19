@@ -3412,6 +3412,7 @@ export default function HomePage() {
       // Rollback on network/validation failure
       setRows(prevRows);
       setLookups(previousLookups);
+      flashToast("Không thể lưu cấu hình: " + (err instanceof Error ? err.message : String(err)), "error");
     }
   }
 
